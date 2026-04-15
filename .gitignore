@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.npm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build output
+frontend/dist/
+backend/*.db
+
+# Test
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Playwright
+test-results/
+playwright-report/
+
+# ChromaDB local data
+chroma_data/
+
+# OMC state
+.omc/
