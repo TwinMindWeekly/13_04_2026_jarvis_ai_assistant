@@ -89,6 +89,7 @@ class UsageTracker:
         self._data: dict = {"date": _today_utc_str(), "providers": {}}
         self._path = Path(settings.upload_dir) / _USAGE_FILENAME
         self._load()
+        self._pre_populate()
 
     # ------------------------------------------------------------------
     # Public API
@@ -140,6 +141,24 @@ class UsageTracker:
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+
+    def _pre_populate(self) -> None:
+        """Pre-populate all providers that have API keys so Usage tab shows them immediately."""
+        key_map = {
+            "groq": (settings.groq_api_key, settings.groq_model),
+            "gemini": (settings.google_api_key, "gemini-2.5-flash"),
+            "sambanova": (settings.sambanova_api_key, settings.sambanova_model),
+            "openai": (settings.openai_api_key, "gpt-4o-mini"),
+            "claude": (settings.anthropic_api_key, "claude-sonnet-4-5"),
+            "ollama": ("always", settings.wikilink_model),
+        }
+        changed = False
+        for prov, (key, model) in key_map.items():
+            if key and prov not in self._data["providers"]:
+                self._data["providers"][prov] = _empty_provider_stats(prov, model)
+                changed = True
+        if changed:
+            self._persist()
 
     def _ensure_provider(self, provider: str, model: str = "") -> dict:
         """Get or create stats entry for a provider."""
