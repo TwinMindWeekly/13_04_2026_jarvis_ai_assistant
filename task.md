@@ -7,11 +7,11 @@
 ## Phase 1: Nền tảng Backend & LLM Provider Factory
 > Mục tiêu: Xây dựng backend FastAPI với khả năng gọi LLM đa nhà cung cấp
 
-- [ ] Khởi tạo project FastAPI với cấu trúc thư mục chuẩn
-- [ ] Thiết kế và triển khai LLM Provider Factory (OpenAI, Gemini, Claude, Ollama)
-- [ ] Xây dựng API endpoint `/api/chat` cơ bản (text in → text out)
-- [ ] Cấu hình môi trường (.env, settings, CORS)
-- [ ] Viết Unit Test cho LLM Factory
+- [x] Khởi tạo project FastAPI với cấu trúc thư mục chuẩn
+- [x] Thiết kế và triển khai LLM Provider Factory (OpenAI, Gemini, Claude, Ollama)
+- [x] Xây dựng API endpoint `/api/chat` cơ bản (text in → text out)
+- [x] Cấu hình môi trường (.env, settings, CORS)
+- [x] Viết Unit Test cho LLM Factory (19/19 passed)
 
 ---
 
