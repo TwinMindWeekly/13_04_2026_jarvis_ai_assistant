@@ -106,29 +106,36 @@ def _check_playwright() -> bool:
         return False
 
 
-def _preload_ollama_model() -> None:
-    """Send a tiny request to Ollama to load the wikilink model into VRAM.
+def _preload_ollama_model_bg() -> None:
+    """Background thread: load the wikilink model into VRAM with keep_alive=-1.
 
-    Ollama keeps a model loaded for its keep_alive duration (default 5m).
-    We set keep_alive=-1 so it stays loaded until we explicitly unload or
-    the Ollama server stops.
+    Runs in a daemon thread so the app starts serving immediately without
+    waiting 5-10s for model cold-start. The model stays in VRAM until
+    shutdown calls _unload_ollama_model().
     """
     if settings.wikilink_provider != "ollama":
         return
     model = settings.wikilink_model
-    try:
-        import httpx  # noqa: PLC0415
-        resp = httpx.post(
-            f"{settings.ollama_base_url}/api/generate",
-            json={"model": model, "prompt": "hi", "keep_alive": -1},
-            timeout=120.0,
-        )
-        if resp.status_code == 200:
-            logger.info("Ollama model '%s' preloaded into VRAM (keep_alive=-1)", model)
-        else:
-            logger.warning("Ollama preload returned %d: %s", resp.status_code, resp.text[:200])
-    except Exception as exc:
-        logger.warning("Could not preload Ollama model '%s': %s", model, exc)
+    logger.info("Ollama preload starting in background — model '%s' ...", model)
+
+    def _do_preload():
+        try:
+            import httpx  # noqa: PLC0415
+            resp = httpx.post(
+                f"{settings.ollama_base_url}/api/generate",
+                json={"model": model, "prompt": "hi", "keep_alive": -1},
+                timeout=120.0,
+            )
+            if resp.status_code == 200:
+                logger.info("Ollama model '%s' preloaded into VRAM (keep_alive=-1)", model)
+            else:
+                logger.warning("Ollama preload returned %d: %s", resp.status_code, resp.text[:200])
+        except Exception as exc:
+            logger.warning("Could not preload Ollama model '%s': %s", model, exc)
+
+    import threading  # noqa: PLC0415
+    t = threading.Thread(target=_do_preload, daemon=True)
+    t.start()
 
 
 def _unload_ollama_model() -> None:
@@ -180,8 +187,8 @@ async def lifespan(app: FastAPI):
 
     _check_playwright()
 
-    # Preload Ollama wikilink model so first upload doesn't wait for cold start.
-    _preload_ollama_model()
+    # Preload Ollama wikilink model in background — app serves immediately.
+    _preload_ollama_model_bg()
     # ─────────────────────────────────────────────────────────────
 
     yield
