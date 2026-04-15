@@ -56,9 +56,9 @@ export default function ChatArea({
   const showActions = actions.length > 0 || (isLoading && !showStreaming)
   const isEmpty = messages.length === 0 && !showStreaming && !showActions
 
-  /* Shared input bar — col-lg-8 col-xl-7 for readable width */
+  /* Shared input bar — centered, max 768px like ChatGPT */
   const inputBar = (
-    <div className="col-12 col-lg-8 col-xl-7 mx-auto px-3">
+    <div style={{ width: '100%', maxWidth: 768, margin: '0 auto', padding: '0 16px' }}>
       <div
         className="chat-input-wrapper"
         onFocus={(e) => {
@@ -186,7 +186,7 @@ export default function ChatArea({
           {showActions && (
             <div
               key="actions"
-              className="px-3 py-3 col-12 col-lg-10 col-xl-9 mx-auto"
+              className="w-100 px-4 py-3"
             >
               <ActionViewer
                 actions={actions}
@@ -214,7 +214,7 @@ export default function ChatArea({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="col-12 col-lg-10 col-xl-9 mx-auto px-3 my-3"
+              className="w-100 px-4 my-3"
             >
               <div className="error-alert">
                 <AlertCircle

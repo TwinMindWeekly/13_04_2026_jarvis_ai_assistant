@@ -56,7 +56,7 @@ export default function MessageBubble({ message, isStreaming = false }) {
     >
       {/* Inner content — full width with comfortable side padding */}
       <div
-        className="col-12 col-lg-10 col-xl-9 mx-auto px-3 d-flex gap-3"
+        className="w-100 px-4 d-flex gap-3"
       >
         {isUser ? <UserAvatar /> : <AssistantAvatar />}
 
