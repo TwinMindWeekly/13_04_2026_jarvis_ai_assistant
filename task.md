@@ -147,5 +147,33 @@
 - [ ] Sửa `models/graph_schemas.py` — GraphLink thêm context field
 - [ ] Frontend: GraphLeftPanel — hiện backlinks section khi click node
 - [ ] Fallback: nếu không có LLM key → bỏ qua wikilink step, graph trống (chỉ orphan nodes)
+- [x] Install MarkItDown dependency
+- [x] Backend: `rag/md_converter.py` — MarkItDown wrapper
+- [x] Backend: `rag/wikilink_generator.py` — LLM prompt + chunking
+- [x] Backend: `graph/link_extractor.py` — regex parse [[wikilinks]]
+- [x] Backend: vault storage + `routers/vault.py` — GET /api/vault/{doc_id}
+- [x] Sửa `routers/documents.py` — background task pipeline
+- [x] Sửa `graph/builder.py` — wikilink-only edges, bỏ cosine similarity
+- [x] Sửa `models/graph_schemas.py` — GraphLink + context field
+- [x] Tách config: WIKILINK_PROVIDER=ollama (local free) vs DEFAULT_PROVIDER (cloud)
+- [x] Ollama preload model on startup (background thread) + unload on shutdown
+- [x] Auto-fallback provider chain: groq → gemini → sambanova → openai → claude → ollama
+- [x] Groq + SambaNova providers thêm vào _build_llm() (free tier, tool calling)
+- [x] Runtime retry: agent execution hit quota → auto switch next provider
+- [x] Test: Groq Llama 3.3 70B auto-fallback hoạt động, wikilinks pipeline verified
 - [ ] Tests — unit tests cho link_extractor, wikilink_generator, md_converter
 - [ ] Docs sync — technical_reference.md, README.md, task.md
+
+---
+
+## Phase 11: Provider Usage Dashboard
+> Mục tiêu: Hiển thị usage (requests, tokens) của tất cả LLM providers, quota limits, thời gian reset trong Settings panel.
+
+- [ ] Backend: `services/usage_tracker.py` — singleton tracker đếm requests/tokens per provider, persist JSON
+- [ ] Backend: parse rate-limit headers từ Groq/SambaNova/OpenAI responses (x-ratelimit-remaining-*)
+- [ ] Backend: `routers/usage.py` — GET /api/usage endpoint trả stats tất cả providers
+- [ ] Frontend: SettingsPanel thêm "Usage" tab — bảng hiện mỗi provider: requests used/limit, tokens, reset time
+- [ ] Frontend: hiện provider đang dùng (auto → "Using: Groq / llama-3.3-70b") trong chat header
+- [ ] Reset logic: daily counter reset midnight UTC, RPM counter rolling 60s
+- [ ] i18n — keys mới cho usage dashboard
+- [ ] Docs sync

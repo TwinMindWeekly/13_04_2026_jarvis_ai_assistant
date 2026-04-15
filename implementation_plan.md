@@ -1120,3 +1120,143 @@ markitdown>=0.1.0    # Microsoft MarkItDown — PDF/DOCX/PPTX/XLSX → Markdown
 | 9 | vault.py | ~25 | Low |
 | Tests | test_link_extractor, test_converter | ~80 | Medium |
 | **Tổng** | | **~430 net new** | **Medium** |
+
+---
+
+## Phase 11: Provider Usage Dashboard
+
+### Mục tiêu
+
+Hiển thị usage stats (requests đã dùng, tokens, quota limits, thời gian reset) của **tất cả** LLM providers trong Settings panel. User biết mình đã dùng bao nhiêu, còn lại bao nhiêu, khi nào reset.
+
+### Provider quota info (từ research)
+
+| Provider | Free limits | Reset | Headers có? |
+|---|---|---|---|
+| **Groq** | 1,000 RPD, 12K TPM (llama-3.3-70b) | Midnight UTC | `x-ratelimit-remaining-requests/tokens` (RPM only, RPD phải tự đếm) |
+| **SambaNova** | 20 RPM (llama-3.3-70b), RPD riêng | RPD reset epoch time trong header | Có headers |
+| **Gemini** | ~20 RPD (free tier 2026) | Daily | Không rõ |
+| **OpenAI** | Pay-per-use, RPM limits | Per-minute rolling | `x-ratelimit-remaining-*` headers |
+
+### Kiến trúc
+
+```
+Backend                                    Frontend
+┌─────────────────────┐                   ┌──────────────────────┐
+│ UsageTracker         │  GET /api/usage   │ Settings → Usage tab │
+│ (singleton)          │ ◄──────────────── │                      │
+│                      │                   │ ┌──────────────────┐ │
+│ providers:           │                   │ │ Groq             │ │
+│   groq:              │                   │ │ 45/1000 req/day  │ │
+│     requests_today: 45│                  │ │ Resets: 07:00    │ │
+│     tokens_today: 8500│                  │ │ ████░░░░ 4.5%    │ │
+│     rpm_remaining: 28 │                  │ ├──────────────────┤ │
+│     daily_limit: 1000 │                  │ │ Gemini           │ │
+│     resets_at: midnight│                 │ │ 3/20 req/day     │ │
+│   gemini:             │                  │ │ Resets: 07:00    │ │
+│     requests_today: 3 │                  │ │ ██░░░░░░ 15%     │ │
+│     ...               │                  │ ├──────────────────┤ │
+│                       │                  │ │ SambaNova        │ │
+│ _persist()            │                  │ │ 0/100 req/day    │ │
+│ → uploads/usage.json  │                  │ └──────────────────┘ │
+└─────────────────────┘                   └──────────────────────┘
+```
+
+### Backend: UsageTracker
+
+**File tạo mới**: `backend/app/services/usage_tracker.py`
+
+Singleton class:
+- `record(provider, tokens_in, tokens_out)` — gọi sau mỗi LLM call
+- `get_all()` — trả stats tất cả providers
+- `_check_daily_reset()` — nếu qua midnight UTC → reset daily counters
+- Persist vào `uploads/usage.json` mỗi lần record
+- Load từ file khi khởi tạo
+
+Data structure per provider:
+```python
+{
+    "provider": "groq",
+    "model": "llama-3.3-70b-versatile",
+    "requests_today": 45,
+    "tokens_in_today": 5200,
+    "tokens_out_today": 3300,
+    "daily_request_limit": 1000,
+    "daily_token_limit": 0,       # 0 = unknown/unlimited
+    "rpm_limit": 30,
+    "rpm_remaining": 28,          # from response headers
+    "tpm_limit": 12000,
+    "tpm_remaining": 11500,       # from response headers
+    "last_used_at": "2026-04-16T01:23:45Z",
+    "resets_at": "2026-04-17T00:00:00Z",  # midnight UTC
+    "last_error": null,
+}
+```
+
+### Backend: Hook vào agent router
+
+Sửa `routers/agent.py` — sau mỗi successful agent call:
+```python
+from app.services.usage_tracker import usage_tracker
+usage_tracker.record(
+    provider=actual_provider,
+    model=actual_model,
+    tokens_in=...,   # from LLM response metadata if available
+    tokens_out=...,
+)
+```
+
+### Backend: API endpoint
+
+**File tạo mới**: `backend/app/routers/usage.py`
+
+```python
+@router.get("/api/usage")
+async def get_usage():
+    return usage_tracker.get_all()
+```
+
+### Frontend: Settings → Usage tab
+
+Sửa `SettingsPanel.jsx`:
+- Thêm tab "Usage" bên cạnh provider/model settings
+- Fetch `GET /api/usage` khi tab mở
+- Mỗi provider hiện:
+  - Tên + model
+  - Progress bar: requests_today / daily_request_limit
+  - "Resets at: 07:00 AM (local time)"
+  - Last used: "2 min ago"
+  - Status badge: "Active" / "Quota exceeded" / "No API key"
+
+### Frontend: Chat header hiện provider đang dùng
+
+Sửa `App.jsx` hoặc `GraphChatPanel.jsx`:
+- Sau agent response, hiện nhỏ "via Groq / llama-3.3-70b" dưới message
+- Response schema đã có `provider` + `model` fields
+
+### Files tạo/sửa
+
+| Action | File | Mô tả |
+|---|---|---|
+| **Tạo** | `backend/app/services/usage_tracker.py` | Singleton tracker + JSON persist |
+| **Tạo** | `backend/app/routers/usage.py` | GET /api/usage |
+| **Sửa** | `backend/app/routers/agent.py` | Hook usage_tracker.record() |
+| **Sửa** | `backend/app/main.py` | Register usage router |
+| **Sửa** | `frontend/src/components/SettingsPanel.jsx` | Usage tab |
+| **Sửa** | `frontend/src/services/api.js` | usageAPI.getUsage() |
+| **Sửa** | `frontend/src/i18n/en.json` + `vi.json` | Usage keys |
+| **Sửa** | `frontend/src/main.css` | Usage tab styles |
+
+### Ước tính
+
+| File | Dòng | Phức tạp |
+|---|---|---|
+| usage_tracker.py | ~120 | Medium |
+| routers/usage.py | ~15 | Low |
+| agent.py sửa | ~15 | Low |
+| main.py sửa | ~3 | Low |
+| SettingsPanel.jsx sửa | ~120 | Medium |
+| api.js sửa | ~3 | Low |
+| i18n | ~15 | Low |
+| CSS | ~50 | Low |
+| **Tổng** | **~340** | **Medium** |
