@@ -70,10 +70,13 @@
 ## Phase 6: RAG Integration
 > Mục tiêu: Truy xuất và trả lời dựa trên tài liệu riêng
 
-- [ ] Tích hợp ChromaDB cho vector storage
-- [ ] Tool: `rag_search` (tìm kiếm trong tài liệu đã upload)
-- [ ] UI: Document upload & management
-- [ ] Agent tự quyết định khi nào dùng RAG vs web search
+- [x] Tích hợp ChromaDB cho vector storage (PersistentClient + sentence-transformers local embeddings)
+- [x] Tool: `rag_search` — tìm kiếm trong docs đã upload (tool 8)
+- [x] UI: Document upload & management (DocumentsPanel modal, sidebar button)
+- [x] Agent tự quyết: rag_search ưu tiên hơn web_search khi có docs (system prompt updated)
+- [x] API: POST /api/documents/upload, GET /api/documents, DELETE /api/documents/:id
+- [x] Document parser: PDF, DOCX, TXT, MD, PPTX, XLSX (unstructured)
+- [x] Tests: 127/127 passed (22 mới)
 
 ---
 

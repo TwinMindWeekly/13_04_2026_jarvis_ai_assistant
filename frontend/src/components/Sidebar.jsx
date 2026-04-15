@@ -1,14 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { SquarePen, Settings, MessageSquare, Search, Globe, Monitor, PanelLeft, Zap } from 'lucide-react'
+import { SquarePen, Settings, MessageSquare, PanelLeft, Zap, FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const SIDEBAR_WIDTH = 260
-
-const MENU_ITEMS = [
-  { icon: Search, label: 'Search chats' },
-  { icon: Globe, label: 'Web Search' },
-  { icon: Monitor, label: 'Screen Capture' },
-]
 
 function SidebarNavItem({ icon: Icon, label, onClick }) {
   return (
@@ -24,6 +18,7 @@ export default function Sidebar({
   onToggle,
   onNewChat,
   onOpenSettings,
+  onOpenDocuments,
   currentProvider,
   currentModel,
 }) {
@@ -81,9 +76,11 @@ export default function Sidebar({
               label={t('sidebar.newChat')}
               onClick={onNewChat}
             />
-            {MENU_ITEMS.map((item) => (
-              <SidebarNavItem key={item.label} icon={item.icon} label={item.label} />
-            ))}
+            <SidebarNavItem
+              icon={FileText}
+              label="Documents"
+              onClick={onOpenDocuments}
+            />
           </div>
 
           {/* Chat history */}

@@ -14,6 +14,7 @@ from app.tools.base import BaseTool, ToolResult
 from app.tools.browser_control import BrowserControlTool
 from app.tools.desktop_control import DesktopControlTool
 from app.tools.file_manager import FileManagerTool
+from app.tools.rag_search import RagSearchTool
 from app.tools.registry import ToolRegistry
 from app.tools.safety import SafetyGuard, SafetyLevel, SafetyResult
 from app.tools.screenshot import ScreenshotTool
@@ -33,6 +34,7 @@ def create_default_registry() -> ToolRegistry:
           - browser_control  (Playwright DOM-based interactive browsing)
           - file_manager     (read/write/list files with safety guard)
           - app_launcher     (launch whitelisted OS applications)
+          - rag_search       (ChromaDB semantic search over uploaded documents)
     """
     registry = ToolRegistry()
     registry.register(WebSearchTool())
@@ -42,6 +44,7 @@ def create_default_registry() -> ToolRegistry:
     registry.register(BrowserControlTool())
     registry.register(FileManagerTool())
     registry.register(AppLauncherTool())
+    registry.register(RagSearchTool())
     return registry
 
 
@@ -56,6 +59,7 @@ __all__ = [
     "BrowserControlTool",
     "FileManagerTool",
     "AppLauncherTool",
+    "RagSearchTool",
     "SafetyGuard",
     "SafetyLevel",
     "SafetyResult",

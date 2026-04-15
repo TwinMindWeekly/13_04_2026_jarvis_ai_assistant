@@ -8,6 +8,7 @@ import { chatAPI } from './services/api'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import SettingsPanel from './components/SettingsPanel'
+import DocumentsPanel from './components/DocumentsPanel'
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -15,6 +16,7 @@ export default function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [documentsOpen, setDocumentsOpen] = useState(false)
   const [providers, setProviders] = useState([])
 
   const {
@@ -80,6 +82,7 @@ export default function App() {
         onToggle={() => setSidebarOpen((prev) => !prev)}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
+        onOpenDocuments={() => setDocumentsOpen(true)}
         currentProvider={settings.provider}
         currentModel={settings.model}
       />
@@ -128,6 +131,11 @@ export default function App() {
         settings={settings}
         onUpdateSettings={updateSettings}
         providers={providers}
+      />
+
+      <DocumentsPanel
+        isOpen={documentsOpen}
+        onClose={() => setDocumentsOpen(false)}
       />
     </div>
   )

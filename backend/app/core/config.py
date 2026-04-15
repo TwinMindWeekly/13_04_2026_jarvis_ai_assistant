@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000"])
 
+    # RAG
+    chroma_persist_dir: str = "./chroma_data"
+    upload_dir: str = "./uploads"
+    default_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -20,4 +20,16 @@ export const agentAPI = {
     }),
 }
 
+export const documentsAPI = {
+  upload: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  list: () => api.get('/documents/'),
+  delete: (docId) => api.delete(`/documents/${docId}`),
+}
+
 export default api
