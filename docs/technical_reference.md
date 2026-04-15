@@ -171,7 +171,37 @@ Upload tài liệu vào ChromaDB.
 Liệt kê documents đã upload (đọc từ JSON metadata index).
 
 #### `DELETE /api/documents/{doc_id}`
-Xoá document khỏi vector store + filesystem + metadata.
+Xoá document khỏi vector store + filesystem + metadata. Tự động invalidate graph cache.
+
+#### `GET /api/graph/data?threshold=0.5&force=false`
+Knowledge Graph data — nodes là documents, edges là cosine similarity giữa mean embedding của 2 docs.
+
+**Response:**
+```json
+{
+  "nodes": [
+    {"id": "uuid", "label": "file.pdf", "folder": "", "chunks_count": 19,
+     "size_bytes": 378214, "uploaded_at": "2026-04-15T06:51:14", "file_ext": ".pdf"}
+  ],
+  "links": [
+    {"source": "uuid1", "target": "uuid2", "weight": 0.82}
+  ],
+  "meta": {
+    "total_docs": 10, "total_links": 24, "threshold": 0.5,
+    "generated_at": "2026-04-15T09:00:00+00:00", "cached": true
+  }
+}
+```
+
+- `threshold` (0.0-1.0) — chỉ giữ edge có cosine ≥ threshold (default 0.5)
+- `force=true` — bỏ qua cache, recompute
+- Cache key = `md5(sorted(doc_ids) + threshold)`; invalidate khi upload/delete document
+
+#### `GET /api/graph/stats`
+Trả counts mà không compute similarity. `{total_docs, total_chunks, cache_exists}`.
+
+#### `POST /api/graph/rebuild?threshold=0.5`
+Invalidate cache và rebuild từ đầu.
 
 ### WebSocket Endpoints
 

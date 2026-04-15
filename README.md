@@ -13,6 +13,7 @@ JARVIS AI Assistant không phải chatbot thông thường — nó là một **a
 - **File manager** — đọc/ghi file trong sandbox đã whitelist
 - **App launcher** — mở ứng dụng theo whitelist
 - **RAG search** — trả lời dựa trên tài liệu PDF/DOCX/PPTX/XLSX/MD/TXT do người dùng upload
+- **Knowledge Graph** — đồ thị tương tác kiểu Obsidian hiển thị mối quan hệ giữa các tài liệu (cosine similarity), drag/zoom/pan mượt đến hàng ngàn nodes
 - **Voice I/O** — nói/nghe bằng Web Speech API + SpeechSynthesis (browser native)
 
 ## Công nghệ sử dụng

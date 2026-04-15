@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { SquarePen, Settings, MessageSquare, PanelLeft, Zap, FileText } from 'lucide-react'
+import { SquarePen, Settings, MessageSquare, PanelLeft, Zap, FileText, Network } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const SIDEBAR_WIDTH = 260
@@ -19,6 +19,7 @@ export default function Sidebar({
   onNewChat,
   onOpenSettings,
   onOpenDocuments,
+  onOpenGraph,
   currentProvider,
   currentModel,
 }) {
@@ -78,8 +79,13 @@ export default function Sidebar({
             />
             <SidebarNavItem
               icon={FileText}
-              label="Documents"
+              label={t('sidebar.documents', 'Documents')}
               onClick={onOpenDocuments}
+            />
+            <SidebarNavItem
+              icon={Network}
+              label={t('sidebar.graph', 'Knowledge Graph')}
+              onClick={onOpenGraph}
             />
           </div>
 

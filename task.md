@@ -95,5 +95,17 @@
 
 ---
 
-## Phase 8 (Tương lai): Knowledge Graph
-> Tính năng mở rộng — hiển thị mối quan hệ giữa các tài liệu RAG kiểu Obsidian graph view.
+## Phase 8: Knowledge Graph (Obsidian-style)
+> Mục tiêu: Hiển thị mối quan hệ giữa các tài liệu RAG dưới dạng đồ thị tương tác.
+
+- [x] Research — so sánh Sigma.js / react-force-graph / Reagraph / Cytoscape / NetV.js, chọn react-force-graph-2d
+- [x] Backend graph builder — mean embedding per doc + cosine pairwise + threshold filter
+- [x] Backend graph router — GET /api/graph/data, /stats, POST /rebuild
+- [x] Cache layer — JSON file, key hash(doc_ids + threshold), invalidate on upload/delete
+- [x] Frontend GraphPanel — ForceGraph2D Canvas với drag/zoom/pan/click/hover
+- [x] GraphToolbar — search filter, threshold slider (debounce 300ms), zoom-to-fit, rebuild
+- [x] GraphDetailPanel — filename, folder, chunks, uploaded date, neighbors sorted by similarity
+- [x] GraphLegend — color map folders → node colors
+- [x] Performance — cooldownTicks=120, nodePointerAreaPaint hit area lớn, label chỉ hiện khi zoom
+- [x] Tests — 12 backend unit tests (cosine, cache, builder edge cases) + 1 E2E test
+- [x] Docs — README + technical_reference + phase8_research + phase8_implementation_plan
