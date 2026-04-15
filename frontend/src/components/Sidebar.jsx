@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SquarePen, Settings, PanelLeft, Zap, FileText, Network, Upload, Trash2, Loader2 } from 'lucide-react'
+import {
+  SquarePen, Settings, PanelLeft, Zap, FileText, Network,
+  Upload, Loader2, FilePlus, FolderPlus,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { documentsAPI } from '../services/api'
+import SidebarDocTree from './SidebarDocTree'
 
 const SIDEBAR_WIDTH = 260
 
@@ -28,7 +32,9 @@ export default function Sidebar({
 }) {
   const { t } = useTranslation()
   const [documents, setDocuments] = useState([])
+  const [extraFolders, setExtraFolders] = useState([])  // client-only empty folders
   const [uploading, setUploading] = useState(false)
+  const [busy, setBusy] = useState(false)
   const fileInputRef = useRef(null)
 
   const loadDocuments = useCallback(async () => {
@@ -44,6 +50,7 @@ export default function Sidebar({
     if (isOpen) loadDocuments()
   }, [isOpen, loadDocuments])
 
+  // ── Upload ──
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -59,8 +66,57 @@ export default function Sidebar({
     }
   }
 
-  const handleDelete = async (e, docId) => {
-    e.stopPropagation()
+  // ── Create file ──
+  const handleCreateFile = async () => {
+    setBusy(true)
+    try {
+      const baseName = t('sidebar2.untitled', 'Untitled')
+      const existing = new Set(
+        documents
+          .filter((d) => (d.folder_path || '') === '')
+          .map((d) => d.filename)
+      )
+      let name = `${baseName}.md`
+      let i = 1
+      while (existing.has(name)) {
+        i += 1
+        name = `${baseName} ${i}.md`
+      }
+      const { data } = await documentsAPI.create(name, '', `# ${name.replace(/\.md$/, '')}\n`)
+      await loadDocuments()
+      // auto-open the new doc
+      if (data?.id) {
+        onSelectDocument({ id: data.id, filename: name, folder_path: '' })
+      }
+    } catch {
+      // silent
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── Create folder (client-only until it has a child) ──
+  const handleCreateFolder = () => {
+    const baseName = t('sidebar2.untitledFolder', 'Untitled folder')
+    const existing = new Set(
+      extraFolders.concat(
+        documents
+          .map((d) => d.folder_path || '')
+          .filter(Boolean)
+          .map((p) => p.split('/')[0])
+      )
+    )
+    let name = baseName
+    let i = 1
+    while (existing.has(name)) {
+      i += 1
+      name = `${baseName} ${i}`
+    }
+    setExtraFolders((prev) => [...prev, name])
+  }
+
+  // ── Delete file ──
+  const handleDeleteFile = async (docId) => {
     try {
       await documentsAPI.delete(docId)
       setDocuments((prev) => prev.filter((d) => d.id !== docId))
@@ -70,11 +126,92 @@ export default function Sidebar({
     }
   }
 
-  const formatBytes = (bytes) => {
-    if (!bytes) return '-'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  // ── Rename file ──
+  const handleRenameFile = async (docId, newName) => {
+    let finalName = newName.trim()
+    if (!finalName) return
+    if (!finalName.toLowerCase().endsWith('.md')) finalName += '.md'
+    try {
+      await documentsAPI.update(docId, { filename: finalName })
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === docId ? { ...d, filename: finalName } : d))
+      )
+    } catch {
+      // silent
+    }
+  }
+
+  // ── Move file to folder ──
+  const handleMoveFile = async (docId, folderPath) => {
+    try {
+      await documentsAPI.update(docId, { folder_path: folderPath })
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === docId ? { ...d, folder_path: folderPath } : d))
+      )
+      // once moved into a folder, that folder becomes "real" — remove from extraFolders
+      if (folderPath) {
+        const topLevel = folderPath.split('/')[0]
+        setExtraFolders((prev) => prev.filter((f) => f !== topLevel))
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  // ── Rename folder (bulk update every descendant) ──
+  const handleRenameFolder = async (oldPath, newName) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    const parentParts = oldPath.split('/').slice(0, -1)
+    const newPath = [...parentParts, trimmed].join('/')
+    if (newPath === oldPath) return
+
+    // Update all docs whose folder_path starts with oldPath
+    const affected = documents.filter(
+      (d) => d.folder_path === oldPath || d.folder_path.startsWith(oldPath + '/')
+    )
+    setBusy(true)
+    try {
+      await Promise.all(
+        affected.map((d) => {
+          const updated = newPath + d.folder_path.slice(oldPath.length)
+          return documentsAPI.update(d.id, { folder_path: updated })
+        })
+      )
+      await loadDocuments()
+      // update extraFolders too if this was a client-only folder
+      setExtraFolders((prev) =>
+        prev.map((f) => (f === oldPath ? newPath : f))
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── Move folder (change folder_path of every descendant) ──
+  const handleMoveFolder = async (path, newParent) => {
+    const name = path.split('/').pop()
+    const newPath = [newParent, name].filter(Boolean).join('/')
+    if (newPath === path) return
+
+    const affected = documents.filter(
+      (d) => d.folder_path === path || d.folder_path.startsWith(path + '/')
+    )
+    setBusy(true)
+    try {
+      await Promise.all(
+        affected.map((d) => {
+          const updated = newPath + d.folder_path.slice(path.length)
+          return documentsAPI.update(d.id, { folder_path: updated })
+        })
+      )
+      await loadDocuments()
+      setExtraFolders((prev) =>
+        prev.map((f) => (f === path ? newPath : f)).filter((f, i, arr) => arr.indexOf(f) === i)
+      )
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -138,53 +275,57 @@ export default function Sidebar({
                 <FileText size={14} />
                 <span>{t('sidebar.documents', 'Documents')} ({documents.length})</span>
               </div>
-              <button
-                className="sidebar-docs-upload-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                title="Upload"
-              >
-                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleUpload}
-                accept=".pdf,.docx,.txt,.md,.pptx,.xlsx"
-                style={{ display: 'none' }}
-              />
+              <div className="sidebar-docs-actions">
+                <button
+                  className="sidebar-docs-upload-btn"
+                  onClick={handleCreateFile}
+                  disabled={busy}
+                  title={t('sidebar2.newFile', 'New file')}
+                >
+                  <FilePlus size={14} />
+                </button>
+                <button
+                  className="sidebar-docs-upload-btn"
+                  onClick={handleCreateFolder}
+                  title={t('sidebar2.newFolder', 'New folder')}
+                >
+                  <FolderPlus size={14} />
+                </button>
+                <button
+                  className="sidebar-docs-upload-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title="Upload"
+                >
+                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleUpload}
+                  accept=".pdf,.docx,.txt,.md,.pptx,.xlsx"
+                  style={{ display: 'none' }}
+                />
+              </div>
             </div>
 
             <div className="sidebar-docs-list">
-              {documents.length === 0 ? (
+              {documents.length === 0 && extraFolders.length === 0 ? (
                 <div className="sidebar-docs-empty">
                   {t('sidebar.noDocuments', 'No documents yet')}
                 </div>
               ) : (
-                documents.map((doc) => (
-                  <button
-                    key={doc.id}
-                    className={`sidebar-doc-item ${selectedDocId === doc.id ? 'active' : ''}`}
-                    onClick={() => onSelectDocument(doc)}
-                  >
-                    <FileText size={14} className="flex-shrink-0" style={{ color: '#888' }} />
-                    <div className="sidebar-doc-info">
-                      <div className="sidebar-doc-name" title={doc.filename}>
-                        {doc.filename}
-                      </div>
-                      <div className="sidebar-doc-meta">
-                        {formatBytes(doc.size_bytes)}
-                      </div>
-                    </div>
-                    <button
-                      className="sidebar-doc-delete"
-                      onClick={(e) => handleDelete(e, doc.id)}
-                      title="Delete"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </button>
-                ))
+                <SidebarDocTree
+                  documents={documents}
+                  extraFolders={extraFolders}
+                  selectedDocId={selectedDocId}
+                  onSelectFile={onSelectDocument}
+                  onDeleteFile={handleDeleteFile}
+                  onRenameFile={handleRenameFile}
+                  onMoveFile={handleMoveFile}
+                  onRenameFolder={handleRenameFolder}
+                  onMoveFolder={handleMoveFolder}
+                />
               )}
             </div>
           </div>
