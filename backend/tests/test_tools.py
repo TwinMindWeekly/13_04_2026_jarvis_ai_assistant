@@ -295,19 +295,22 @@ async def test_web_search_execute_none_results():
 
 
 def test_create_default_registry():
-    """create_default_registry() pre-loads exactly 3 tools."""
+    """create_default_registry() pre-loads all default tools."""
     registry = create_default_registry()
     tools = registry.get_all()
-    assert len(tools) == 3
     names = {t.name for t in tools}
-    assert names == {"web_search", "web_browser", "screenshot"}
+    expected = {
+        "web_search", "web_browser", "screenshot",
+        "desktop_control", "browser_control", "file_manager", "app_launcher",
+    }
+    assert names == expected
 
 
 def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert len(schemas) == 3
+    assert len(schemas) == 7
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema

@@ -56,11 +56,14 @@
 ## Phase 5: Computer Use & Advanced Actions
 > Mục tiêu: Nâng cấp thành trợ lý có thể thao tác máy tính
 
-- [ ] Triển khai tool: `computer_use` (Claude Computer Use API hoặc PyAutoGUI fallback)
-- [ ] Triển khai tool: `file_manager` (đọc/ghi/tìm file trên máy)
-- [ ] Triển khai tool: `app_launcher` (mở ứng dụng trên máy)
-- [ ] Xây dựng Safety Layer (xác nhận trước khi thực hiện hành động nguy hiểm)
-- [ ] UI: Live screen viewer (xem agent thao tác real-time)
+- [x] Triển khai tool: `desktop_control` (PyAutoGUI + screenshot verify)
+- [x] Triển khai tool: `browser_control` (Playwright DOM-based, OpenClaw-style)
+- [x] Triển khai tool: `file_manager` (pathlib, with safety checks)
+- [x] Triển khai tool: `app_launcher` (subprocess, whitelist-based)
+- [x] Xây dựng Safety Layer (4 levels: AUTO/NOTIFY/CONFIRM/BLOCK)
+- [x] Update agent prompt + register all 7 tools
+- [x] Tests: 105/105 passed (45 new + 60 existing)
+- [ ] UI: Live screen viewer (deferred — sẽ làm ở Phase 7 polish)
 
 ---
 
