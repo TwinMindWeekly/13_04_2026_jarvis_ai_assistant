@@ -46,9 +46,55 @@ logger = logging.getLogger(__name__)
 # Lifespan
 # ---------------------------------------------------------------------------
 
+def _check_api_keys() -> list[str]:
+    """Return list of providers that have an API key configured (Ollama always)."""
+    available: list[str] = []
+    if settings.openai_api_key:
+        available.append("openai")
+    if settings.google_api_key:
+        available.append("gemini")
+    if settings.anthropic_api_key:
+        available.append("claude")
+    available.append("ollama")  # local, no key required
+    return available
+
+
+def _check_chromadb() -> bool:
+    """Verify ChromaDB persist dir is writable. Non-fatal — logs warning only."""
+    try:
+        from pathlib import Path  # noqa: PLC0415
+
+        persist_path = Path(settings.chroma_persist_dir)
+        persist_path.mkdir(parents=True, exist_ok=True)
+        probe = persist_path / ".write_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return True
+    except Exception as exc:  # broad: any FS error is non-fatal at startup
+        logger.warning(
+            "ChromaDB persist dir not writable (%s): %s",
+            settings.chroma_persist_dir,
+            exc,
+        )
+        return False
+
+
+def _check_playwright() -> bool:
+    """Verify Playwright is importable (browser binary checked lazily on first use)."""
+    try:
+        from playwright.async_api import async_playwright  # noqa: F401, PLC0415
+        return True
+    except ImportError as exc:
+        logger.warning(
+            "Playwright not importable: %s — run `playwright install chromium`",
+            exc,
+        )
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Log startup information once the server is ready."""
+    """Log startup info and run health checks before serving traffic."""
     logger.info(
         "JARVIS AI Assistant starting — host=%s port=%s debug=%s",
         settings.host,
@@ -56,7 +102,28 @@ async def lifespan(app: FastAPI):
         settings.debug,
     )
     logger.info("CORS origins: %s", settings.cors_origins)
-    logger.info("Default provider: %s  model: %s", settings.default_provider, settings.default_model)
+    logger.info(
+        "Default provider: %s  model: %s",
+        settings.default_provider,
+        settings.default_model,
+    )
+
+    # ── Health checks ────────────────────────────────────────────
+    available_providers = _check_api_keys()
+    if available_providers == ["ollama"]:
+        logger.warning(
+            "No cloud LLM API keys configured. Only Ollama (local) will work. "
+            "Set OPENAI_API_KEY / GOOGLE_API_KEY / ANTHROPIC_API_KEY in backend/.env."
+        )
+    else:
+        logger.info("LLM providers ready: %s", ", ".join(available_providers))
+
+    if _check_chromadb():
+        logger.info("ChromaDB persist dir OK: %s", settings.chroma_persist_dir)
+
+    _check_playwright()
+    # ─────────────────────────────────────────────────────────────
+
     yield
 
 

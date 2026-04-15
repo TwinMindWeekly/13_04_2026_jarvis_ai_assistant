@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft, ChevronDown } from 'lucide-react'
+import { Toast, ToastContainer } from 'react-bootstrap'
 import { useAgent } from './hooks/useAgent'
 import { useSettings } from './hooks/useSettings'
 import { useVoice } from './hooks/useVoice'
@@ -27,6 +28,7 @@ export default function App() {
     streamingText,
     sendMessage,
     clearMessages,
+    dismissError,
   } = useAgent(settings.provider, settings.model)
 
   const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
@@ -137,6 +139,22 @@ export default function App() {
         isOpen={documentsOpen}
         onClose={() => setDocumentsOpen(false)}
       />
+
+      {/* Error toast — shows when backend is unreachable or API errors */}
+      <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 9999 }}>
+        <Toast
+          show={!!error}
+          onClose={dismissError}
+          delay={6000}
+          autohide
+          bg="danger"
+        >
+          <Toast.Header closeButton>
+            <strong className="me-auto">{t('toast.errorTitle', 'Error')}</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">{error}</Toast.Body>
+        </Toast>
+      </ToastContainer>
     </div>
   )
 }

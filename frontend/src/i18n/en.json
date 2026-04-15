@@ -34,5 +34,8 @@
     "newChat": "New Chat",
     "history": "Chat History",
     "settings": "Settings"
+  },
+  "toast": {
+    "errorTitle": "Error"
   }
 }
