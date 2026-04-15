@@ -1,6 +1,6 @@
 # JARVIS AI Assistant - Quản lý Tiến độ
 
-> Cập nhật lần cuối: 15/04/2026 (Phase 8 — Knowledge Graph hoàn thành, tất cả 8 phase xong)
+> Cập nhật lần cuối: 16/04/2026 (Phase 9 — Graph View Redesign: đang lên kế hoạch)
 
 ---
 
@@ -109,3 +109,24 @@
 - [x] Performance — cooldownTicks=120, nodePointerAreaPaint hit area lớn, label chỉ hiện khi zoom
 - [x] Tests — 12 backend unit tests (cosine, cache, builder edge cases) + 1 E2E test
 - [x] Docs — README + technical_reference + phase8_research + phase8_implementation_plan
+
+---
+
+## Phase 9: Graph View Redesign — Obsidian 3-Panel Layout + AI Chat
+> Mục tiêu: Chuyển Knowledge Graph từ modal popup → full-page 3-panel layout giống Obsidian, tích hợp AI chat sidebar để query tài liệu ngay trong graph view.
+
+- [ ] Thiết kế layout 3 panel: Left (search/docs) + Center (graph canvas) + Right (AI chat)
+- [ ] GraphPanel.jsx — chuyển từ Modal fullscreen → flex 3-column page view
+- [ ] GraphLeftPanel.jsx (mới) — search box, document list, folder grouping, click → focus node
+- [ ] GraphChatPanel.jsx (mới) — mini AI chat sidebar tái sử dụng useAgent hook
+- [ ] App.jsx — toggle giữa Chat mode ↔ Graph mode (không còn modal overlay)
+- [ ] Xoá GraphToolbar.jsx — bỏ threshold slider + rebuild button (search chuyển vào left panel)
+- [ ] Merge GraphDetailPanel vào left panel — click node → hiện detail + neighbors trong left panel
+- [ ] Cập nhật main.css — graph page dark theme, left/right panel styles, responsive
+- [ ] useGraph.js — bỏ threshold state, hardcode 0.5 hoặc auto-tune
+- [ ] AI chat trong graph: user hỏi → agent dùng rag_search → highlight related nodes trên graph
+- [ ] Click node trên graph → hiện document detail + preview content trong left panel
+- [ ] Graph canvas: nền đen #0f1014, giữ ForceGraph2D, floating zoom-to-fit button
+- [ ] i18n — thêm keys mới cho graph page vào en.json + vi.json
+- [ ] Docs sync — cập nhật technical_reference.md, README.md, task.md
+- [ ] E2E test — Playwright test cho graph page layout mới

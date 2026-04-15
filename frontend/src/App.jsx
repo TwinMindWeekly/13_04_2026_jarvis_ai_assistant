@@ -10,7 +10,7 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import SettingsPanel from './components/SettingsPanel'
 import DocumentsPanel from './components/DocumentsPanel'
-import GraphPanel from './components/GraphPanel'
+import GraphPage from './components/GraphPage'
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -19,7 +19,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [documentsOpen, setDocumentsOpen] = useState(false)
-  const [graphOpen, setGraphOpen] = useState(false)
+  const [viewMode, setViewMode] = useState('chat') // 'chat' | 'graph'
   const [providers, setProviders] = useState([])
 
   const {
@@ -87,48 +87,55 @@ export default function App() {
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
         onOpenDocuments={() => setDocumentsOpen(true)}
-        onOpenGraph={() => setGraphOpen(true)}
+        onOpenGraph={() => setViewMode('graph')}
         currentProvider={settings.provider}
         currentModel={settings.model}
       />
 
-      <main className="chat-main">
-        {/* Minimal header */}
-        <header className="chat-header">
-          {/* Sidebar toggle — only when sidebar is closed */}
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="sidebar-icon-btn"
-              aria-label="Open sidebar"
-            >
-              <PanelLeft size={20} />
-            </button>
-          )}
-
-          {/* App title — centered */}
-          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-            <button className="chat-header-title-btn">
-              JARVIS
-              <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
-            </button>
-          </div>
-
-          {/* Spacer to balance sidebar toggle */}
-          <div style={{ width: 40 }} />
-        </header>
-
-        <ChatArea
-          messages={messages}
-          actions={actions}
-          isLoading={isLoading}
-          streamingText={streamingText}
-          error={error}
-          onSendMessage={sendMessage}
-          onClear={clearMessages}
-          voice={voice}
+      {viewMode === 'graph' ? (
+        <GraphPage
+          onBack={() => setViewMode('chat')}
+          settings={settings}
         />
-      </main>
+      ) : (
+        <main className="chat-main">
+          {/* Minimal header */}
+          <header className="chat-header">
+            {/* Sidebar toggle — only when sidebar is closed */}
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="sidebar-icon-btn"
+                aria-label="Open sidebar"
+              >
+                <PanelLeft size={20} />
+              </button>
+            )}
+
+            {/* App title — centered */}
+            <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+              <button className="chat-header-title-btn">
+                JARVIS
+                <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+              </button>
+            </div>
+
+            {/* Spacer to balance sidebar toggle */}
+            <div style={{ width: 40 }} />
+          </header>
+
+          <ChatArea
+            messages={messages}
+            actions={actions}
+            isLoading={isLoading}
+            streamingText={streamingText}
+            error={error}
+            onSendMessage={sendMessage}
+            onClear={clearMessages}
+            voice={voice}
+          />
+        </main>
+      )}
 
       <SettingsPanel
         isOpen={settingsOpen}
@@ -143,10 +150,6 @@ export default function App() {
         onClose={() => setDocumentsOpen(false)}
       />
 
-      <GraphPanel
-        isOpen={graphOpen}
-        onClose={() => setGraphOpen(false)}
-      />
 
       {/* Error toast — shows when backend is unreachable or API errors */}
       <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 9999 }}>
