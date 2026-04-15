@@ -36,8 +36,10 @@ REM === Step 3: Backend deps ===
 echo [2/6] Checking backend dependencies...
 "%PIP_EXE%" show fastapi >nul 2>&1
 if !ERRORLEVEL! neq 0 (
-    echo        Installing... this may take a few minutes
-    "%PIP_EXE%" install -r "%BACKEND_DIR%\requirements.txt" --quiet
+    echo        Installing backend dependencies [first run downloads ~3 GB, can take 10-30 min on slow networks]...
+    echo        Progress will be shown below. Do NOT close this window.
+    echo.
+    "%PIP_EXE%" install -r "%BACKEND_DIR%\requirements.txt" --progress-bar on --disable-pip-version-check
     if !ERRORLEVEL! neq 0 (
         echo  [ERROR] pip install failed
         goto :fail
@@ -64,9 +66,15 @@ if !ERRORLEVEL! neq 0 (
     goto :fail
 )
 if not exist "%FRONTEND_DIR%\node_modules" (
-    echo        Installing frontend dependencies...
+    echo        Installing frontend dependencies [may take 2-5 min]...
+    echo.
     pushd "%FRONTEND_DIR%"
-    call npm install --silent
+    call npm install --progress=true
+    if !ERRORLEVEL! neq 0 (
+        popd
+        echo  [ERROR] npm install failed
+        goto :fail
+    )
     popd
     echo        Installed
 ) else (
