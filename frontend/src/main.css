@@ -653,19 +653,23 @@ select option {
 
 /* Settings tabs dark theme */
 .settings-modal .nav-pills .nav-link {
-  color: #ddd;
-  background: transparent;
+  color: #ddd !important;
+  background: transparent !important;
   border-radius: 8px;
   padding: 6px 14px;
   transition: all 0.15s;
 }
 .settings-modal .nav-pills .nav-link:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 .settings-modal .nav-pills .nav-link.active {
-  color: #fff;
-  background: var(--accent);
+  color: #fff !important;
+  background: var(--accent) !important;
+}
+.settings-modal .nav-pills .nav-link.active:hover {
+  color: #fff !important;
+  background: var(--accent-hover) !important;
 }
 
 /* Language toggle buttons */
@@ -865,7 +869,16 @@ select option {
   flex-shrink: 0;
 }
 
-.graph-page-back-btn {
+.graph-page-header-left,
+.graph-page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.graph-page-back-btn,
+.graph-page-toggle-btn,
+.graph-page-chat-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -878,9 +891,15 @@ select option {
   border-radius: 6px;
   transition: all 0.15s;
 }
-.graph-page-back-btn:hover {
+.graph-page-back-btn:hover,
+.graph-page-toggle-btn:hover,
+.graph-page-chat-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.06);
+}
+.graph-page-chat-btn.active {
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
 }
 
 .graph-page-title {
@@ -902,18 +921,72 @@ select option {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
-/* ── Left Panel ── */
+/* ── Split container (graph + editor) ── */
+
+.graph-split-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.graph-split-left {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.graph-split-right {
+  flex: 1;
+  min-width: 0;
+  border-left: 2px solid #2a2b33;
+}
+
+/* ── Left Panel (file sidebar) ── */
 
 .graph-left-panel {
-  width: 280px;
-  min-width: 280px;
   background: #1a1b22;
   border-right: 1px solid #2a2b33;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Resize Handle ── */
+
+.resize-handle {
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.resize-handle-vertical {
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  transition: background 0.15s;
+}
+.resize-handle-vertical::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: #2a2b33;
+  transition: background 0.15s, width 0.15s;
+}
+.resize-handle-vertical:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+.resize-handle-vertical:hover::after {
+  width: 3px;
+  left: 1px;
+  background: #6366f1;
+  border-radius: 2px;
 }
 
 .graph-left-header {
@@ -937,7 +1010,7 @@ select option {
   border: none;
   outline: none;
   color: #eee;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 .graph-left-search input::placeholder {
   color: #666;
@@ -969,7 +1042,7 @@ select option {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: none;
   border: none;
   color: #eee;
@@ -990,7 +1063,7 @@ select option {
 }
 
 .graph-left-doc-name {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -998,7 +1071,7 @@ select option {
 }
 
 .graph-left-doc-meta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #888;
   margin-top: 2px;
 }
@@ -1014,7 +1087,7 @@ select option {
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .graph-left-detail-title strong {
   white-space: nowrap;
@@ -1030,7 +1103,7 @@ select option {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   margin-bottom: 6px;
 }
 
@@ -1063,7 +1136,7 @@ select option {
   color: #eee;
   text-align: left;
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   transition: background 0.12s;
 }
 .graph-left-neighbor-item:hover {
@@ -1091,7 +1164,7 @@ select option {
   text-align: center;
 }
 
-/* ── Graph Canvas (center) ── */
+/* ── Graph Canvas ── */
 
 .graph-canvas {
   flex: 1;
@@ -1130,11 +1203,21 @@ select option {
   background: rgba(99, 102, 241, 0.3);
 }
 
-/* ── Chat Panel (right) ── */
+/* ── Chat Panel (floating overlay) ── */
+
+.graph-chat-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  z-index: 20;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+}
 
 .graph-chat-panel {
-  width: 360px;
-  min-width: 360px;
+  width: 100%;
+  height: 100%;
   background: #1a1b22;
   border-left: 1px solid #2a2b33;
   display: flex;
@@ -1296,24 +1379,273 @@ select option {
   cursor: not-allowed;
 }
 
-/* ── Responsive: hide sidebars on small screens ── */
+/* ── Markdown Editor Panel ── */
 
-@media (max-width: 1024px) {
-  .graph-left-panel {
-    width: 240px;
-    min-width: 240px;
-  }
-  .graph-chat-panel {
-    width: 300px;
-    min-width: 300px;
-  }
+.md-editor-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1b22;
+  overflow: hidden;
 }
+
+.md-editor-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #555;
+  font-size: 0.88rem;
+}
+
+.md-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2a2b33;
+  flex-shrink: 0;
+  background: #16171d;
+}
+
+.md-editor-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.md-editor-filename {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.md-editor-unsaved {
+  color: #f59e0b;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.md-editor-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.md-editor-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #888;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.md-editor-mode-btn:hover {
+  color: #ddd;
+  background: rgba(255, 255, 255, 0.06);
+}
+.md-editor-mode-btn.active {
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.md-editor-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #22c55e;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.md-editor-save-btn:hover:not(:disabled) {
+  background: #16a34a;
+}
+.md-editor-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.md-editor-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #888;
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 4px;
+}
+.md-editor-close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.md-editor-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.md-editor-loading,
+.md-editor-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  font-size: 0.85rem;
+}
+.md-editor-loading {
+  color: #888;
+}
+.md-editor-error {
+  color: #f87171;
+}
+
+.md-editor-preview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #ddd;
+  cursor: default;
+}
+
+/* Obsidian-style markdown rendering */
+.md-editor-preview h1 { font-size: 1.6rem; font-weight: 700; margin: 24px 0 12px; color: #eee; border-bottom: 1px solid #2a2b33; padding-bottom: 8px; }
+.md-editor-preview h2 { font-size: 1.3rem; font-weight: 600; margin: 20px 0 10px; color: #eee; }
+.md-editor-preview h3 { font-size: 1.1rem; font-weight: 600; margin: 16px 0 8px; color: #eee; }
+.md-editor-preview h4,
+.md-editor-preview h5,
+.md-editor-preview h6 { font-size: 0.95rem; font-weight: 600; margin: 12px 0 6px; color: #ddd; }
+.md-editor-preview p { margin: 0 0 12px; }
+.md-editor-preview a { color: #818cf8; text-decoration: none; }
+.md-editor-preview a:hover { text-decoration: underline; }
+.md-editor-preview code {
+  background: rgba(99, 102, 241, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.84em;
+  color: #c4b5fd;
+}
+.md-editor-preview pre {
+  background: #0f1014;
+  border: 1px solid #2a2b33;
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 8px 0 12px;
+}
+.md-editor-preview pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.82rem;
+  color: #ddd;
+}
+.md-editor-preview blockquote {
+  border-left: 3px solid #6366f1;
+  padding: 4px 16px;
+  margin: 8px 0 12px;
+  color: #aaa;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 0 6px 6px 0;
+}
+.md-editor-preview ul,
+.md-editor-preview ol {
+  padding-left: 24px;
+  margin: 4px 0 12px;
+}
+.md-editor-preview li { margin-bottom: 4px; }
+.md-editor-preview hr {
+  border: none;
+  border-top: 1px solid #2a2b33;
+  margin: 16px 0;
+}
+.md-editor-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 12px;
+  font-size: 0.84rem;
+}
+.md-editor-preview th,
+.md-editor-preview td {
+  border: 1px solid #2a2b33;
+  padding: 8px 12px;
+  text-align: left;
+}
+.md-editor-preview th {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  color: #eee;
+}
+.md-editor-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.md-editor-no-content {
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  padding: 40px;
+}
+
+.md-editor-textarea {
+  flex: 1;
+  width: 100%;
+  background: #0f1014;
+  color: #ddd;
+  border: none;
+  outline: none;
+  padding: 20px 24px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  resize: none;
+  tab-size: 2;
+}
+.md-editor-textarea::placeholder {
+  color: #555;
+}
+
+/* ── Responsive ── */
 
 @media (max-width: 768px) {
   .graph-left-panel {
     display: none;
   }
-  .graph-chat-panel {
+  .graph-chat-overlay {
+    width: 100% !important;
+  }
+  .graph-split-right {
+    display: none;
+  }
+  .resize-handle {
     display: none;
   }
 }

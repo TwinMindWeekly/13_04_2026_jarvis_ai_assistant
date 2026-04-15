@@ -70,6 +70,12 @@
     "legend": "Thư mục",
     "aiChatTitle": "AI Tài liệu",
     "aiChatHint": "Hỏi JARVIS về tài liệu của bạn. AI sẽ tìm kiếm và highlight các node liên quan trên đồ thị.",
-    "askJarvis": "Hỏi JARVIS về tài liệu..."
+    "askJarvis": "Hỏi JARVIS về tài liệu...",
+    "editorEmpty": "Chọn một node để xem tài liệu",
+    "editorView": "Xem trước",
+    "editorEdit": "Chỉnh sửa",
+    "editorSave": "Lưu",
+    "editorLoading": "Đang tải tài liệu...",
+    "editorNoContent": "Không có nội dung."
   }
 }

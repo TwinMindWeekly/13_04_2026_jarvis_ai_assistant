@@ -70,6 +70,12 @@
     "legend": "Folders",
     "aiChatTitle": "Document AI",
     "aiChatHint": "Ask JARVIS about your documents. It will search and highlight related nodes on the graph.",
-    "askJarvis": "Ask JARVIS about documents..."
+    "askJarvis": "Ask JARVIS about documents...",
+    "editorEmpty": "Select a node to view its document",
+    "editorView": "Preview",
+    "editorEdit": "Edit",
+    "editorSave": "Save",
+    "editorLoading": "Loading document...",
+    "editorNoContent": "No content available."
   }
 }

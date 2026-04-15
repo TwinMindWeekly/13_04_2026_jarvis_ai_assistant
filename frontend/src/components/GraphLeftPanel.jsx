@@ -16,6 +16,7 @@ export default function GraphLeftPanel({
   links,
   selected,
   onSelectNode,
+  style,
 }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -61,7 +62,7 @@ export default function GraphLeftPanel({
   // ── Detail mode ──
   if (selected) {
     return (
-      <div className="graph-left-panel">
+      <div className="graph-left-panel" style={style}>
         <div className="graph-left-header">
           <button
             className="graph-left-back"
@@ -133,7 +134,7 @@ export default function GraphLeftPanel({
 
   // ── List mode ──
   return (
-    <div className="graph-left-panel">
+    <div className="graph-left-panel" style={style}>
       <div className="graph-left-header">
         <div className="graph-left-search">
           <Search size={14} />

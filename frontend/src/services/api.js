@@ -40,6 +40,11 @@ export const graphAPI = {
     api.post('/graph/rebuild', null, { params: { threshold } }),
 }
 
+export const vaultAPI = {
+  get: (docId) => api.get(`/vault/${docId}`),
+  save: (docId, content) => api.put(`/vault/${docId}`, { content }),
+}
+
 export const usageAPI = {
   getUsage: () => api.get('/usage/'),
 }

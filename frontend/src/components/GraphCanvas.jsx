@@ -27,17 +27,18 @@ export default function GraphCanvas({
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [hovered, setHovered] = useState(null)
 
-  // Resize canvas to container.
+  // Resize canvas to container using ResizeObserver (detects panel resizes too).
   useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
     const update = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setDimensions({ width: rect.width, height: rect.height })
-      }
+      const rect = el.getBoundingClientRect()
+      setDimensions({ width: rect.width, height: rect.height })
     }
     update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
 
   // Center on selected node when it changes.
