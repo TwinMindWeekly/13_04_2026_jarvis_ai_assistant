@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle, Mic } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
+import VoiceButton from './VoiceButton'
 
 export default function ChatArea({
   messages = [],
@@ -13,6 +14,7 @@ export default function ChatArea({
   error = null,
   onSendMessage,
   onClear,
+  voice = {},
 }) {
   const { t } = useTranslation()
   const [input, setInput] = useState('')
@@ -59,6 +61,14 @@ export default function ChatArea({
   /* Shared input bar — centered, max 768px like ChatGPT */
   const inputBar = (
     <div style={{ width: '100%', maxWidth: 768, margin: '0 auto', padding: '0 16px' }}>
+      {/* Voice transcript preview */}
+      {voice.isListening && voice.transcript && (
+        <div className="voice-transcript mb-2">
+          <Mic size={14} style={{ color: '#ef4444', flexShrink: 0 }} />
+          <span>{voice.transcript}</span>
+        </div>
+      )}
+
       <div
         className="chat-input-wrapper"
         onFocus={(e) => {
@@ -81,6 +91,14 @@ export default function ChatArea({
           rows={1}
           disabled={isLoading}
           className="chat-textarea"
+        />
+
+        <VoiceButton
+          isListening={voice.isListening}
+          isSpeaking={voice.isSpeaking}
+          supported={voice.sttSupported}
+          onToggle={voice.toggleListening}
+          onStopTTS={voice.stopSpeaking}
         />
 
         <AnimatePresence>

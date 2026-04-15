@@ -6,6 +6,8 @@ const DEFAULTS = {
   model: 'gpt-4o',
   language: 'en',
   theme: 'dark',
+  voiceEnabled: true,
+  ttsVoice: '',
 }
 
 export function useSettings() {

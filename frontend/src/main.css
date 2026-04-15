@@ -752,3 +752,78 @@ select option {
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: var(--error);
 }
+
+/* =============================================
+   Voice Button
+   ============================================= */
+.voice-btn {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.voice-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.voice-btn.listening {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.voice-btn.speaking {
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+/* Pulse animation rings */
+.voice-pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0;
+  animation: voicePulse 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+.voice-pulse-ring.delay {
+  animation-delay: 0.5s;
+}
+
+@keyframes voicePulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+/* Transcript preview bar */
+.voice-transcript {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-style: italic;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: var(--text-secondary);
+}

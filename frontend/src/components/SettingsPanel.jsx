@@ -31,6 +31,7 @@ export default function SettingsPanel({
   const [localProvider, setLocalProvider] = useState(settings?.provider ?? 'openai')
   const [localModel, setLocalModel] = useState(settings?.model ?? 'gpt-4o')
   const [localLanguage, setLocalLanguage] = useState(settings?.language ?? 'en')
+  const [localVoiceEnabled, setLocalVoiceEnabled] = useState(settings?.voiceEnabled !== false)
   const [testStatus, setTestStatus] = useState(null)
   const [testMessage, setTestMessage] = useState('')
 
@@ -39,6 +40,7 @@ export default function SettingsPanel({
       setLocalProvider(settings.provider)
       setLocalModel(settings.model)
       setLocalLanguage(settings.language)
+      setLocalVoiceEnabled(settings.voiceEnabled !== false)
       setTestStatus(null)
       setTestMessage('')
     }
@@ -52,7 +54,7 @@ export default function SettingsPanel({
   }
 
   const handleSave = () => {
-    onUpdateSettings({ provider: localProvider, model: localModel, language: localLanguage })
+    onUpdateSettings({ provider: localProvider, model: localModel, language: localLanguage, voiceEnabled: localVoiceEnabled })
     onClose()
   }
 
@@ -150,6 +152,19 @@ export default function SettingsPanel({
               </button>
             ))}
           </div>
+        </Form.Group>
+
+        {/* Voice toggle */}
+        <Form.Group>
+          <Form.Label>Voice</Form.Label>
+          <Form.Check
+            type="switch"
+            id="voice-toggle"
+            label={localVoiceEnabled ? 'Voice enabled (mic + TTS)' : 'Voice disabled'}
+            checked={localVoiceEnabled}
+            onChange={(e) => setLocalVoiceEnabled(e.target.checked)}
+            style={{ color: 'var(--text-secondary)' }}
+          />
         </Form.Group>
 
         {/* Test connection */}
