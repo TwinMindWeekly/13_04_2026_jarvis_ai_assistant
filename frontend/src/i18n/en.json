@@ -1,0 +1,41 @@
+{
+  "app": {
+    "title": "JARVIS AI Assistant",
+    "subtitle": "Your intelligent action-taking assistant"
+  },
+  "chat": {
+    "placeholder": "Ask JARVIS anything...",
+    "send": "Send",
+    "clear": "Clear chat",
+    "thinking": "Thinking...",
+    "error": "Something went wrong. Please try again."
+  },
+  "actions": {
+    "title": "Actions",
+    "running": "Running",
+    "completed": "Completed",
+    "tool": {
+      "web_search": "Web Search",
+      "web_browser": "Browse Web",
+      "screenshot": "Screenshot"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "provider": "AI Provider",
+    "model": "Model",
+    "language": "Language",
+    "test": "Test Connection",
+    "testing": "Testing...",
+    "success": "Connected!",
+    "failed": "Connection failed"
+  },
+  "sidebar": {
+    "newChat": "New Chat",
+    "history": "Chat History",
+    "settings": "Settings"
+  },
+  "toast": {
+    "errorTitle": "Error"
+  }
+}

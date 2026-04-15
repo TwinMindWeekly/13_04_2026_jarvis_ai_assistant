@@ -1,0 +1,41 @@
+{
+  "app": {
+    "title": "JARVIS - Trợ lý AI",
+    "subtitle": "Trợ lý thông minh có thể thực hiện hành động"
+  },
+  "chat": {
+    "placeholder": "Hỏi JARVIS bất cứ điều gì...",
+    "send": "Gửi",
+    "clear": "Xóa cuộc trò chuyện",
+    "thinking": "Đang suy nghĩ...",
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
+  "actions": {
+    "title": "Hành động",
+    "running": "Đang chạy",
+    "completed": "Hoàn thành",
+    "tool": {
+      "web_search": "Tìm kiếm web",
+      "web_browser": "Duyệt web",
+      "screenshot": "Chụp màn hình"
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "provider": "Nhà cung cấp AI",
+    "model": "Mô hình",
+    "language": "Ngôn ngữ",
+    "test": "Kiểm tra kết nối",
+    "testing": "Đang kiểm tra...",
+    "success": "Đã kết nối!",
+    "failed": "Kết nối thất bại"
+  },
+  "sidebar": {
+    "newChat": "Cuộc trò chuyện mới",
+    "history": "Lịch sử",
+    "settings": "Cài đặt"
+  },
+  "toast": {
+    "errorTitle": "Lỗi"
+  }
+}

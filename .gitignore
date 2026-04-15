@@ -45,6 +45,10 @@ playwright-report/
 
 # ChromaDB local data
 chroma_data/
+backend/chroma_data/
+
+# User uploads (RAG documents)
+backend/uploads/
 
 # OMC state
 .omc/
