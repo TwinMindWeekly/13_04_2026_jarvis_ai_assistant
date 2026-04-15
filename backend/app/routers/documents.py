@@ -10,9 +10,11 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 
 from app.core.config import settings
 from app.models.document_schemas import (
+    CreateDocRequest,
     DocumentInfo,
     DocumentListResponse,
     DocumentUploadResponse,
+    UpdateDocRequest,
 )
 from app.graph.cache import invalidate_cache as invalidate_graph_cache
 from app.rag.document_parser import DocumentParser
@@ -122,6 +124,7 @@ async def upload_document(
         "size_bytes": len(content),
         "chunks_count": len(chunks),
         "uploaded_at": datetime.utcnow().isoformat(),
+        "folder_path": "",
     }
     docs.append(info)
     _save_metadata(docs)
@@ -155,6 +158,89 @@ async def list_documents() -> DocumentListResponse:
         documents=[DocumentInfo(**d) for d in docs],
         total=len(docs),
     )
+
+
+@router.post("/create", response_model=DocumentUploadResponse)
+async def create_document(body: CreateDocRequest) -> DocumentUploadResponse:
+    """Create a new empty markdown document directly in the vault."""
+    filename = body.filename.strip() or "Untitled.md"
+    if not filename.lower().endswith(".md"):
+        filename = f"{filename}.md"
+
+    doc_id = str(uuid.uuid4())
+    content = body.content or ""
+    folder_path = (body.folder_path or "").strip().strip("/")
+
+    # Write vault .md file
+    vault_dir = Path(settings.upload_dir) / "vault"
+    vault_dir.mkdir(parents=True, exist_ok=True)
+    vault_path = vault_dir / f"{doc_id}.md"
+    vault_path.write_text(content, encoding="utf-8")
+
+    # Embed content if non-empty (1 chunk for now)
+    chunks_count = 0
+    if content.strip():
+        store = VectorStore()
+        try:
+            await store.add_documents(
+                DEFAULT_COLLECTION,
+                [content],
+                [{"doc_id": doc_id, "filename": filename, "chunk_index": 0}],
+                [f"{doc_id}_0"],
+            )
+            chunks_count = 1
+        except Exception as exc:
+            logger.warning("Embed failed for new doc %s: %s", doc_id, exc)
+
+    # Persist metadata
+    docs = _load_metadata()
+    info: dict = {
+        "id": doc_id,
+        "filename": filename,
+        "size_bytes": len(content.encode("utf-8")),
+        "chunks_count": chunks_count,
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "folder_path": folder_path,
+        "vault_file": str(vault_path),
+    }
+    docs.append(info)
+    _save_metadata(docs)
+
+    invalidate_graph_cache()
+    logger.info("Created new document '%s' (doc_id=%s, folder='%s')", filename, doc_id, folder_path)
+
+    return DocumentUploadResponse(
+        id=doc_id,
+        filename=filename,
+        chunks_count=chunks_count,
+        message=f"Document created successfully.",
+    )
+
+
+@router.patch("/{doc_id}", response_model=DocumentInfo)
+async def update_document(doc_id: str, body: UpdateDocRequest) -> DocumentInfo:
+    """Rename or move a document (metadata-only — vault doc_id unchanged)."""
+    docs = _load_metadata()
+    target = next((d for d in docs if d["id"] == doc_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+
+    if body.filename is not None:
+        new_name = body.filename.strip()
+        if new_name:
+            target["filename"] = new_name
+    if body.folder_path is not None:
+        target["folder_path"] = body.folder_path.strip().strip("/")
+
+    _save_metadata(docs)
+    invalidate_graph_cache()
+    logger.info(
+        "Updated document %s: filename='%s' folder_path='%s'",
+        doc_id,
+        target.get("filename"),
+        target.get("folder_path"),
+    )
+    return DocumentInfo(**{k: v for k, v in target.items() if k in DocumentInfo.model_fields})
 
 
 @router.delete("/{doc_id}")

@@ -30,6 +30,10 @@ export const documentsAPI = {
   },
   list: () => api.get('/documents/'),
   delete: (docId) => api.delete(`/documents/${docId}`),
+  create: (filename, folder_path = '', content = '') =>
+    api.post('/documents/create', { filename, folder_path, content }),
+  update: (docId, { filename, folder_path } = {}) =>
+    api.patch(`/documents/${docId}`, { filename, folder_path }),
 }
 
 export const graphAPI = {

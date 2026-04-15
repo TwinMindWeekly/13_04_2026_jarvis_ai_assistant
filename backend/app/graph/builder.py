@@ -50,9 +50,19 @@ def _load_documents_index() -> list[dict]:
         return []
 
 
-def _folder_of(filename: str) -> str:
-    """Return the parent folder name for color grouping. Empty if none."""
-    parent = Path(filename).parent
+def _folder_of(doc: dict) -> str:
+    """Return folder_path from document metadata for color grouping.
+
+    Priority:
+      1. Explicit `folder_path` field (new in Part B)
+      2. Legacy: parse parent from filename (for old metadata entries)
+    Empty string = root.
+    """
+    fp = (doc.get("folder_path") or "").strip().strip("/")
+    if fp:
+        return fp
+    # Legacy fallback — filenames used to contain path info in some uploads.
+    parent = Path(doc.get("filename", "")).parent
     return "" if str(parent) in ("", ".") else str(parent)
 
 
@@ -114,7 +124,7 @@ async def build_document_graph() -> GraphData:
             GraphNode(
                 id=doc.get("id", ""),
                 label=filename,
-                folder=_folder_of(filename),
+                folder=_folder_of(doc),
                 chunks_count=int(doc.get("chunks_count", 0)),
                 size_bytes=int(doc.get("size_bytes", 0)),
                 uploaded_at=doc.get("uploaded_at", ""),
