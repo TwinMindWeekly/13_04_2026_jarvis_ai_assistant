@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PanelLeft, ChevronDown } from 'lucide-react'
 import { useAgent } from './hooks/useAgent'
 import { useSettings } from './hooks/useSettings'
 import { chatAPI } from './services/api'
@@ -25,14 +26,12 @@ export default function App() {
     clearMessages,
   } = useAgent(settings.provider, settings.model)
 
-  // Sync i18n language when settings change
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
       i18n.changeLanguage(settings.language)
     }
   }, [settings.language, i18n])
 
-  // Fetch available providers on mount
   useEffect(() => {
     chatAPI
       .getProviders()
@@ -43,24 +42,17 @@ export default function App() {
           setProviders(data)
         }
       })
-      .catch(() => {
-        // Backend not running yet — use default list silently
-      })
+      .catch(() => {})
   }, [])
 
   const handleNewChat = () => {
     clearMessages()
-    // On mobile, close sidebar after starting a new chat
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false)
-    }
+    if (window.innerWidth < 1024) setSidebarOpen(false)
   }
 
   const handleOpenSettings = () => {
     setSettingsOpen(true)
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false)
-    }
+    if (window.innerWidth < 1024) setSidebarOpen(false)
   }
 
   return (
@@ -68,7 +60,6 @@ export default function App() {
       className="flex h-screen overflow-hidden"
       style={{ background: 'var(--bg-main)' }}
     >
-      {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
@@ -78,8 +69,51 @@ export default function App() {
         currentModel={settings.model}
       />
 
-      {/* Main content — no header bar */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Minimal header like ChatGPT */}
+        <header
+          className="flex-shrink-0 flex items-center h-12 px-3"
+          style={{ background: 'var(--bg-main)' }}
+        >
+          {/* Sidebar toggle */}
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
+              aria-label="Open sidebar"
+            >
+              <PanelLeft size={20} />
+            </button>
+          )}
+
+          {/* App title — center */}
+          <div className="flex-1 flex items-center justify-center">
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-semibold transition-colors"
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
+            >
+              JARVIS
+              <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+          </div>
+
+          {/* Spacer to balance sidebar toggle */}
+          <div className="w-10" />
+        </header>
+
         <ChatArea
           messages={messages}
           actions={actions}
@@ -91,7 +125,6 @@ export default function App() {
         />
       </main>
 
-      {/* Settings overlay */}
       <SettingsPanel
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}

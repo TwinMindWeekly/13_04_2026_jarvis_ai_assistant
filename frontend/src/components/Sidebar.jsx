@@ -1,8 +1,35 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { SquarePen, Settings, MessageSquare, X, Zap } from 'lucide-react'
+import { SquarePen, Settings, MessageSquare, X, Zap, Search, Globe, Monitor, PanelLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const SIDEBAR_WIDTH = 260
+
+const MENU_ITEMS = [
+  { icon: Search, label: 'Search chats' },
+  { icon: Globe, label: 'Web Search' },
+  { icon: Monitor, label: 'Screen Capture' },
+]
+
+function SidebarButton({ icon: Icon, label, onClick, size = 18 }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150"
+      style={{ color: 'var(--text-secondary)' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--bg-hover)'
+        e.currentTarget.style.color = 'var(--text-primary)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.color = 'var(--text-secondary)'
+      }}
+    >
+      <Icon size={size} />
+      <span>{label}</span>
+    </button>
+  )
+}
 
 export default function Sidebar({
   isOpen,
@@ -43,34 +70,28 @@ export default function Sidebar({
           style={{
             width: SIDEBAR_WIDTH,
             background: 'var(--bg-sidebar)',
-            borderRight: '1px solid var(--border-light)',
           }}
         >
-          {/* Top: New Chat button */}
-          <div className="flex items-center gap-2 px-3 pt-4 pb-2">
+          {/* Top: sidebar toggle + new chat */}
+          <div className="flex items-center justify-between px-2 pt-3 pb-1">
             <button
-              onClick={onNewChat}
-              className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150"
-              style={{ color: 'var(--text-primary)' }}
+              onClick={onToggle}
+              className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--bg-hover)'
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent'
               }}
+              aria-label="Toggle sidebar"
             >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: 'var(--accent)' }}
-              >
-                <Zap size={14} color="#fff" />
-              </div>
-              <span className="font-semibold">JARVIS</span>
+              <PanelLeft size={20} />
             </button>
 
             <button
               onClick={onNewChat}
-              className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150"
+              className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
               style={{ color: 'var(--text-secondary)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--bg-hover)'
@@ -83,34 +104,27 @@ export default function Sidebar({
               aria-label={t('sidebar.newChat')}
               title={t('sidebar.newChat')}
             >
-              <SquarePen size={17} />
+              <SquarePen size={20} />
             </button>
+          </div>
 
-            <button
-              onClick={onToggle}
-              className="flex-shrink-0 w-9 h-9 rounded-lg lg:hidden flex items-center justify-center transition-colors duration-150"
-              style={{ color: 'var(--text-secondary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-              }}
-              aria-label="Close sidebar"
-            >
-              <X size={16} />
-            </button>
+          {/* Menu items */}
+          <div className="px-2 py-1">
+            <SidebarButton icon={SquarePen} label={t('sidebar.newChat')} onClick={onNewChat} />
+            {MENU_ITEMS.map((item) => (
+              <SidebarButton key={item.label} icon={item.icon} label={item.label} />
+            ))}
           </div>
 
           {/* Chat history section */}
           <div className="flex-1 px-2 py-2 overflow-y-auto">
             <p
-              className="text-xs font-medium px-3 py-2"
+              className="text-xs font-medium px-3 py-2 uppercase tracking-wider"
               style={{ color: 'var(--text-muted)' }}
             >
-              {t('sidebar.history')}
+              Recents
             </p>
-            <div className="flex flex-col items-center justify-center gap-2 py-10">
+            <div className="flex flex-col items-center justify-center gap-2 py-8">
               <MessageSquare size={18} style={{ color: 'var(--text-muted)' }} />
               <span
                 className="text-xs text-center"
@@ -121,35 +135,28 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Bottom: provider info + settings */}
+          {/* Bottom: user area + settings */}
           <div
             className="px-2 pb-3 pt-2"
             style={{ borderTop: '1px solid var(--border-light)' }}
           >
+            {/* Provider info */}
             {currentProvider && currentModel && (
               <div
-                className="px-3 py-2 mb-1 rounded-lg text-xs"
+                className="flex items-center gap-2 px-3 py-2 mb-1 rounded-lg text-xs"
                 style={{ color: 'var(--text-muted)' }}
               >
-                {currentProvider} · {currentModel}
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <Zap size={10} color="#fff" />
+                </div>
+                <span>{currentProvider} · {currentModel}</span>
               </div>
             )}
-            <button
-              onClick={onOpenSettings}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150"
-              style={{ color: 'var(--text-secondary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)'
-                e.currentTarget.style.color = 'var(--text-primary)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = 'var(--text-secondary)'
-              }}
-            >
-              <Settings size={16} />
-              {t('sidebar.settings')}
-            </button>
+
+            <SidebarButton icon={Settings} label={t('sidebar.settings')} onClick={onOpenSettings} />
           </div>
         </div>
       </motion.aside>
