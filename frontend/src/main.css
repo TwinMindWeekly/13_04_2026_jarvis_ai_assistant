@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
-/* Custom properties */
+/* Custom properties — ChatGPT-faithful palette */
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --bg-main: #212121;
+  --bg-sidebar: #171717;
+  --bg-input: #2f2f2f;
+  --bg-hover: #2f2f2f;
+  --bg-code: #1e1e1e;
+  --text-primary: #ececec;
+  --text-secondary: #b4b4b4;
+  --text-muted: #8e8e8e;
   --accent: #6366f1;
   --accent-hover: #818cf8;
-  --surface: #0f0f23;
-  --surface-2: #1a1a2e;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --border: #424242;
+  --border-light: #353535;
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
@@ -25,8 +27,9 @@
 }
 
 body {
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: var(--surface);
+  font-family: 'Söhne', 'ui-sans-serif', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  background: var(--bg-main);
   color: var(--text-primary);
   min-height: 100vh;
   overflow: hidden;
@@ -47,21 +50,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
+  background: var(--border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
-
-/* Glass morphism utility */
-.glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--glass-shadow);
+  background: var(--text-muted);
 }
 
 /* Animation keyframes */
@@ -95,27 +89,32 @@ body {
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
-  margin-top: 1em;
+  margin-top: 1.25em;
   margin-bottom: 0.5em;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .markdown-content p {
-  margin-bottom: 0.5em;
-  line-height: 1.6;
+  margin-bottom: 0.75em;
+  line-height: 1.75;
+  font-size: 1rem;
+  color: var(--text-primary);
 }
 
 .markdown-content code {
-  background: rgba(99, 102, 241, 0.15);
-  padding: 0.15em 0.4em;
+  background: var(--bg-code);
+  padding: 0.2em 0.45em;
   border-radius: 4px;
-  font-size: 0.9em;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.875em;
+  font-family: 'SFMono-Regular', 'Fira Code', 'Cascadia Code', monospace;
+  color: #e2e8f0;
+  border: 1px solid var(--border-light);
 }
 
 .markdown-content pre {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-code);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1em;
   overflow-x: auto;
@@ -125,15 +124,48 @@ body {
 .markdown-content pre code {
   background: transparent;
   padding: 0;
+  border: none;
+  font-size: 0.875em;
 }
 
 .markdown-content ul,
 .markdown-content ol {
   padding-left: 1.5em;
   margin-bottom: 0.5em;
+  line-height: 1.75;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25em;
 }
 
 .markdown-content a {
   color: var(--accent-hover);
   text-decoration: underline;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--text-secondary);
+  margin: 0.75em 0;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.9em;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.markdown-content th {
+  background: var(--bg-code);
+  font-weight: 600;
 }

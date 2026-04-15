@@ -53,36 +53,36 @@ export default function ActionStep({ action, index }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -8 }}
+      initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.22, delay: index * 0.06, ease: 'easeOut' }}
-      className="rounded-xl overflow-hidden"
+      className="rounded-lg overflow-hidden mt-1.5"
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--bg-main)',
+        border: '1px solid var(--border-light)',
       }}
     >
       <button
         onClick={() => setExpanded((prev) => !prev)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.03]"
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150"
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
       >
         <div
-          className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+          className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
           style={{
-            background: isRunning
-              ? 'rgba(245,158,11,0.12)'
-              : 'rgba(34,197,94,0.1)',
+            background: isRunning ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.1)',
             border: `1px solid ${isRunning ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.2)'}`,
           }}
         >
           <ToolIcon
-            size={13}
+            size={14}
             style={{ color: isRunning ? 'var(--warning)' : 'var(--success)' }}
           />
         </div>
 
         <span
-          className="flex-1 text-sm font-medium truncate"
+          className="flex-1 text-sm truncate"
           style={{ color: 'var(--text-primary)' }}
         >
           {toolLabel}
@@ -91,11 +91,8 @@ export default function ActionStep({ action, index }) {
         <div className="flex items-center gap-2">
           {isRunning ? (
             <span
-              className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
-              style={{
-                background: 'rgba(245,158,11,0.12)',
-                color: 'var(--warning)',
-              }}
+              className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(245,158,11,0.12)', color: 'var(--warning)' }}
             >
               <motion.span
                 animate={{ opacity: [1, 0.3, 1] }}
@@ -106,13 +103,10 @@ export default function ActionStep({ action, index }) {
             </span>
           ) : isCompleted ? (
             <span
-              className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
-              style={{
-                background: 'rgba(34,197,94,0.1)',
-                color: 'var(--success)',
-              }}
+              className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(34,197,94,0.1)', color: 'var(--success)' }}
             >
-              <CheckCircle size={10} />
+              <CheckCircle size={11} />
               {t('actions.completed')}
             </span>
           ) : null}
@@ -121,7 +115,7 @@ export default function ActionStep({ action, index }) {
             animate={{ rotate: expanded ? 90 : 0 }}
             transition={{ duration: 0.18 }}
           >
-            <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
+            <ChevronRight size={13} style={{ color: 'var(--text-muted)' }} />
           </motion.div>
         </div>
       </button>
@@ -137,8 +131,8 @@ export default function ActionStep({ action, index }) {
             style={{ overflow: 'hidden' }}
           >
             <div
-              className="px-3 pb-3 flex flex-col gap-2 border-t"
-              style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+              className="px-3 pb-3 flex flex-col gap-2"
+              style={{ borderTop: '1px solid var(--border-light)' }}
             >
               {isRunning && !inputStr && (
                 <div className="flex flex-col gap-2 pt-2">
@@ -151,7 +145,7 @@ export default function ActionStep({ action, index }) {
               {inputStr && (
                 <div className="pt-2">
                   <p
-                    className="text-[10px] font-semibold uppercase tracking-widest mb-1.5"
+                    className="text-xs font-medium mb-1.5"
                     style={{ color: 'var(--text-muted)' }}
                   >
                     Input
@@ -159,10 +153,10 @@ export default function ActionStep({ action, index }) {
                   <pre
                     className="text-xs rounded-lg p-2.5 overflow-x-auto"
                     style={{
-                      background: 'rgba(0,0,0,0.35)',
-                      border: '1px solid rgba(255,255,255,0.06)',
+                      background: 'var(--bg-code)',
+                      border: '1px solid var(--border-light)',
                       color: 'var(--text-secondary)',
-                      fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+                      fontFamily: "'SFMono-Regular', 'Fira Code', monospace",
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-all',
                     }}
@@ -174,11 +168,7 @@ export default function ActionStep({ action, index }) {
 
               {isRunning && !outputStr && (
                 <div className="flex items-center gap-2 py-1">
-                  <Loader2
-                    size={13}
-                    className="animate-spin"
-                    style={{ color: 'var(--warning)' }}
-                  />
+                  <Loader2 size={12} className="animate-spin" style={{ color: 'var(--warning)' }} />
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Executing...
                   </span>
@@ -188,7 +178,7 @@ export default function ActionStep({ action, index }) {
               {outputStr && (
                 <div>
                   <p
-                    className="text-[10px] font-semibold uppercase tracking-widest mb-1.5"
+                    className="text-xs font-medium mb-1.5"
                     style={{ color: 'var(--text-muted)' }}
                   >
                     Output
@@ -199,7 +189,7 @@ export default function ActionStep({ action, index }) {
                       background: 'rgba(34,197,94,0.04)',
                       border: '1px solid rgba(34,197,94,0.12)',
                       color: 'var(--text-secondary)',
-                      fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+                      fontFamily: "'SFMono-Regular', 'Fira Code', monospace",
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-all',
                     }}

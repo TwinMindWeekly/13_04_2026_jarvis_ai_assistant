@@ -3,13 +3,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Zap } from 'lucide-react'
 
-const bubbleVariants = {
-  hidden: { opacity: 0, y: 12, scale: 0.97 },
+const messageVariants = {
+  hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] },
   },
 }
 
@@ -24,92 +23,92 @@ function StreamingCursor() {
   )
 }
 
+function UserAvatar() {
+  return (
+    <div
+      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+      style={{
+        background: '#565869',
+        color: '#ececec',
+      }}
+    >
+      U
+    </div>
+  )
+}
+
+function AssistantAvatar() {
+  return (
+    <div
+      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+      style={{
+        background: 'var(--accent)',
+        color: '#fff',
+      }}
+    >
+      <Zap size={15} />
+    </div>
+  )
+}
+
 export default function MessageBubble({ message, isStreaming = false }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
+  const label = isUser ? 'You' : 'JARVIS'
 
   return (
     <motion.div
-      variants={bubbleVariants}
+      variants={messageVariants}
       initial="hidden"
       animate="visible"
-      className={`flex gap-3 w-full ${isUser ? 'justify-end' : 'justify-start'}`}
+      className="flex gap-4 w-full py-5 px-4"
+      style={{
+        borderBottom: '1px solid var(--border-light)',
+      }}
     >
-      {!isUser && (
-        <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1"
-          style={{
-            background: 'rgba(99,102,241,0.15)',
-            border: '1px solid rgba(99,102,241,0.35)',
-          }}
-        >
-          <Zap size={13} style={{ color: 'var(--accent)' }} />
-        </div>
-      )}
+      {isUser ? <UserAvatar /> : <AssistantAvatar />}
 
-      <div className={`flex flex-col gap-1.5 max-w-[78%] ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <span
+          className="text-sm font-semibold"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          {label}
+        </span>
+
         {actionCount > 0 && (
           <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium w-fit mb-1"
             style={{
               background: 'rgba(99,102,241,0.12)',
               border: '1px solid rgba(99,102,241,0.25)',
               color: 'var(--accent-hover)',
             }}
           >
-            <Zap size={10} />
+            <Zap size={11} />
             Used {actionCount} tool{actionCount !== 1 ? 's' : ''}
           </div>
         )}
 
-        <div
-          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-            isUser
-              ? 'rounded-tr-sm'
-              : 'rounded-tl-sm'
-          }`}
-          style={
-            isUser
-              ? {
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  boxShadow: '0 4px 24px rgba(99,102,241,0.3)',
-                }
-              : {
-                  background: 'var(--glass-bg)',
-                  border: '1px solid var(--glass-border)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  color: 'var(--text-primary)',
-                  boxShadow: 'var(--glass-shadow)',
-                }
-          }
-        >
-          {isUser ? (
-            <span className="whitespace-pre-wrap break-words">{message.content}</span>
-          ) : (
-            <div className="markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.content}
-              </ReactMarkdown>
-              {isStreaming && <StreamingCursor />}
-            </div>
-          )}
-        </div>
+        {isUser ? (
+          <p
+            className="text-base leading-7 whitespace-pre-wrap break-words"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {message.content}
+          </p>
+        ) : (
+          <div
+            className="markdown-content text-base leading-7"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+            {isStreaming && <StreamingCursor />}
+          </div>
+        )}
       </div>
-
-      {isUser && (
-        <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1 text-xs font-bold"
-          style={{
-            background: 'rgba(148,163,184,0.1)',
-            border: '1px solid rgba(148,163,184,0.2)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          U
-        </div>
-      )}
     </motion.div>
   )
 }

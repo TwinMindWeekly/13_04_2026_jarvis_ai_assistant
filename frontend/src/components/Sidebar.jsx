@@ -1,10 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Plus, Settings, MessageSquare, X } from 'lucide-react'
+import { SquarePen, Settings, MessageSquare, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const SIDEBAR_WIDTH = 260
 
-export default function Sidebar({ isOpen, onToggle, onNewChat, onOpenSettings }) {
+export default function Sidebar({
+  isOpen,
+  onToggle,
+  onNewChat,
+  onOpenSettings,
+  currentProvider,
+  currentModel,
+}) {
   const { t } = useTranslation()
 
   return (
@@ -15,7 +22,7 @@ export default function Sidebar({ isOpen, onToggle, onNewChat, onOpenSettings })
           <motion.div
             key="overlay"
             className="fixed inset-0 z-20 lg:hidden"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+            style={{ background: 'rgba(0,0,0,0.6)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -28,123 +35,111 @@ export default function Sidebar({ isOpen, onToggle, onNewChat, onOpenSettings })
       <motion.aside
         initial={false}
         animate={{ width: isOpen ? SIDEBAR_WIDTH : 0 }}
-        transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="relative flex-shrink-0 h-full overflow-hidden z-30 lg:relative lg:z-auto"
-        style={{
-          position: undefined,
-        }}
       >
         <div
           className="absolute inset-0 flex flex-col"
           style={{
             width: SIDEBAR_WIDTH,
-            background: 'var(--glass-bg)',
-            borderRight: '1px solid var(--glass-border)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: 'var(--bg-sidebar)',
+            borderRight: '1px solid var(--border-light)',
           }}
         >
-          {/* Logo / Title */}
-          <div
-            className="flex items-center gap-3 px-5 py-5"
-            style={{ borderBottom: '1px solid var(--glass-border)' }}
-          >
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.6) 0%, rgba(99,102,241,0.2) 100%)',
-                border: '1px solid rgba(99,102,241,0.4)',
-                boxShadow: '0 0 16px rgba(99,102,241,0.25)',
+          {/* Top: New Chat button */}
+          <div className="flex items-center gap-2 px-3 pt-4 pb-2">
+            <button
+              onClick={onNewChat}
+              className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150"
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
               }}
             >
-              <Bot size={16} style={{ color: '#c7d2fe' }} />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span
-                className="text-sm font-bold tracking-tight truncate"
-                style={{ color: 'var(--text-primary)' }}
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--accent)' }}
               >
-                JARVIS
-              </span>
-              <span
-                className="text-[10px] truncate"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                AI Assistant
-              </span>
-            </div>
+                <Zap size={14} color="#fff" />
+              </div>
+              <span className="font-semibold">JARVIS</span>
+            </button>
+
+            <button
+              onClick={onNewChat}
+              className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150"
+              style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)'
+                e.currentTarget.style.color = 'var(--text-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--text-secondary)'
+              }}
+              aria-label={t('sidebar.newChat')}
+              title={t('sidebar.newChat')}
+            >
+              <SquarePen size={17} />
+            </button>
 
             <button
               onClick={onToggle}
-              className="ml-auto lg:hidden flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
-              aria-label="Close sidebar"
-            >
-              <X size={14} style={{ color: 'var(--text-secondary)' }} />
-            </button>
-          </div>
-
-          {/* New Chat button */}
-          <div className="px-4 pt-4">
-            <button
-              onClick={onNewChat}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group"
-              style={{
-                background: 'rgba(99,102,241,0.12)',
-                border: '1px solid rgba(99,102,241,0.25)',
-                color: 'var(--text-primary)',
-              }}
+              className="flex-shrink-0 w-9 h-9 rounded-lg lg:hidden flex items-center justify-center transition-colors duration-150"
+              style={{ color: 'var(--text-secondary)' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(99,102,241,0.22)'
-                e.currentTarget.style.borderColor = 'rgba(99,102,241,0.45)'
+                e.currentTarget.style.background = 'var(--bg-hover)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(99,102,241,0.12)'
-                e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)'
+                e.currentTarget.style.background = 'transparent'
               }}
+              aria-label="Close sidebar"
             >
-              <Plus size={15} style={{ color: 'var(--accent)' }} />
-              {t('sidebar.newChat')}
+              <X size={16} />
             </button>
           </div>
 
           {/* Chat history section */}
-          <div className="flex-1 px-4 py-4 overflow-y-auto">
+          <div className="flex-1 px-2 py-2 overflow-y-auto">
             <p
-              className="text-[10px] font-semibold uppercase tracking-widest mb-3 px-1"
+              className="text-xs font-medium px-3 py-2"
               style={{ color: 'var(--text-muted)' }}
             >
               {t('sidebar.history')}
             </p>
-            <div
-              className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl"
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px dashed rgba(255,255,255,0.08)',
-              }}
-            >
-              <MessageSquare size={20} style={{ color: 'var(--text-muted)' }} />
+            <div className="flex flex-col items-center justify-center gap-2 py-10">
+              <MessageSquare size={18} style={{ color: 'var(--text-muted)' }} />
               <span
                 className="text-xs text-center"
                 style={{ color: 'var(--text-muted)' }}
               >
-                Chat history coming soon
+                No conversations yet
               </span>
             </div>
           </div>
 
-          {/* Settings button at bottom */}
+          {/* Bottom: provider info + settings */}
           <div
-            className="px-4 pb-5 pt-3"
-            style={{ borderTop: '1px solid var(--glass-border)' }}
+            className="px-2 pb-3 pt-2"
+            style={{ borderTop: '1px solid var(--border-light)' }}
           >
+            {currentProvider && currentModel && (
+              <div
+                className="px-3 py-2 mb-1 rounded-lg text-xs"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {currentProvider} · {currentModel}
+              </div>
+            )}
             <button
               onClick={onOpenSettings}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all duration-150"
-              style={{
-                color: 'var(--text-secondary)',
-              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150"
+              style={{ color: 'var(--text-secondary)' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                e.currentTarget.style.background = 'var(--bg-hover)'
                 e.currentTarget.style.color = 'var(--text-primary)'
               }}
               onMouseLeave={(e) => {
@@ -152,7 +147,7 @@ export default function Sidebar({ isOpen, onToggle, onNewChat, onOpenSettings })
                 e.currentTarget.style.color = 'var(--text-secondary)'
               }}
             >
-              <Settings size={15} />
+              <Settings size={16} />
               {t('sidebar.settings')}
             </button>
           </div>

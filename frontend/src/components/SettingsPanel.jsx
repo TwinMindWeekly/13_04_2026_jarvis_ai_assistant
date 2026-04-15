@@ -20,8 +20,8 @@ function SelectField({ label, value, onChange, options }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label
-        className="text-xs font-semibold uppercase tracking-widest"
-        style={{ color: 'var(--text-muted)' }}
+        className="text-sm font-medium"
+        style={{ color: 'var(--text-secondary)' }}
       >
         {label}
       </label>
@@ -29,25 +29,25 @@ function SelectField({ label, value, onChange, options }) {
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none text-sm px-3 py-2.5 rounded-xl outline-none transition-all duration-150"
+          className="w-full appearance-none text-base px-4 py-3 rounded-xl outline-none transition-colors duration-150"
           style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid var(--glass-border)',
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border)',
             color: 'var(--text-primary)',
             cursor: 'pointer',
           }}
           onFocus={(e) => {
-            e.target.style.borderColor = 'rgba(99,102,241,0.5)'
+            e.target.style.borderColor = 'var(--accent)'
           }}
           onBlur={(e) => {
-            e.target.style.borderColor = 'var(--glass-border)'
+            e.target.style.borderColor = 'var(--border)'
           }}
         >
           {options.map((opt) => (
             <option
               key={opt.value}
               value={opt.value}
-              style={{ background: 'var(--surface-2)', color: 'var(--text-primary)' }}
+              style={{ background: '#2f2f2f', color: 'var(--text-primary)' }}
             >
               {opt.label}
             </option>
@@ -119,7 +119,10 @@ export default function SettingsPanel({
   }
 
   const availableProviders = providers.length > 0
-    ? providers.map((p) => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))
+    ? providers.map((p) => {
+        const name = typeof p === 'string' ? p : p.name
+        return { value: name, label: name.charAt(0).toUpperCase() + name.slice(1) }
+      })
     : Object.keys(PROVIDER_MODELS).map((p) => ({
         value: p,
         label: p.charAt(0).toUpperCase() + p.slice(1),
@@ -158,21 +161,19 @@ export default function SettingsPanel({
             <motion.div
               className="w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
               style={{
-                background: 'rgba(26,26,46,0.95)',
-                border: '1px solid var(--glass-border)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+                background: '#2f2f2f',
+                border: '1px solid var(--border)',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
               }}
-              initial={{ scale: 0.93, y: 16 }}
+              initial={{ scale: 0.94, y: 14 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.93, y: 16 }}
+              exit={{ scale: 0.94, y: 14 }}
               transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               {/* Header */}
               <div
                 className="flex items-center px-6 py-4"
-                style={{ borderBottom: '1px solid var(--glass-border)' }}
+                style={{ borderBottom: '1px solid var(--border)' }}
               >
                 <h2
                   className="text-base font-semibold flex-1"
@@ -182,16 +183,24 @@ export default function SettingsPanel({
                 </h2>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-150"
+                  style={{ color: 'var(--text-secondary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-hover)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }}
                   aria-label="Close settings"
                 >
-                  <X size={16} style={{ color: 'var(--text-secondary)' }} />
+                  <X size={16} />
                 </button>
               </div>
 
               {/* Body */}
               <div className="px-6 py-5 flex flex-col gap-5">
-                {/* Provider */}
                 <SelectField
                   label={t('settings.provider')}
                   value={localProvider}
@@ -199,7 +208,6 @@ export default function SettingsPanel({
                   options={availableProviders}
                 />
 
-                {/* Model */}
                 <SelectField
                   label={t('settings.model')}
                   value={localModel}
@@ -210,8 +218,8 @@ export default function SettingsPanel({
                 {/* Language toggle */}
                 <div className="flex flex-col gap-1.5">
                   <label
-                    className="text-xs font-semibold uppercase tracking-widest"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--text-secondary)' }}
                   >
                     {t('settings.language')}
                   </label>
@@ -220,17 +228,17 @@ export default function SettingsPanel({
                       <button
                         key={lang.code}
                         onClick={() => setLocalLanguage(lang.code)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
                         style={
                           localLanguage === lang.code
                             ? {
                                 background: 'rgba(99,102,241,0.2)',
-                                border: '1px solid rgba(99,102,241,0.45)',
+                                border: '1px solid var(--accent)',
                                 color: 'var(--accent-hover)',
                               }
                             : {
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid var(--glass-border)',
+                                background: 'var(--bg-input)',
+                                border: '1px solid var(--border)',
                                 color: 'var(--text-secondary)',
                               }
                         }
@@ -247,20 +255,20 @@ export default function SettingsPanel({
                   <button
                     onClick={handleTestConnection}
                     disabled={testStatus === 'testing'}
-                    className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid var(--glass-border)',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border)',
                       color: 'var(--text-secondary)',
                     }}
                     onMouseEnter={(e) => {
                       if (testStatus !== 'testing') {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                        e.currentTarget.style.borderColor = 'var(--text-muted)'
                         e.currentTarget.style.color = 'var(--text-primary)'
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+                      e.currentTarget.style.borderColor = 'var(--border)'
                       e.currentTarget.style.color = 'var(--text-secondary)'
                     }}
                   >
@@ -279,7 +287,7 @@ export default function SettingsPanel({
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.18 }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm overflow-hidden"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm overflow-hidden"
                         style={
                           testStatus === 'success'
                             ? {
@@ -309,23 +317,28 @@ export default function SettingsPanel({
               {/* Footer */}
               <div
                 className="flex items-center justify-end gap-2 px-6 py-4"
-                style={{ borderTop: '1px solid var(--glass-border)' }}
+                style={{ borderTop: '1px solid var(--border)' }}
               >
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-sm transition-colors hover:bg-white/10"
+                  className="px-5 py-2 rounded-lg text-sm transition-colors duration-150"
                   style={{ color: 'var(--text-secondary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-hover)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
+                  }}
                 >
                   Cancel
                 </button>
                 <motion.button
                   onClick={handleSave}
-                  className="px-5 py-2 rounded-xl text-sm font-medium text-white transition-all duration-150"
-                  style={{
-                    background: 'var(--accent)',
-                    boxShadow: '0 4px 16px rgba(99,102,241,0.3)',
-                  }}
-                  whileHover={{ boxShadow: '0 4px 24px rgba(99,102,241,0.5)' }}
+                  className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-colors duration-150"
+                  style={{ background: 'var(--accent)' }}
+                  whileHover={{ background: 'var(--accent-hover)' }}
                   whileTap={{ scale: 0.97 }}
                 >
                   Save

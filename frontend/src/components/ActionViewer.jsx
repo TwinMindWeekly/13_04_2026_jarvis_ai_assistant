@@ -19,40 +19,38 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="rounded-2xl overflow-hidden mx-1"
+      className="rounded-xl overflow-hidden"
       style={{
-        background: 'rgba(99,102,241,0.05)',
-        border: '1px solid rgba(99,102,241,0.18)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+        background: 'var(--bg-input)',
+        border: '1px solid var(--border)',
       }}
     >
       {/* Header */}
       <button
         onClick={() => setCollapsed((prev) => !prev)}
-        className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-colors duration-150 hover:bg-white/[0.03]"
+        className="w-full flex items-center gap-2.5 px-4 py-3 transition-colors duration-150"
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
       >
         <div
-          className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-          style={{
-            background: 'rgba(99,102,241,0.18)',
-          }}
+          className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(99,102,241,0.18)' }}
         >
-          <Cpu size={11} style={{ color: 'var(--accent)' }} />
+          <Cpu size={13} style={{ color: 'var(--accent)' }} />
         </div>
 
         <span
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: 'var(--accent)' }}
+          className="text-sm font-medium"
+          style={{ color: 'var(--accent-hover)' }}
         >
           {t('actions.title')}
         </span>
 
         {hasActions && (
           <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+            className="text-xs font-semibold px-2 py-0.5 rounded-full"
             style={{
-              background: 'rgba(99,102,241,0.2)',
+              background: 'rgba(99,102,241,0.15)',
               color: 'var(--accent-hover)',
             }}
           >
@@ -65,7 +63,7 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
             animate={{ rotate: collapsed ? -90 : 0 }}
             transition={{ duration: 0.18 }}
           >
-            <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+            <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
           </motion.div>
         </div>
       </button>
@@ -80,17 +78,17 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="px-3 pb-3 flex flex-col gap-1.5">
+            <div
+              className="px-3 pb-3 flex flex-col gap-1.5"
+              style={{ borderTop: '1px solid var(--border-light)' }}
+            >
               {isLoading && !hasActions && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="flex items-center gap-2.5 px-3 py-2.5"
                 >
-                  <span
-                    className="text-sm"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                     {t('chat.thinking')}
                   </span>
                   <span className="loading-dots flex gap-1">
