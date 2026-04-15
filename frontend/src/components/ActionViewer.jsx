@@ -19,46 +19,49 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="rounded-xl overflow-hidden"
-      style={{
-        background: 'var(--bg-input)',
-        border: '1px solid var(--border)',
-      }}
+      className="action-card"
     >
       {/* Header */}
       <button
         onClick={() => setCollapsed((prev) => !prev)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 transition-colors duration-150"
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+        className="action-card-header"
+        aria-expanded={!collapsed}
       >
         <div
-          className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(99,102,241,0.18)' }}
+          className="d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+          style={{
+            width: 24,
+            height: 24,
+            background: 'rgba(99,102,241,0.18)',
+          }}
         >
           <Cpu size={13} style={{ color: 'var(--accent)' }} />
         </div>
 
         <span
-          className="text-sm font-medium"
-          style={{ color: 'var(--accent-hover)' }}
+          className="fw-medium"
+          style={{ fontSize: '0.875rem', color: 'var(--accent-hover)' }}
         >
           {t('actions.title')}
         </span>
 
         {hasActions && (
           <span
-            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            className="fw-semibold px-2"
             style={{
+              fontSize: '0.75rem',
+              borderRadius: 999,
               background: 'rgba(99,102,241,0.15)',
               color: 'var(--accent-hover)',
+              paddingTop: 2,
+              paddingBottom: 2,
             }}
           >
             {actions.length}
           </span>
         )}
 
-        <div className="ml-auto">
+        <div className="ms-auto">
           <motion.div
             animate={{ rotate: collapsed ? -90 : 0 }}
             transition={{ duration: 0.18 }}
@@ -79,24 +82,34 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
             style={{ overflow: 'hidden' }}
           >
             <div
-              className="px-3 pb-3 flex flex-col gap-1.5"
-              style={{ borderTop: '1px solid var(--border-light)' }}
+              className="px-3 pb-3 d-flex flex-column"
+              style={{
+                gap: 6,
+                borderTop: '1px solid var(--border-light)',
+              }}
             >
               {isLoading && !hasActions && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center gap-2.5 px-3 py-2.5"
+                  className="d-flex align-items-center gap-2 px-3 py-2"
                 >
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <span
+                    style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}
+                  >
                     {t('chat.thinking')}
                   </span>
-                  <span className="loading-dots flex gap-1">
+                  <span className="loading-dots d-flex gap-1">
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ background: 'var(--accent)', display: 'inline-block' }}
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: 'var(--accent)',
+                          display: 'inline-block',
+                        }}
                       />
                     ))}
                   </span>
@@ -104,7 +117,11 @@ export default function ActionViewer({ actions = [], isLoading = false }) {
               )}
 
               {actions.map((action, idx) => (
-                <ActionStep key={`${action.tool}-${idx}`} action={action} index={idx} />
+                <ActionStep
+                  key={`${action.tool}-${idx}`}
+                  action={action}
+                  index={idx}
+                />
               ))}
             </div>
           </motion.div>

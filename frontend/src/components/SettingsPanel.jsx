@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle, XCircle, Loader2, Wifi } from 'lucide-react'
+import Modal from 'react-bootstrap/Modal'
+import Form from 'react-bootstrap/Form'
+import Button from 'react-bootstrap/Button'
+import { CheckCircle, XCircle, Loader2, Wifi } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { chatAPI } from '../services/api'
 
@@ -16,54 +19,6 @@ const LANGUAGES = [
   { code: 'vi', label: 'VI', full: 'Tiếng Việt' },
 ]
 
-function SelectField({ label, value, onChange, options }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label
-        className="text-sm font-medium"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        {label}
-      </label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none text-base px-4 py-3 rounded-xl outline-none transition-colors duration-150"
-          style={{
-            background: 'var(--bg-input)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = 'var(--accent)'
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = 'var(--border)'
-          }}
-        >
-          {options.map((opt) => (
-            <option
-              key={opt.value}
-              value={opt.value}
-              style={{ background: '#2f2f2f', color: 'var(--text-primary)' }}
-            >
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <span
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          ▾
-        </span>
-      </div>
-    </div>
-  )
-}
-
 export default function SettingsPanel({
   isOpen,
   onClose,
@@ -76,10 +31,9 @@ export default function SettingsPanel({
   const [localProvider, setLocalProvider] = useState(settings?.provider ?? 'openai')
   const [localModel, setLocalModel] = useState(settings?.model ?? 'gpt-4o')
   const [localLanguage, setLocalLanguage] = useState(settings?.language ?? 'en')
-  const [testStatus, setTestStatus] = useState(null) // null | 'testing' | 'success' | 'failed'
+  const [testStatus, setTestStatus] = useState(null)
   const [testMessage, setTestMessage] = useState('')
 
-  // Sync from props when panel opens
   useEffect(() => {
     if (isOpen && settings) {
       setLocalProvider(settings.provider)
@@ -90,7 +44,6 @@ export default function SettingsPanel({
     }
   }, [isOpen, settings])
 
-  // When provider changes, reset model to first available
   const handleProviderChange = (newProvider) => {
     setLocalProvider(newProvider)
     const models = PROVIDER_MODELS[newProvider] ?? []
@@ -118,15 +71,16 @@ export default function SettingsPanel({
     }
   }
 
-  const availableProviders = providers.length > 0
-    ? providers.map((p) => {
-        const name = typeof p === 'string' ? p : p.name
-        return { value: name, label: name.charAt(0).toUpperCase() + name.slice(1) }
-      })
-    : Object.keys(PROVIDER_MODELS).map((p) => ({
-        value: p,
-        label: p.charAt(0).toUpperCase() + p.slice(1),
-      }))
+  const availableProviders =
+    providers.length > 0
+      ? providers.map((p) => {
+          const name = typeof p === 'string' ? p : p.name
+          return { value: name, label: name.charAt(0).toUpperCase() + name.slice(1) }
+        })
+      : Object.keys(PROVIDER_MODELS).map((p) => ({
+          value: p,
+          label: p.charAt(0).toUpperCase() + p.slice(1),
+        }))
 
   const availableModels = (PROVIDER_MODELS[localProvider] ?? []).map((m) => ({
     value: m,
@@ -134,220 +88,134 @@ export default function SettingsPanel({
   }))
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            className="fixed inset-0 z-40"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-          />
+    <Modal
+      show={isOpen}
+      onHide={onClose}
+      centered
+      className="settings-modal"
+      data-bs-theme="dark"
+    >
+      <Modal.Header closeButton>
+        <Modal.Title
+          as="h2"
+          style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}
+        >
+          {t('settings.title')}
+        </Modal.Title>
+      </Modal.Header>
 
-          {/* Panel */}
-          <motion.div
-            key="panel"
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+      <Modal.Body className="d-flex flex-column gap-4 px-4 py-4">
+        {/* Provider */}
+        <Form.Group>
+          <Form.Label>{t('settings.provider')}</Form.Label>
+          <Form.Select
+            value={localProvider}
+            onChange={(e) => handleProviderChange(e.target.value)}
           >
-            <motion.div
-              className="w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
-              style={{
-                background: '#2f2f2f',
-                border: '1px solid var(--border)',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
-              }}
-              initial={{ scale: 0.94, y: 14 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.94, y: 14 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              {/* Header */}
-              <div
-                className="flex items-center px-6 py-4"
-                style={{ borderBottom: '1px solid var(--border)' }}
+            {availableProviders.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+
+        {/* Model */}
+        <Form.Group>
+          <Form.Label>{t('settings.model')}</Form.Label>
+          <Form.Select
+            value={localModel}
+            onChange={(e) => setLocalModel(e.target.value)}
+          >
+            {availableModels.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+
+        {/* Language toggle */}
+        <Form.Group>
+          <Form.Label>{t('settings.language')}</Form.Label>
+          <div className="d-flex gap-2">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setLocalLanguage(lang.code)}
+                className={`lang-btn${localLanguage === lang.code ? ' active' : ''}`}
               >
-                <h2
-                  className="text-base font-semibold flex-1"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {t('settings.title')}
-                </h2>
-                <button
-                  onClick={onClose}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-150"
-                  style={{ color: 'var(--text-secondary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-hover)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = 'var(--text-secondary)'
-                  }}
-                  aria-label="Close settings"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+                <span style={{ fontWeight: 700 }}>{lang.label}</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{lang.full}</span>
+              </button>
+            ))}
+          </div>
+        </Form.Group>
 
-              {/* Body */}
-              <div className="px-6 py-5 flex flex-col gap-5">
-                <SelectField
-                  label={t('settings.provider')}
-                  value={localProvider}
-                  onChange={handleProviderChange}
-                  options={availableProviders}
-                />
+        {/* Test connection */}
+        <Form.Group className="d-flex flex-column gap-2">
+          <Button
+            variant="outline-secondary"
+            onClick={handleTestConnection}
+            disabled={testStatus === 'testing'}
+            className="d-flex align-items-center justify-content-center gap-2 w-100"
+            style={{ padding: '10px 16px' }}
+          >
+            {testStatus === 'testing' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Wifi size={14} />
+            )}
+            {testStatus === 'testing' ? t('settings.testing') : t('settings.test')}
+          </Button>
 
-                <SelectField
-                  label={t('settings.model')}
-                  value={localModel}
-                  onChange={setLocalModel}
-                  options={availableModels}
-                />
-
-                {/* Language toggle */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {t('settings.language')}
-                  </label>
-                  <div className="flex gap-2">
-                    {LANGUAGES.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => setLocalLanguage(lang.code)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
-                        style={
-                          localLanguage === lang.code
-                            ? {
-                                background: 'rgba(99,102,241,0.2)',
-                                border: '1px solid var(--accent)',
-                                color: 'var(--accent-hover)',
-                              }
-                            : {
-                                background: 'var(--bg-input)',
-                                border: '1px solid var(--border)',
-                                color: 'var(--text-secondary)',
-                              }
-                        }
-                      >
-                        <span className="font-bold">{lang.label}</span>
-                        <span className="text-xs opacity-70">{lang.full}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Test Connection */}
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={handleTestConnection}
-                    disabled={testStatus === 'testing'}
-                    className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{
-                      background: 'var(--bg-input)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-secondary)',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (testStatus !== 'testing') {
-                        e.currentTarget.style.borderColor = 'var(--text-muted)'
-                        e.currentTarget.style.color = 'var(--text-primary)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border)'
-                      e.currentTarget.style.color = 'var(--text-secondary)'
-                    }}
-                  >
-                    {testStatus === 'testing' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Wifi size={14} />
-                    )}
-                    {testStatus === 'testing' ? t('settings.testing') : t('settings.test')}
-                  </button>
-
-                  <AnimatePresence>
-                    {testStatus && testStatus !== 'testing' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.18 }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm overflow-hidden"
-                        style={
-                          testStatus === 'success'
-                            ? {
-                                background: 'rgba(34,197,94,0.08)',
-                                border: '1px solid rgba(34,197,94,0.2)',
-                                color: 'var(--success)',
-                              }
-                            : {
-                                background: 'rgba(239,68,68,0.08)',
-                                border: '1px solid rgba(239,68,68,0.2)',
-                                color: 'var(--error)',
-                              }
-                        }
-                      >
-                        {testStatus === 'success' ? (
-                          <CheckCircle size={14} className="flex-shrink-0" />
-                        ) : (
-                          <XCircle size={14} className="flex-shrink-0" />
-                        )}
-                        <span className="truncate">{testMessage}</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div
-                className="flex items-center justify-end gap-2 px-6 py-4"
-                style={{ borderTop: '1px solid var(--border)' }}
+          <AnimatePresence>
+            {testStatus && testStatus !== 'testing' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.18 }}
+                style={{ overflow: 'hidden' }}
               >
-                <button
-                  onClick={onClose}
-                  className="px-5 py-2 rounded-lg text-sm transition-colors duration-150"
-                  style={{ color: 'var(--text-secondary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-hover)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = 'var(--text-secondary)'
-                  }}
+                <div
+                  className={`test-result${testStatus === 'success' ? ' success' : ' failed'}`}
                 >
-                  Cancel
-                </button>
-                <motion.button
-                  onClick={handleSave}
-                  className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-colors duration-150"
-                  style={{ background: 'var(--accent)' }}
-                  whileHover={{ background: 'var(--accent-hover)' }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  Save
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                  {testStatus === 'success' ? (
+                    <CheckCircle size={14} style={{ flexShrink: 0 }} />
+                  ) : (
+                    <XCircle size={14} style={{ flexShrink: 0 }} />
+                  )}
+                  <span className="text-truncate">{testMessage}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Form.Group>
+      </Modal.Body>
+
+      <Modal.Footer className="d-flex justify-content-end gap-2 px-4 py-3">
+        <button
+          onClick={onClose}
+          className="sidebar-nav-item"
+          style={{ width: 'auto', padding: '8px 20px' }}
+        >
+          Cancel
+        </button>
+        <motion.button
+          onClick={handleSave}
+          className="px-4 py-2 rounded-2 fw-medium text-white border-0"
+          style={{
+            background: 'var(--accent)',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+          }}
+          whileHover={{ background: 'var(--accent-hover)' }}
+          whileTap={{ scale: 0.97 }}
+        >
+          Save
+        </motion.button>
+      </Modal.Footer>
+    </Modal>
   )
 }

@@ -56,10 +56,7 @@ export default function App() {
   }
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: 'var(--bg-main)' }}
-    >
+    <div className="d-flex" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
@@ -69,49 +66,30 @@ export default function App() {
         currentModel={settings.model}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Minimal header like ChatGPT */}
-        <header
-          className="flex-shrink-0 flex items-center h-12 px-3"
-          style={{ background: 'var(--bg-main)' }}
-        >
-          {/* Sidebar toggle */}
+      <main className="chat-main">
+        {/* Minimal header */}
+        <header className="chat-header">
+          {/* Sidebar toggle — only when sidebar is closed */}
           {!sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-              }}
+              className="sidebar-icon-btn"
               aria-label="Open sidebar"
             >
               <PanelLeft size={20} />
             </button>
           )}
 
-          {/* App title — center */}
-          <div className="flex-1 flex items-center justify-center">
-            <button
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-semibold transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-              }}
-            >
+          {/* App title — centered */}
+          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+            <button className="chat-header-title-btn">
               JARVIS
               <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
             </button>
           </div>
 
           {/* Spacer to balance sidebar toggle */}
-          <div className="w-10" />
+          <div style={{ width: 40 }} />
         </header>
 
         <ChatArea

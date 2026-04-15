@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle, Zap } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
@@ -56,34 +56,19 @@ export default function ChatArea({
   const showActions = actions.length > 0 || (isLoading && !showStreaming)
   const isEmpty = messages.length === 0 && !showStreaming && !showActions
 
-  /* Shared input bar component */
+  /* Shared input bar — col-lg-8 col-xl-7 for readable width */
   const inputBar = (
-    <div className="w-full max-w-3xl mx-auto px-4">
+    <div className="col-12 col-lg-8 col-xl-7 mx-auto px-3">
       <div
-        className="flex items-end gap-3 px-4 py-3 rounded-3xl transition-colors duration-150"
-        style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
-        }}
-        onFocusCapture={(e) => {
+        className="chat-input-wrapper"
+        onFocus={(e) => {
           e.currentTarget.style.borderColor = '#555'
         }}
-        onBlurCapture={(e) => {
+        onBlur={(e) => {
           e.currentTarget.style.borderColor = 'var(--border)'
         }}
       >
-        {/* Plus button */}
-        <button
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-          }}
-          aria-label="Attach"
-        >
+        <button className="attach-btn" aria-label="Attach">
           <Plus size={20} />
         </button>
 
@@ -95,14 +80,7 @@ export default function ChatArea({
           placeholder={t('chat.placeholder')}
           rows={1}
           disabled={isLoading}
-          className="flex-1 bg-transparent resize-none text-base outline-none leading-7 disabled:opacity-50"
-          style={{
-            color: 'var(--text-primary)',
-            minHeight: '28px',
-            maxHeight: '168px',
-            overflowY: 'auto',
-            caretColor: 'var(--text-primary)',
-          }}
+          className="chat-textarea"
         />
 
         <AnimatePresence>
@@ -114,11 +92,7 @@ export default function ChatArea({
               exit={{ opacity: 0, scale: 0.7 }}
               transition={{ duration: 0.15 }}
               onClick={handleSend}
-              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{
-                background: 'var(--text-primary)',
-                color: 'var(--bg-main)',
-              }}
+              className="send-btn"
               whileTap={{ scale: 0.9 }}
               aria-label={t('chat.send')}
             >
@@ -132,11 +106,24 @@ export default function ChatArea({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center"
+              style={{
+                flexShrink: 0,
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
               <motion.span
-                className="w-5 h-5 rounded-full border-2"
-                style={{ display: 'block', borderColor: 'var(--text-muted)', borderTopColor: 'transparent' }}
+                style={{
+                  display: 'block',
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  border: '2px solid var(--text-muted)',
+                  borderTopColor: 'transparent',
+                }}
                 animate={{ rotate: 360 }}
                 transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
               />
@@ -146,36 +133,38 @@ export default function ChatArea({
       </div>
 
       <p
-        className="text-center text-xs mt-2.5 pb-1"
-        style={{ color: 'var(--text-muted)' }}
+        className="text-center mt-2 pb-1"
+        style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
       >
         JARVIS can make mistakes. Consider checking important info.
       </p>
     </div>
   )
 
-  /* Empty state — greeting centered with input in the middle */
+  /* Empty state — greeting centered with input */
   if (isEmpty) {
     return (
-      <div
-        className="flex flex-col h-full"
-        style={{ background: 'var(--bg-main)' }}
-      >
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+      <div className="chat-area">
+        <div
+          className="d-flex flex-column align-items-center justify-content-center"
+          style={{ flex: 1, padding: '0 16px' }}
+        >
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="flex flex-col items-center w-full"
+            className="d-flex flex-column align-items-center w-100"
           >
             <h1
-              className="text-2xl font-medium mb-8"
-              style={{ color: 'var(--text-primary)' }}
+              className="fw-medium mb-4"
+              style={{ color: 'var(--text-primary)', fontSize: '1.5rem' }}
             >
-              What's on the agenda today?
+              What&apos;s on the agenda today?
             </h1>
 
-            {inputBar}
+            <div className="w-100 d-flex justify-content-center">
+              {inputBar}
+            </div>
           </motion.div>
         </div>
       </div>
@@ -184,76 +173,68 @@ export default function ChatArea({
 
   /* Chat state — messages scrollable, input at bottom */
   return (
-    <div
-      className="flex flex-col h-full overflow-hidden"
-      style={{ background: 'var(--bg-main)' }}
-    >
-      {/* Message list */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto flex flex-col">
-          <AnimatePresence initial={false}>
-            {messages.map((msg, idx) => (
-              <MessageBubble key={idx} message={msg} isStreaming={false} />
-            ))}
-          </AnimatePresence>
+    <div className="chat-area">
+      {/* Messages — full width scroll */}
+      <div className="messages-scroll">
+        <AnimatePresence initial={false}>
+          {messages.map((msg, idx) => (
+            <MessageBubble key={idx} message={msg} isStreaming={false} />
+          ))}
+        </AnimatePresence>
 
-          <AnimatePresence>
-            {showActions && (
-              <div key="actions" className="px-4 py-3">
-                <ActionViewer
-                  actions={actions}
-                  isLoading={isLoading && !showStreaming}
-                />
-              </div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {showStreaming && (
-              <MessageBubble
-                key="streaming"
-                message={{ role: 'assistant', content: streamingText }}
-                isStreaming
+        <AnimatePresence>
+          {showActions && (
+            <div
+              key="actions"
+              className="px-3 py-3 col-12 col-lg-10 col-xl-9 mx-auto"
+            >
+              <ActionViewer
+                actions={actions}
+                isLoading={isLoading && !showStreaming}
               />
-            )}
-          </AnimatePresence>
+            </div>
+          )}
+        </AnimatePresence>
 
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-start gap-3 mx-4 my-3 px-4 py-3 rounded-xl"
-                style={{
-                  background: 'rgba(239,68,68,0.08)',
-                  border: '1px solid rgba(239,68,68,0.25)',
-                }}
-              >
+        <AnimatePresence>
+          {showStreaming && (
+            <MessageBubble
+              key="streaming"
+              message={{ role: 'assistant', content: streamingText }}
+              isStreaming
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="col-12 col-lg-10 col-xl-9 mx-auto px-3 my-3"
+            >
+              <div className="error-alert">
                 <AlertCircle
                   size={16}
-                  className="flex-shrink-0 mt-0.5"
-                  style={{ color: 'var(--error)' }}
+                  style={{ flexShrink: 0, marginTop: 2, color: 'var(--error)' }}
                 />
-                <p className="text-sm" style={{ color: '#fca5a5' }}>
-                  {error}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <p style={{ margin: 0 }}>{error}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          <div ref={bottomRef} className="h-4" />
-        </div>
+        <div ref={bottomRef} style={{ height: 16 }} />
       </div>
 
       {/* Input area — bottom */}
-      <div
-        className="flex-shrink-0 pb-4 pt-2"
-        style={{ background: 'var(--bg-main)' }}
-      >
-        {inputBar}
+      <div className="chat-input-area">
+        <div className="d-flex justify-content-center w-100">
+          {inputBar}
+        </div>
       </div>
     </div>
   )

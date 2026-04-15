@@ -15,8 +15,15 @@ const messageVariants = {
 function StreamingCursor() {
   return (
     <motion.span
-      className="inline-block w-[2px] h-[1.1em] ml-0.5 rounded-sm align-text-bottom"
-      style={{ background: 'var(--accent)' }}
+      style={{
+        display: 'inline-block',
+        width: 2,
+        height: '1.1em',
+        marginLeft: 2,
+        borderRadius: 2,
+        verticalAlign: 'text-bottom',
+        background: 'var(--accent)',
+      }}
       animate={{ opacity: [1, 0, 1] }}
       transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
     />
@@ -24,28 +31,12 @@ function StreamingCursor() {
 }
 
 function UserAvatar() {
-  return (
-    <div
-      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-      style={{
-        background: '#565869',
-        color: '#ececec',
-      }}
-    >
-      U
-    </div>
-  )
+  return <div className="avatar-user">U</div>
 }
 
 function AssistantAvatar() {
   return (
-    <div
-      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-      style={{
-        background: 'var(--accent)',
-        color: '#fff',
-      }}
-    >
+    <div className="avatar-assistant">
       <Zap size={15} />
     </div>
   )
@@ -61,53 +52,54 @@ export default function MessageBubble({ message, isStreaming = false }) {
       variants={messageVariants}
       initial="hidden"
       animate="visible"
-      className="flex gap-4 w-full py-5 px-4"
-      style={{
-        borderBottom: '1px solid var(--border-light)',
-      }}
+      className="message-row"
     >
-      {isUser ? <UserAvatar /> : <AssistantAvatar />}
+      {/* Inner content — full width with comfortable side padding */}
+      <div
+        className="col-12 col-lg-10 col-xl-9 mx-auto px-3 d-flex gap-3"
+      >
+        {isUser ? <UserAvatar /> : <AssistantAvatar />}
 
-      <div className="flex flex-col gap-1 flex-1 min-w-0">
-        <span
-          className="text-sm font-semibold"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          {label}
-        </span>
+        <div className="d-flex flex-column gap-1 flex-grow-1" style={{ minWidth: 0 }}>
+          <span
+            className="fw-semibold"
+            style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}
+          >
+            {label}
+          </span>
 
-        {actionCount > 0 && (
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium w-fit mb-1"
-            style={{
-              background: 'rgba(99,102,241,0.12)',
-              border: '1px solid rgba(99,102,241,0.25)',
-              color: 'var(--accent-hover)',
-            }}
-          >
-            <Zap size={11} />
-            Used {actionCount} tool{actionCount !== 1 ? 's' : ''}
-          </div>
-        )}
+          {actionCount > 0 && (
+            <div className="tool-used-badge">
+              <Zap size={11} />
+              Used {actionCount} tool{actionCount !== 1 ? 's' : ''}
+            </div>
+          )}
 
-        {isUser ? (
-          <p
-            className="text-base leading-7 whitespace-pre-wrap break-words"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {message.content}
-          </p>
-        ) : (
-          <div
-            className="markdown-content text-base leading-7"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {isUser ? (
+            <p
+              style={{
+                margin: 0,
+                fontSize: '1rem',
+                lineHeight: 1.75,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-words',
+                color: 'var(--text-primary)',
+              }}
+            >
               {message.content}
-            </ReactMarkdown>
-            {isStreaming && <StreamingCursor />}
-          </div>
-        )}
+            </p>
+          ) : (
+            <div
+              className="markdown-content"
+              style={{ fontSize: '1rem', lineHeight: 1.75, color: 'var(--text-primary)' }}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+              {isStreaming && <StreamingCursor />}
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   )
