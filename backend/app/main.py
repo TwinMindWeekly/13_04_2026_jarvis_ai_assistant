@@ -106,6 +106,49 @@ def _check_playwright() -> bool:
         return False
 
 
+def _preload_ollama_model() -> None:
+    """Send a tiny request to Ollama to load the wikilink model into VRAM.
+
+    Ollama keeps a model loaded for its keep_alive duration (default 5m).
+    We set keep_alive=-1 so it stays loaded until we explicitly unload or
+    the Ollama server stops.
+    """
+    if settings.wikilink_provider != "ollama":
+        return
+    model = settings.wikilink_model
+    try:
+        import httpx  # noqa: PLC0415
+        resp = httpx.post(
+            f"{settings.ollama_base_url}/api/generate",
+            json={"model": model, "prompt": "hi", "keep_alive": -1},
+            timeout=120.0,
+        )
+        if resp.status_code == 200:
+            logger.info("Ollama model '%s' preloaded into VRAM (keep_alive=-1)", model)
+        else:
+            logger.warning("Ollama preload returned %d: %s", resp.status_code, resp.text[:200])
+    except Exception as exc:
+        logger.warning("Could not preload Ollama model '%s': %s", model, exc)
+
+
+def _unload_ollama_model() -> None:
+    """Unload the wikilink model from VRAM on app shutdown."""
+    if settings.wikilink_provider != "ollama":
+        return
+    model = settings.wikilink_model
+    try:
+        import httpx  # noqa: PLC0415
+        resp = httpx.post(
+            f"{settings.ollama_base_url}/api/generate",
+            json={"model": model, "prompt": "", "keep_alive": 0},
+            timeout=10.0,
+        )
+        if resp.status_code == 200:
+            logger.info("Ollama model '%s' unloaded from VRAM", model)
+    except Exception as exc:
+        logger.warning("Could not unload Ollama model '%s': %s", model, exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Log startup info and run health checks before serving traffic."""
@@ -136,9 +179,15 @@ async def lifespan(app: FastAPI):
         logger.info("ChromaDB persist dir OK: %s", settings.chroma_persist_dir)
 
     _check_playwright()
+
+    # Preload Ollama wikilink model so first upload doesn't wait for cold start.
+    _preload_ollama_model()
     # ─────────────────────────────────────────────────────────────
 
     yield
+
+    # ── Shutdown: unload Ollama model to free VRAM ──────────────
+    _unload_ollama_model()
 
 
 # ---------------------------------------------------------------------------
