@@ -7,8 +7,8 @@ class AgentExecuteRequest(BaseModel):
     """Request body for POST /api/agent/execute."""
 
     message: str = Field(..., min_length=1, max_length=10000)
-    provider: str = "openai"
-    model: str = "gpt-4o"
+    provider: str = "auto"
+    model: str = ""
     conversation_id: str | None = None
 
 
@@ -29,3 +29,5 @@ class AgentExecuteResponse(BaseModel):
     conversation_id: str
     response: str
     actions: list[ActionStep] = []
+    provider: str = ""
+    model: str = ""

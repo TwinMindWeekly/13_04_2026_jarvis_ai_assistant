@@ -14,7 +14,7 @@ from app.core.exceptions import ProviderNotFoundError, ProviderAuthError
 logger = logging.getLogger(__name__)
 
 
-def _build_llm(provider: str, model: str):
+def _build_llm(provider: str, model: str = ""):
     """Instantiate the correct LangChain chat model for the given provider.
 
     Raises:
@@ -28,7 +28,7 @@ def _build_llm(provider: str, model: str):
             raise ProviderAuthError("openai")
         from langchain_openai import ChatOpenAI  # noqa: PLC0415
         return ChatOpenAI(
-            model=model,
+            model=model or "gpt-4o-mini",
             api_key=settings.openai_api_key,
             temperature=0,
         )
@@ -38,7 +38,7 @@ def _build_llm(provider: str, model: str):
             raise ProviderAuthError("gemini")
         from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
         return ChatGoogleGenerativeAI(
-            model=model,
+            model=model or "gemini-2.5-flash",
             google_api_key=settings.google_api_key,
             temperature=0,
         )
@@ -48,16 +48,37 @@ def _build_llm(provider: str, model: str):
             raise ProviderAuthError("claude")
         from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
         return ChatAnthropic(
-            model=model,
+            model=model or "claude-sonnet-4-5",
             api_key=settings.anthropic_api_key,
             temperature=0,
         )
 
-    if provider == "ollama":
-        # Ollama exposes an OpenAI-compatible REST endpoint — no real API key needed.
+    if provider == "groq":
+        if not settings.groq_api_key:
+            raise ProviderAuthError("groq")
         from langchain_openai import ChatOpenAI  # noqa: PLC0415
         return ChatOpenAI(
-            model=model,
+            model=model or settings.groq_model,
+            base_url="https://api.groq.com/openai/v1",
+            api_key=settings.groq_api_key,
+            temperature=0,
+        )
+
+    if provider == "sambanova":
+        if not settings.sambanova_api_key:
+            raise ProviderAuthError("sambanova")
+        from langchain_openai import ChatOpenAI  # noqa: PLC0415
+        return ChatOpenAI(
+            model=model or settings.sambanova_model,
+            base_url=settings.sambanova_base_url,
+            api_key=settings.sambanova_api_key,
+            temperature=0,
+        )
+
+    if provider == "ollama":
+        from langchain_openai import ChatOpenAI  # noqa: PLC0415
+        return ChatOpenAI(
+            model=model or "huihui_ai/llama3.2-abliterate:3b",
             base_url=settings.ollama_base_url + "/v1",
             api_key="ollama",
             temperature=0,
@@ -66,22 +87,75 @@ def _build_llm(provider: str, model: str):
     raise ProviderNotFoundError(provider)
 
 
+# ---------------------------------------------------------------------------
+# Auto-fallback provider chain
+# ---------------------------------------------------------------------------
+
+# Order: groq (fast+free) → gemini (free tier) → sambanova (free) → openai → claude → ollama
+_FALLBACK_CHAIN: list[tuple[str, str]] = []
+
+
+def _build_fallback_chain() -> list[tuple[str, str]]:
+    """Build the ordered list of (provider, model) to try, based on available keys."""
+    chain: list[tuple[str, str]] = []
+    if settings.groq_api_key:
+        chain.append(("groq", settings.groq_model))
+    if settings.google_api_key:
+        chain.append(("gemini", "gemini-2.5-flash"))
+    if settings.sambanova_api_key:
+        chain.append(("sambanova", settings.sambanova_model))
+    if settings.openai_api_key:
+        chain.append(("openai", "gpt-4o-mini"))
+    if settings.anthropic_api_key:
+        chain.append(("claude", "claude-sonnet-4-5"))
+    # Ollama as last resort (local, always available if server is running)
+    chain.append(("ollama", "huihui_ai/llama3.2-abliterate:3b"))
+    return chain
+
+
+def build_llm_with_fallback(provider: str, model: str):
+    """Build LLM, using auto-fallback chain if provider is 'auto'.
+
+    For non-auto providers, delegates directly to _build_llm.
+    """
+    if provider.lower() != "auto":
+        return _build_llm(provider, model), provider, model
+
+    chain = _build_fallback_chain()
+    errors: list[str] = []
+
+    for prov, mod in chain:
+        try:
+            llm = _build_llm(prov, mod)
+            logger.info("Auto-fallback: using %s / %s", prov, mod)
+            return llm, prov, mod
+        except Exception as exc:
+            errors.append(f"{prov}: {exc}")
+            logger.warning("Auto-fallback: %s failed — %s, trying next...", prov, exc)
+
+    raise ProviderAuthError(
+        f"All providers failed: {'; '.join(errors)}"
+    )
+
+
 def create_agent_brain(
     provider: str,
     model: str,
     tools: list,
-) -> CompiledStateGraph:
+) -> tuple[CompiledStateGraph, str, str]:
     """Build and return a compiled LangGraph ReAct agent.
 
     Args:
-        provider: One of "openai", "gemini", "claude", "ollama".
-        model: Model name understood by the chosen provider.
+        provider: One of "openai", "gemini", "claude", "groq", "sambanova",
+                  "ollama", or "auto" (fallback chain).
+        model: Model name understood by the chosen provider. Empty string
+               for auto-detection.
         tools: List of LangChain-compatible tool objects to bind.
 
     Returns:
-        A compiled LangGraph StateGraph ready for ainvoke / astream_events.
+        Tuple of (compiled StateGraph, actual_provider, actual_model).
     """
-    llm = _build_llm(provider, model)
+    llm, actual_provider, actual_model = build_llm_with_fallback(provider, model)
 
     system_prompt = JARVIS_SYSTEM_PROMPT.format(date=date.today().isoformat())
 
@@ -91,8 +165,8 @@ def create_agent_brain(
         prompt=system_prompt,
     )
 
-    logger.debug("Agent brain created — provider=%s model=%s tools=%d", provider, model, len(tools))
-    return brain
+    logger.debug("Agent brain created — provider=%s model=%s tools=%d", actual_provider, actual_model, len(tools))
+    return brain, actual_provider, actual_model
 
 
 async def run_agent(

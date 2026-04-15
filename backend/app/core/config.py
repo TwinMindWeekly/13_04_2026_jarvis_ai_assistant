@@ -14,10 +14,20 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
     anthropic_api_key: str = ""
+    groq_api_key: str = ""
+    sambanova_api_key: str = ""
 
     # Default provider and model (used for agent chat + tool calling)
-    default_provider: str = "openai"
-    default_model: str = "gpt-4o"
+    # Set to "auto" to enable fallback chain: groq → gemini → sambanova → openai
+    default_provider: str = "auto"
+    default_model: str = ""
+
+    # Groq (free tier: 1000 req/day, Llama 3.3 70B with tool calling)
+    groq_model: str = "llama-3.3-70b-versatile"
+
+    # SambaNova (free tier: Meta-Llama-3.3-70B-Instruct)
+    sambanova_base_url: str = "https://api.sambanova.ai/v1"
+    sambanova_model: str = "Meta-Llama-3.3-70B-Instruct"
 
     # Wikilink generation provider (separate from chat — Ollama local recommended)
     wikilink_provider: str = "ollama"
