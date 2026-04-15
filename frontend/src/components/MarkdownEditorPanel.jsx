@@ -40,7 +40,7 @@ function WikilinkAnchor({ href, children, ...props }) {
  *
  * Loads vault .md content when `selected` node changes.
  */
-export default function MarkdownEditorPanel({ selected, onClose }) {
+export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState('view')
   const [content, setContent] = useState('')
@@ -86,7 +86,7 @@ export default function MarkdownEditorPanel({ selected, onClose }) {
       })
 
     return () => { cancelled = true }
-  }, [selected])
+  }, [selected, refreshKey])
 
   // Focus textarea when switching to edit mode.
   useEffect(() => {

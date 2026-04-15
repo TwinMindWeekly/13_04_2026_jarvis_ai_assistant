@@ -8,7 +8,10 @@
     "send": "Gửi",
     "clear": "Xóa cuộc trò chuyện",
     "thinking": "Đang suy nghĩ...",
-    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "placeholderDoc": "Nhờ AI cải thiện tài liệu này...",
+    "applyToDoc": "Áp dụng vào tài liệu",
+    "applied": "Đã áp dụng"
   },
   "actions": {
     "title": "Hành động",

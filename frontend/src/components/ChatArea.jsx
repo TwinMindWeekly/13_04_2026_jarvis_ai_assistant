@@ -1,10 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle, Mic } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
 import VoiceButton from './VoiceButton'
+import { vaultAPI } from '../services/api'
 
 export default function ChatArea({
   messages = [],
@@ -15,15 +16,21 @@ export default function ChatArea({
   onSendMessage,
   onClear,
   voice = {},
+  selectedDoc = null,
+  onDocApplied,
 }) {
   const { t } = useTranslation()
   const [input, setInput] = useState('')
+  const [appliedIdx, setAppliedIdx] = useState(null)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText, actions])
+
+  // Reset applied state when doc changes.
+  useEffect(() => { setAppliedIdx(null) }, [selectedDoc?.id])
 
   const handleInputChange = useCallback((e) => {
     const el = e.target
@@ -33,15 +40,27 @@ export default function ChatArea({
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
   }, [])
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
-    onSendMessage(trimmed)
+
+    // If a doc is selected, fetch its content and pass as context.
+    let docContext = null
+    if (selectedDoc) {
+      try {
+        const { data } = await vaultAPI.get(selectedDoc.id)
+        docContext = { filename: selectedDoc.label || selectedDoc.filename, content: data.content }
+      } catch {
+        // Send without context if vault fetch fails.
+      }
+    }
+
+    onSendMessage(trimmed, docContext)
     setInput('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [input, isLoading, onSendMessage])
+  }, [input, isLoading, onSendMessage, selectedDoc])
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -53,6 +72,17 @@ export default function ChatArea({
     [handleSend]
   )
 
+  const handleApply = useCallback(async (content, msgIdx) => {
+    if (!selectedDoc) return
+    try {
+      await vaultAPI.save(selectedDoc.id, content)
+      setAppliedIdx(msgIdx)
+      onDocApplied?.()
+    } catch {
+      // silent
+    }
+  }, [selectedDoc, onDocApplied])
+
   const canSend = input.trim().length > 0 && !isLoading
   const showStreaming = streamingText.length > 0
   const showActions = actions.length > 0 || (isLoading && !showStreaming)
@@ -61,6 +91,14 @@ export default function ChatArea({
   /* Shared input bar — centered, max 768px like ChatGPT */
   const inputBar = (
     <div style={{ width: '100%', maxWidth: 768, margin: '0 auto', padding: '0 16px' }}>
+      {/* Doc context badge */}
+      {selectedDoc && (
+        <div className="chat-doc-context-badge">
+          <FileText size={13} />
+          <span>{selectedDoc.label || selectedDoc.filename}</span>
+        </div>
+      )}
+
       {/* Voice transcript preview */}
       {voice.isListening && voice.transcript && (
         <div className="voice-transcript mb-2">
@@ -87,7 +125,11 @@ export default function ChatArea({
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={t('chat.placeholder')}
+          placeholder={
+            selectedDoc
+              ? t('chat.placeholderDoc', 'Ask AI to improve this document...')
+              : t('chat.placeholder')
+          }
           rows={1}
           disabled={isLoading}
           className="chat-textarea"
@@ -196,7 +238,31 @@ export default function ChatArea({
       <div className="messages-scroll">
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => (
-            <MessageBubble key={idx} message={msg} isStreaming={false} />
+            <div key={idx}>
+              <MessageBubble message={msg} isStreaming={false} />
+              {/* Apply button for assistant messages when a doc is open */}
+              {msg.role === 'assistant' && selectedDoc && (
+                <div style={{ maxWidth: 768, margin: '0 auto', padding: '0 24px' }}>
+                  <button
+                    className={`chat-apply-btn ${appliedIdx === idx ? 'applied' : ''}`}
+                    onClick={() => handleApply(msg.content, idx)}
+                    disabled={appliedIdx === idx}
+                  >
+                    {appliedIdx === idx ? (
+                      <>
+                        <Check size={14} />
+                        <span>{t('chat.applied', 'Applied')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText size={14} />
+                        <span>{t('chat.applyToDoc', 'Apply to document')}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </AnimatePresence>
 

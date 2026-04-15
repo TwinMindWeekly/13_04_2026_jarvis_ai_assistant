@@ -561,6 +561,47 @@ select option {
   border-right: 1px solid var(--border);
 }
 
+/* Doc context badge above input */
+.chat-doc-context-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  color: #818cf8;
+}
+
+/* Apply to document button */
+.chat-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  color: #818cf8;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: -4px;
+  margin-bottom: 8px;
+}
+.chat-apply-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+.chat-apply-btn.applied {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #22c55e;
+  cursor: default;
+}
+
 .chat-main {
   flex: 1;
   display: flex;

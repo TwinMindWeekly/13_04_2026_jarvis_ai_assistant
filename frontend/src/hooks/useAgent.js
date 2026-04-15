@@ -59,7 +59,7 @@ export function useAgent(provider, model) {
     useWebSocket('/ws/agent', { onMessage: handleWsMessage })
 
   const sendMessage = useCallback(
-    async (text) => {
+    async (text, docContext) => {
       // 1. Append user message ONCE — outside retry loop (idempotent UX).
       const userMsg = { role: 'user', content: text }
       setMessages((prev) => [...prev, userMsg])
@@ -69,10 +69,15 @@ export function useAgent(provider, model) {
       setStreamingText('')
       streamingTextRef.current = ''
 
+      // Build the actual message for the API (may include doc context).
+      const apiMessage = docContext
+        ? `[Document context — "${docContext.filename}"]\n\`\`\`markdown\n${docContext.content}\n\`\`\`\n[End document context]\n\n${text}`
+        : text
+
       // 2. WebSocket path — single send, server pushes events back.
       if (wsStatus === 'connected') {
         try {
-          wsSend({ message: text, provider, model })
+          wsSend({ message: apiMessage, provider, model })
           return
         } catch (err) {
           // Fall through to REST fallback
@@ -84,7 +89,7 @@ export function useAgent(provider, model) {
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
         try {
           const { data } = await agentAPI.execute(
-            text,
+            apiMessage,
             provider,
             model,
             conversationIdRef.current

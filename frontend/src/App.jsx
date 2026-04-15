@@ -25,6 +25,7 @@ export default function App() {
   const [providers, setProviders] = useState([])
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [splitRatio, setSplitRatio] = useState(0.4)
+  const [editorRefreshKey, setEditorRefreshKey] = useState(0)
   const splitRef = useRef(null)
 
   const {
@@ -134,6 +135,7 @@ export default function App() {
                 <MarkdownEditorPanel
                   selected={selectedDoc}
                   onClose={() => setSelectedDoc(null)}
+                  refreshKey={editorRefreshKey}
                 />
               </div>
               <ResizeHandle onResize={handleSplitResize} />
@@ -173,6 +175,8 @@ export default function App() {
               onSendMessage={sendMessage}
               onClear={clearMessages}
               voice={voice}
+              selectedDoc={selectedDoc}
+              onDocApplied={() => setEditorRefreshKey((k) => k + 1)}
             />
           </main>
         </div>
