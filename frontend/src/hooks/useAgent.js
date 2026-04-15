@@ -2,6 +2,17 @@ import { useState, useCallback, useRef } from 'react'
 import { agentAPI } from '../services/api'
 import { useWebSocket } from './useWebSocket'
 
+const RETRY_DELAYS_MS = [250, 500, 1000]
+
+const isRetryableError = (err) => {
+  // Network errors (no response) → retry. HTTP 4xx/5xx with response → don't retry.
+  if (!err) return false
+  if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') return true
+  return !err.response
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export function useAgent(provider, model) {
   const [messages, setMessages] = useState([])
   const [actions, setActions] = useState([])
@@ -49,6 +60,7 @@ export function useAgent(provider, model) {
 
   const sendMessage = useCallback(
     async (text) => {
+      // 1. Append user message ONCE — outside retry loop (idempotent UX).
       const userMsg = { role: 'user', content: text }
       setMessages((prev) => [...prev, userMsg])
       setIsLoading(true)
@@ -57,10 +69,20 @@ export function useAgent(provider, model) {
       setStreamingText('')
       streamingTextRef.current = ''
 
-      try {
-        if (wsStatus === 'connected') {
+      // 2. WebSocket path — single send, server pushes events back.
+      if (wsStatus === 'connected') {
+        try {
           wsSend({ message: text, provider, model })
-        } else {
+          return
+        } catch (err) {
+          // Fall through to REST fallback
+        }
+      }
+
+      // 3. REST fallback with retry on transient network errors.
+      let lastErr = null
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        try {
           const { data } = await agentAPI.execute(
             text,
             provider,
@@ -77,13 +99,24 @@ export function useAgent(provider, model) {
             },
           ])
           setIsLoading(false)
+          return
+        } catch (err) {
+          lastErr = err
+          if (attempt < RETRY_DELAYS_MS.length && isRetryableError(err)) {
+            await sleep(RETRY_DELAYS_MS[attempt])
+            continue
+          }
+          break
         }
-      } catch (err) {
-        setError(
-          err.response?.data?.detail || err.message || 'Something went wrong'
-        )
-        setIsLoading(false)
       }
+
+      const message =
+        lastErr?.response?.data?.detail ||
+        (isRetryableError(lastErr)
+          ? 'Cannot reach backend. Please check the server is running.'
+          : lastErr?.message || 'Something went wrong')
+      setError(message)
+      setIsLoading(false)
     },
     [provider, model, wsStatus, wsSend]
   )
@@ -94,7 +127,10 @@ export function useAgent(provider, model) {
     setStreamingText('')
     streamingTextRef.current = ''
     conversationIdRef.current = null
+    setError(null)
   }, [])
+
+  const dismissError = useCallback(() => setError(null), [])
 
   return {
     messages,
@@ -104,6 +140,7 @@ export function useAgent(provider, model) {
     streamingText,
     sendMessage,
     clearMessages,
+    dismissError,
     wsStatus,
     connect,
     disconnect,

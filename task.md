@@ -1,6 +1,6 @@
 # JARVIS AI Assistant - Quản lý Tiến độ
 
-> Cập nhật lần cuối: 15/04/2026
+> Cập nhật lần cuối: 15/04/2026 (Phase 7 hoàn thành)
 
 ---
 
@@ -83,9 +83,17 @@
 ## Phase 7: Testing & Polish
 > Mục tiêu: Đảm bảo chất lượng và trải nghiệm người dùng
 
-- [ ] E2E Testing với Playwright
-- [ ] Performance optimization (streaming latency, tool execution time)
-- [ ] Error handling toàn diện (retry, fallback, user-friendly messages)
-- [ ] Security audit (API key protection, input sanitization, sandbox tool execution)
-- [ ] Documentation sync (cập nhật README, technical docs)
-- [ ] Demo video / screenshots
+- [x] Documentation sync — README + technical_reference rewrite cho khớp 8 tools, Bootstrap, Gemini 2.5
+- [x] Known issues log — ghi 8 bug đã fix (DDG v8, Gemini deprecated, voice echo loop, thinking format leak, safety filter, start.bat ERRORLEVEL, PDF tracking, frontend retry)
+- [x] Error handling — useAgent retry 3 lần exponential backoff, react-bootstrap Toast, WS auto-reconnect 5 lần
+- [x] Backend startup health checks — kiểm tra API keys, ChromaDB writable, Playwright importable
+- [x] Performance — Playwright lazy load (singleton _ensure_browser, deferred tới lần đầu tool dùng)
+- [x] Cleanup — verify không còn debug/scratch files, .gitignore đầy đủ
+- [x] E2E Testing — Playwright config + 3 critical flows (app load, settings panel, documents panel)
+- [ ] Security audit toàn diện (deferred — out of scope)
+- [ ] Demo video / screenshots (deferred — out of scope)
+
+---
+
+## Phase 8 (Tương lai): Knowledge Graph
+> Tính năng mở rộng — hiển thị mối quan hệ giữa các tài liệu RAG kiểu Obsidian graph view.

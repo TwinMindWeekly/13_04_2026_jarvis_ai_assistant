@@ -34,5 +34,8 @@
     "newChat": "Cuộc trò chuyện mới",
     "history": "Lịch sử",
     "settings": "Cài đặt"
+  },
+  "toast": {
+    "errorTitle": "Lỗi"
   }
 }

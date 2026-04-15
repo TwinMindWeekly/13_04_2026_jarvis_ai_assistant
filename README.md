@@ -1,121 +1,163 @@
 # JARVIS AI Assistant
 
-> Trợ lý AI thông minh có khả năng thực thi hành động: duyệt web, tìm kiếm, thao tác máy tính - lấy cảm hứng từ JARVIS (Iron Man).
+> Trợ lý AI có khả năng thực thi hành động: duyệt web, tìm kiếm, đọc tài liệu RAG, thao tác máy tính — lấy cảm hứng từ JARVIS (Iron Man).
 
 ## Giới thiệu
 
-JARVIS AI Assistant là một hệ thống trợ lý AI đa năng, vượt xa chatbot truyền thống. Thay vì chỉ trả lời câu hỏi, JARVIS có thể **thực hiện hành động** thay cho người dùng:
+JARVIS AI Assistant không phải chatbot thông thường — nó là một **agent** có thể chủ động gọi tool để hoàn thành yêu cầu người dùng:
 
-- **Duyệt web**: Mở trang web, đọc nội dung, điền form
-- **Tìm kiếm**: Tìm kiếm thông tin trên internet theo yêu cầu
-- **Thao tác máy tính**: Chụp màn hình, click, gõ phím
-- **Hội thoại giọng nói**: Giao tiếp bằng giọng nói real-time
-- **RAG**: Truy xuất và trả lời dựa trên tài liệu riêng
+- **Web search** — tìm thông tin internet (DuckDuckGo, không cần API key)
+- **Web browser** — mở URL, đọc nội dung trang, chụp ảnh trang
+- **Browser control** — tự động hoá thao tác trình duyệt theo DOM/accessibility (kiểu OpenClaw)
+- **Desktop control** — chụp màn hình + click/type qua PyAutoGUI (có Safety Layer)
+- **File manager** — đọc/ghi file trong sandbox đã whitelist
+- **App launcher** — mở ứng dụng theo whitelist
+- **RAG search** — trả lời dựa trên tài liệu PDF/DOCX/PPTX/XLSX/MD/TXT do người dùng upload
+- **Voice I/O** — nói/nghe bằng Web Speech API + SpeechSynthesis (browser native)
 
 ## Công nghệ sử dụng
 
-### Backend
-| Công nghệ | Phiên bản | Mục đích |
-|-----------|-----------|----------|
-| Python | 3.11+ | Ngôn ngữ chính |
-| FastAPI | 0.115+ | REST API + WebSocket |
-| LangChain | 0.3+ | Agent orchestration, Tool use |
-| LangGraph | 0.2+ | Multi-step agent workflow |
-| Playwright | 1.49+ | Browser automation |
-| ChromaDB | 0.5+ | Vector database cho RAG |
+### Backend (Python 3.11+)
+| Stack | Phiên bản | Vai trò |
+|-------|-----------|---------|
+| FastAPI | 0.115+ | REST + WebSocket + SSE streaming |
+| Pydantic v2 | 2.10+ | Schema validation |
+| LangGraph | 0.2+ | ReAct agent loop (`create_react_agent`) |
+| LangChain Core | 0.3+ | Tool/message abstractions |
+| Playwright | 1.49+ | Browser automation (Chromium headless) |
+| ChromaDB | 1.5+ | Vector database (persistent local) |
+| sentence-transformers | 5.0+ | Embeddings local (all-MiniLM-L6-v2) |
+| unstructured | 0.16+ | Parser PDF/DOCX/PPTX/XLSX |
+| PyAutoGUI | 0.9.54+ | Desktop control |
+| mss | 9.0+ | Screenshot cross-platform |
+| duckduckgo-search | 7.0+ | Search fallback (no key) |
 
-### Frontend
-| Công nghệ | Phiên bản | Mục đích |
-|-----------|-----------|----------|
-| React | 19 | UI framework |
-| Vite | 6+ | Build tool |
-| Web Speech API | - | Voice input/output |
-| WebSocket | - | Real-time communication |
+### Frontend (React 19 + Vite 8)
+| Stack | Phiên bản | Vai trò |
+|-------|-----------|---------|
+| React | 19.2 | UI framework |
+| Vite | 8.0 | Build tool / dev server |
+| Bootstrap | 5.3 + react-bootstrap | UI components (ChatGPT-style layout) |
+| framer-motion | 12 | Animations |
+| lucide-react | 1.8 | Icon set |
+| react-markdown + remark-gfm | 10 / 4 | Markdown rendering |
+| i18next + react-i18next | 26 / 17 | EN/VI bilingual |
+| Web Speech API | native | STT (SpeechRecognition) |
+| SpeechSynthesis | native | TTS browser native |
 
-### AI Providers (Multi-provider Factory)
-- **OpenAI** (GPT-4o) - Function calling + Vision
-- **Google Gemini** (2.0 Flash) - Multimodal + Function calling
-- **Anthropic Claude** (Sonnet 4) - Computer Use + Tool use
-- **Ollama** (Local) - Privacy-first, offline mode
+### LLM Providers (Multi-provider Factory)
+| Provider | Models tested | Tool use | Ghi chú |
+|----------|--------------|----------|---------|
+| **OpenAI** | gpt-4o, gpt-4o-mini | Đầy đủ | Khuyến nghị cho computer-use tools |
+| **Google Gemini** | gemini-2.5-flash, gemini-2.5-pro | Hạn chế | Safety filter chặn local control tools (chỉ cho phép web_search, rag_search) |
+| **Anthropic Claude** | claude-sonnet-4-5 | Đầy đủ | Cần ANTHROPIC_API_KEY |
+| **Ollama** | llama3, qwen2.5 | Tuỳ model | Local, không cần internet |
 
 ## Kiến trúc hệ thống
 
 ```
-┌──────────────────────────────────────────────┐
-│              JARVIS Frontend                  │
-│   React + Voice I/O + Chat + Action Viewer   │
-└──────────────┬───────────────────────────────┘
-               │ WebSocket + REST API
-┌──────────────▼───────────────────────────────┐
-│              JARVIS Backend (FastAPI)          │
-├───────────────────────────────────────────────┤
-│  Agent Brain (LangGraph)                      │
-│  ├── Planner: Phân tích yêu cầu              │
-│  ├── Executor: Thực thi tool                  │
-│  └── Reviewer: Đánh giá kết quả              │
-├───────────────────────────────────────────────┤
-│  Tool Registry                                │
-│  ├── WebBrowser (Playwright)                  │
-│  ├── WebSearch (Google/Bing API)              │
-│  ├── ScreenCapture + ComputerUse             │
-│  ├── FileManager (đọc/ghi file)              │
-│  └── RAGRetriever (ChromaDB)                 │
-├───────────────────────────────────────────────┤
-│  LLM Provider Factory                         │
-│  ├── OpenAI  ├── Gemini  ├── Claude  ├── Ollama│
-└───────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Frontend (React 19 + Vite 8 + Bootstrap)                  │
+│  ┌──────────┐ ┌──────────────┐ ┌────────────────────────┐  │
+│  │ ChatArea │ │ ActionViewer │ │ DocumentsPanel (RAG)   │  │
+│  │ Sidebar  │ │ SettingsPanel│ │ VoiceButton (mic+TTS)  │  │
+│  └──────────┘ └──────────────┘ └────────────────────────┘  │
+└────────────────────────┬───────────────────────────────────┘
+                         │ REST + SSE + WebSocket
+┌────────────────────────▼───────────────────────────────────┐
+│  Backend (FastAPI, async-first)                            │
+│  Routers: /api/chat /api/agent /api/providers /api/documents│
+│           /ws/agent                                         │
+├────────────────────────────────────────────────────────────┤
+│  Agent Brain — LangGraph ReAct (create_react_agent)        │
+│  Think → Act → Observe → Loop (max 10 iterations)          │
+├────────────────────────────────────────────────────────────┤
+│  Tool Registry (8 tools)                                   │
+│  ├── web_search       ├── web_browser    ├── screenshot    │
+│  ├── browser_control  ├── desktop_control├── file_manager  │
+│  ├── app_launcher     └── rag_search                       │
+├────────────────────────────────────────────────────────────┤
+│  Safety Layer (4 levels: AUTO / NOTIFY / CONFIRM / BLOCK)  │
+├────────────────────────────────────────────────────────────┤
+│  LLM Factory (provider-agnostic)                           │
+│  └── _build_llm(provider, model) → ChatOpenAI/Gemini/      │
+│      Anthropic/ChatOllama (via OpenAI-compatible)          │
+├────────────────────────────────────────────────────────────┤
+│  RAG Pipeline                                              │
+│  Upload → unstructured.partition → chunk → embed (MiniLM)  │
+│  → ChromaDB (PersistentClient, per-doc collection)         │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Cách chạy dự án
 
-### Yêu cầu hệ thống
-- Python 3.11+
+### Yêu cầu
+- Python 3.11+ (khuyến nghị 3.13)
 - Node.js 20+
-- Git
+- Windows / Linux / macOS
 
-### Cài đặt và khởi chạy
+### Cách 1 — Script tự động (Windows)
 
-```bash
-# 1. Clone repository
-git clone https://github.com/TwinMindWeekly/13_04_2026_jarvis_ai_assistant.git
-cd 13_04_2026_jarvis_ai_assistant
-
-# 2. Cài đặt Backend
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# 3. Cấu hình môi trường
-cp .env.example .env
-# Điền API keys vào file .env
-
-# 4. Khởi chạy Backend
-uvicorn app.main:app --reload --port 8000
-
-# 5. Cài đặt Frontend (terminal mới)
-cd frontend
-npm install
-npm run dev
+```bat
+start.bat   # Tạo venv, cài deps, install playwright chromium, chạy backend + frontend
+stop.bat    # Tắt cả hai dev server
 ```
 
-### Biến môi trường (.env)
+`start.bat` sẽ mở Windows Terminal split panes nếu có, fallback về 2 cmd window riêng.
+
+### Cách 2 — Thủ công
+
+```bash
+# Backend
+cd backend
+python -m venv venv
+venv\Scripts\activate           # Windows
+# source venv/bin/activate      # Linux/macOS
+pip install -r requirements.txt
+playwright install chromium
+cp .env.example .env            # Điền API keys
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (terminal mới)
+cd frontend
+npm install
+npm run dev                     # http://localhost:5173
+```
+
+### Biến môi trường (`backend/.env`)
+
 ```env
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AIza...
 ANTHROPIC_API_KEY=sk-ant-...
-# Ollama không cần key (chạy local)
+# OLLAMA_BASE_URL=http://localhost:11434  (mặc định, có thể bỏ)
+
+DEFAULT_PROVIDER=openai
+DEFAULT_MODEL=gpt-4o-mini
 ```
+
+Chỉ cần ít nhất **1 API key** để chạy. Provider có thể đổi runtime từ Settings panel.
+
+## Tính năng UI (ChatGPT-style)
+
+- **Empty state** — input căn giữa, prompt "What's on the agenda today?"
+- **Chat layout** — full-width messages (không bubble), input sticky bottom max-w 768px
+- **Action Viewer** — hiển thị từng tool call (icon → input → output) collapsible
+- **Settings panel** — chọn provider/model, test connection, đổi ngôn ngữ EN/VI
+- **Documents panel** — upload PDF/DOCX/PPTX/XLSX/MD/TXT, list, delete; tự động vào ChromaDB
+- **Voice** — nút mic (STT) + auto-TTS khi assistant phản hồi
+- **i18n** — Tiếng Việt / English (chuyển trong Settings)
 
 ## Trạng thái dự án
 
-Xem chi tiết tại [task.md](./task.md) và [implementation_plan.md](./implementation_plan.md).
+Tất cả 7 phase đã hoàn thành. Xem [task.md](./task.md) và [implementation_plan.md](./implementation_plan.md) cho chi tiết.
 
-## Tài liệu tham khảo
+## Tài liệu
 
-- [Technical Reference](./docs/technical_reference.md)
-- [Project Scope & Tech](./docs/project_scope_and_tech.md)
-- [Known Issues & Learnings](./docs/known_issues_and_learnings.md)
+- [Technical Reference](./docs/technical_reference.md) — API, tool spec, message protocol
+- [Project Scope & Tech](./docs/project_scope_and_tech.md) — phạm vi & lựa chọn công nghệ
+- [Known Issues & Learnings](./docs/known_issues_and_learnings.md) — nhật ký bug + bài học
+- [AI Agent Protocol](./AI_AGENT_PROTOCOL.md) — quy trình phát triển
 
 ## License
 
