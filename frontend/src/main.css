@@ -657,6 +657,10 @@ select option {
   background: transparent;
   border-radius: 8px;
   padding: 6px 14px;
+  transition: color 0.15s;
+}
+.settings-modal .nav-pills .nav-link:hover {
+  color: #fff;
 }
 .settings-modal .nav-pills .nav-link.active {
   color: #fff;
