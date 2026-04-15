@@ -32,6 +32,7 @@ desktop.ini
 
 # Build output
 frontend/dist/
+frontend/.vite/
 backend/*.db
 
 # Test

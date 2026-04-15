@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.routers.agent import router as agent_router
 from app.routers.chat import router as chat_router
 from app.routers.documents import router as documents_router
+from app.routers.graph import router as graph_router
 
 # ---------------------------------------------------------------------------
 # Logging configuration
@@ -151,6 +152,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(agent_router)
 app.include_router(documents_router)
+app.include_router(graph_router)
 
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ from app.models.document_schemas import (
     DocumentListResponse,
     DocumentUploadResponse,
 )
+from app.graph.cache import invalidate_cache as invalidate_graph_cache
 from app.rag.document_parser import DocumentParser
 from app.rag.vector_store import VectorStore
 
@@ -122,6 +123,9 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
     docs.append(info)
     _save_metadata(docs)
 
+    # Invalidate knowledge graph cache — next /api/graph/data call will rebuild.
+    invalidate_graph_cache()
+
     logger.info("Indexed '%s' → %d chunks (doc_id=%s)", file.filename, len(chunks), doc_id)
     return DocumentUploadResponse(
         id=doc_id,
@@ -170,5 +174,8 @@ async def delete_document(doc_id: str) -> dict:
     # Update metadata index
     updated = [d for d in docs if d["id"] != doc_id]
     _save_metadata(updated)
+
+    # Invalidate knowledge graph cache.
+    invalidate_graph_cache()
 
     return {"id": doc_id, "deleted": True}

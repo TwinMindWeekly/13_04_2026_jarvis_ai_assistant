@@ -32,4 +32,12 @@ export const documentsAPI = {
   delete: (docId) => api.delete(`/documents/${docId}`),
 }
 
+export const graphAPI = {
+  getData: (threshold = 0.5, force = false) =>
+    api.get('/graph/data', { params: { threshold, force } }),
+  getStats: () => api.get('/graph/stats'),
+  rebuild: (threshold = 0.5) =>
+    api.post('/graph/rebuild', null, { params: { threshold } }),
+}
+
 export default api

@@ -33,9 +33,30 @@
   "sidebar": {
     "newChat": "New Chat",
     "history": "Chat History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "documents": "Documents",
+    "graph": "Knowledge Graph"
   },
   "toast": {
     "errorTitle": "Error"
+  },
+  "graph": {
+    "title": "Knowledge Graph",
+    "empty": "Upload at least 2 documents to see the knowledge graph.",
+    "searchPlaceholder": "Filter nodes...",
+    "threshold": "Link threshold",
+    "zoomToFit": "Fit",
+    "rebuild": "Rebuild",
+    "nodes": "docs",
+    "links": "links",
+    "cached": "cached",
+    "folder": "Folder",
+    "rootFolder": "(root)",
+    "uploadedAt": "Uploaded",
+    "chunks": "Chunks",
+    "fileSize": "Size",
+    "neighbors": "Related documents",
+    "noNeighbors": "No related documents above the current threshold.",
+    "legend": "Folders"
   }
 }

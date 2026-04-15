@@ -33,9 +33,30 @@
   "sidebar": {
     "newChat": "Cuộc trò chuyện mới",
     "history": "Lịch sử",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "documents": "Tài liệu",
+    "graph": "Đồ thị tri thức"
   },
   "toast": {
     "errorTitle": "Lỗi"
+  },
+  "graph": {
+    "title": "Đồ thị tri thức",
+    "empty": "Hãy upload ít nhất 2 tài liệu để xem đồ thị tri thức.",
+    "searchPlaceholder": "Lọc node...",
+    "threshold": "Ngưỡng liên kết",
+    "zoomToFit": "Vừa khung",
+    "rebuild": "Dựng lại",
+    "nodes": "tài liệu",
+    "links": "liên kết",
+    "cached": "đã cache",
+    "folder": "Thư mục",
+    "rootFolder": "(gốc)",
+    "uploadedAt": "Tải lên",
+    "chunks": "Số chunk",
+    "fileSize": "Kích thước",
+    "neighbors": "Tài liệu liên quan",
+    "noNeighbors": "Không có tài liệu liên quan ở ngưỡng hiện tại.",
+    "legend": "Thư mục"
   }
 }

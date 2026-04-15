@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import SettingsPanel from './components/SettingsPanel'
 import DocumentsPanel from './components/DocumentsPanel'
+import GraphPanel from './components/GraphPanel'
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -18,6 +19,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [documentsOpen, setDocumentsOpen] = useState(false)
+  const [graphOpen, setGraphOpen] = useState(false)
   const [providers, setProviders] = useState([])
 
   const {
@@ -85,6 +87,7 @@ export default function App() {
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
         onOpenDocuments={() => setDocumentsOpen(true)}
+        onOpenGraph={() => setGraphOpen(true)}
         currentProvider={settings.provider}
         currentModel={settings.model}
       />
@@ -138,6 +141,11 @@ export default function App() {
       <DocumentsPanel
         isOpen={documentsOpen}
         onClose={() => setDocumentsOpen(false)}
+      />
+
+      <GraphPanel
+        isOpen={graphOpen}
+        onClose={() => setGraphOpen(false)}
       />
 
       {/* Error toast — shows when backend is unreachable or API errors */}
