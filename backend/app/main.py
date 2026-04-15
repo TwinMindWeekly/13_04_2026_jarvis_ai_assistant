@@ -33,6 +33,18 @@ _LOGGING_CONFIG: dict = {
             "formatter": "default",
         },
     },
+    # Mute verbose third-party libraries even when DEBUG is on for app code.
+    # Without these overrides, a single embedding model load produces ~250 lines
+    # of httpcore/filelock byte-level I/O events that swamp useful app logs.
+    "loggers": {
+        "httpcore": {"level": "WARNING"},
+        "httpx": {"level": "WARNING"},
+        "filelock": {"level": "WARNING"},
+        "urllib3": {"level": "WARNING"},
+        "sentence_transformers": {"level": "INFO"},
+        "chromadb": {"level": "INFO"},
+        "unstructured": {"level": "INFO"},
+    },
     "root": {
         "level": "DEBUG" if settings.debug else "INFO",
         "handlers": ["console"],
