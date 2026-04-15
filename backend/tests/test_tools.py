@@ -182,26 +182,26 @@ def test_web_search_tool_attributes():
 
 
 def _make_ddgs_mock(return_value):
-    """Return a context-manager mock for AsyncDDGS whose atext returns return_value."""
-    mock_instance = AsyncMock()
-    mock_instance.atext = AsyncMock(return_value=return_value)
+    """Return a context-manager mock for sync DDGS whose text() returns return_value."""
+    mock_instance = MagicMock()
+    mock_instance.text = MagicMock(return_value=return_value)
     mock_ddgs_cls = MagicMock()
-    mock_ddgs_cls.return_value.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_ddgs_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_ddgs_cls.return_value.__enter__ = MagicMock(return_value=mock_instance)
+    mock_ddgs_cls.return_value.__exit__ = MagicMock(return_value=None)
     return mock_ddgs_cls
 
 
 def _make_ddgs_error_mock(exc):
-    """Return a context-manager mock for AsyncDDGS that raises exc on __aenter__."""
+    """Return a context-manager mock for sync DDGS that raises exc on __enter__."""
     mock_ddgs_cls = MagicMock()
-    mock_ddgs_cls.return_value.__aenter__ = AsyncMock(side_effect=exc)
-    mock_ddgs_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_ddgs_cls.return_value.__enter__ = MagicMock(side_effect=exc)
+    mock_ddgs_cls.return_value.__exit__ = MagicMock(return_value=None)
     return mock_ddgs_cls
 
 
-# AsyncDDGS is imported lazily inside execute(), so it is not an attribute of
+# DDGS is imported lazily inside execute(), so it is not an attribute of
 # the web_search module at import time.  We must inject it into sys.modules so
-# the `from duckduckgo_search import AsyncDDGS` inside execute() picks up our
+# the `from duckduckgo_search import DDGS` inside execute() picks up our
 # mock, rather than trying to patch a non-existent module attribute.
 
 import sys
@@ -209,9 +209,9 @@ import types as _types
 
 
 def _inject_ddgs_mock(mock_cls):
-    """Inject mock_cls as duckduckgo_search.AsyncDDGS in sys.modules."""
+    """Inject mock_cls as duckduckgo_search.DDGS in sys.modules."""
     mod = _types.ModuleType("duckduckgo_search")
-    mod.AsyncDDGS = mock_cls  # type: ignore[attr-defined]
+    mod.DDGS = mock_cls  # type: ignore[attr-defined]
     sys.modules["duckduckgo_search"] = mod
 
 

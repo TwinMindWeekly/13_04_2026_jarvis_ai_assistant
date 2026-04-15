@@ -6,7 +6,7 @@ import { chatAPI } from '../services/api'
 
 const PROVIDER_MODELS = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-  gemini: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
   claude: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'],
   ollama: ['llama3.2', 'mistral', 'gemma2'],
 }

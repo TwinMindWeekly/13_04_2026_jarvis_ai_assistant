@@ -46,10 +46,14 @@ class WebSearchTool(BaseTool):
         logger.info("WebSearchTool executing — query=%r num_results=%d", query, num_results)
 
         try:
-            from duckduckgo_search import AsyncDDGS  # lazy import keeps startup fast
+            import asyncio
+            from duckduckgo_search import DDGS  # v8: sync only, wrap with to_thread
 
-            async with AsyncDDGS() as ddgs:
-                raw_results = await ddgs.atext(query, max_results=num_results)
+            def _search():
+                with DDGS() as ddgs:
+                    return list(ddgs.text(query, max_results=num_results) or [])
+
+            raw_results = await asyncio.to_thread(_search)
 
             # Normalise to a consistent output schema regardless of DDG changes.
             data = [

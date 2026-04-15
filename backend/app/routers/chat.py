@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api")
 # Default models advertised for each provider
 _PROVIDER_MODELS: dict[str, list[str]] = {
     ProviderName.OPENAI: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
-    ProviderName.GEMINI: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    ProviderName.GEMINI: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
     ProviderName.CLAUDE: ["claude-sonnet-4-20250514", "claude-haiku-4-5-20251001"],
     ProviderName.OLLAMA: ["llama3.2", "mistral", "gemma2"],
 }
