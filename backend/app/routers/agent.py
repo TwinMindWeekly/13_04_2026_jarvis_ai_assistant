@@ -21,6 +21,7 @@ from app.agent.brain import (
 from app.core.config import settings
 from app.models.agent_schemas import ActionStep, AgentExecuteRequest, AgentExecuteResponse
 from app.tools import create_default_registry
+from app.services.usage_tracker import usage_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,12 @@ async def execute_agent(request: AgentExecuteRequest) -> AgentExecuteResponse:
                 for idx, action in enumerate(result.get("actions", []))
             ]
 
+            # Track successful usage.
+            usage_tracker.record(
+                provider=actual_provider,
+                model=actual_model,
+            )
+
             return AgentExecuteResponse(
                 conversation_id=conversation_id,
                 response=result.get("response", ""),
@@ -102,6 +109,7 @@ async def execute_agent(request: AgentExecuteRequest) -> AgentExecuteResponse:
 
         except Exception as exc:
             if _is_quota_error(exc) and len(chain) > 1:
+                usage_tracker.record_error(prov, mod, str(exc))
                 errors.append(f"{prov}/{mod}: quota error — {exc}")
                 logger.warning(
                     "Provider %s/%s hit quota limit: %s — trying next provider...",

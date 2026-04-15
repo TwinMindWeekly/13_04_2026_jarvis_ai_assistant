@@ -40,6 +40,14 @@
   "toast": {
     "errorTitle": "Lỗi"
   },
+  "usage": {
+    "title": "Sử dụng",
+    "resetsAt": "Reset hàng ngày",
+    "refresh": "Làm mới",
+    "noData": "Chưa có dữ liệu. Gửi tin nhắn để bắt đầu theo dõi.",
+    "never": "Chưa bao giờ",
+    "justNow": "Vừa xong"
+  },
   "graph": {
     "pageTitle": "Đồ thị tri thức",
     "back": "Quay lại Chat",

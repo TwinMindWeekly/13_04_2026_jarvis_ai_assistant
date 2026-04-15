@@ -40,4 +40,8 @@ export const graphAPI = {
     api.post('/graph/rebuild', null, { params: { threshold } }),
 }
 
+export const usageAPI = {
+  getUsage: () => api.get('/usage/'),
+}
+
 export default api

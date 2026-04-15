@@ -40,6 +40,14 @@
   "toast": {
     "errorTitle": "Error"
   },
+  "usage": {
+    "title": "Usage",
+    "resetsAt": "Daily reset",
+    "refresh": "Refresh",
+    "noData": "No usage data yet. Send a message to start tracking.",
+    "never": "Never",
+    "justNow": "Just now"
+  },
   "graph": {
     "pageTitle": "Graph View",
     "back": "Back to Chat",
