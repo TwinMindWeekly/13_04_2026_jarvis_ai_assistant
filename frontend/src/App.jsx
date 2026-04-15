@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft, ChevronDown } from 'lucide-react'
 import { Toast, ToastContainer } from 'react-bootstrap'
@@ -9,8 +9,11 @@ import { chatAPI } from './services/api'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import SettingsPanel from './components/SettingsPanel'
-import DocumentsPanel from './components/DocumentsPanel'
 import GraphPage from './components/GraphPage'
+import MarkdownEditorPanel from './components/MarkdownEditorPanel'
+import ResizeHandle from './components/ResizeHandle'
+
+const SPLIT_MIN_PX = 280
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -18,9 +21,11 @@ export default function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [documentsOpen, setDocumentsOpen] = useState(false)
   const [viewMode, setViewMode] = useState('chat') // 'chat' | 'graph'
   const [providers, setProviders] = useState([])
+  const [selectedDoc, setSelectedDoc] = useState(null)
+  const [splitRatio, setSplitRatio] = useState(0.4)
+  const splitRef = useRef(null)
 
   const {
     messages,
@@ -71,6 +76,7 @@ export default function App() {
 
   const handleNewChat = () => {
     clearMessages()
+    setSelectedDoc(null)
     if (window.innerWidth < 1024) setSidebarOpen(false)
   }
 
@@ -79,6 +85,24 @@ export default function App() {
     if (window.innerWidth < 1024) setSidebarOpen(false)
   }
 
+  const handleSelectDocument = useCallback((doc) => {
+    setSelectedDoc(doc)
+    setViewMode('chat')
+    if (window.innerWidth < 1024) setSidebarOpen(false)
+  }, [])
+
+  const handleSplitResize = useCallback((delta) => {
+    const container = splitRef.current
+    if (!container) return
+    const totalW = container.offsetWidth
+    if (totalW <= 0) return
+    setSplitRatio((prev) => {
+      const leftPx = prev * totalW + delta
+      const clamped = Math.max(SPLIT_MIN_PX, Math.min(totalW - SPLIT_MIN_PX, leftPx))
+      return clamped / totalW
+    })
+  }, [])
+
   return (
     <div className="d-flex" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
       <Sidebar
@@ -86,8 +110,9 @@ export default function App() {
         onToggle={() => setSidebarOpen((prev) => !prev)}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
-        onOpenDocuments={() => setDocumentsOpen(true)}
         onOpenGraph={() => setViewMode('graph')}
+        onSelectDocument={handleSelectDocument}
+        selectedDocId={selectedDoc?.id}
         currentProvider={settings.provider}
         currentModel={settings.model}
       />
@@ -98,43 +123,59 @@ export default function App() {
           settings={settings}
         />
       ) : (
-        <main className="chat-main">
-          {/* Minimal header */}
-          <header className="chat-header">
-            {/* Sidebar toggle — only when sidebar is closed */}
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="sidebar-icon-btn"
-                aria-label="Open sidebar"
+        <div className="chat-split-wrapper" ref={splitRef}>
+          {/* MD Editor on the left when a document is selected */}
+          {selectedDoc && (
+            <>
+              <div
+                className="chat-split-editor"
+                style={{ flex: `0 0 ${splitRatio * 100}%` }}
               >
-                <PanelLeft size={20} />
-              </button>
-            )}
+                <MarkdownEditorPanel
+                  selected={selectedDoc}
+                  onClose={() => setSelectedDoc(null)}
+                />
+              </div>
+              <ResizeHandle onResize={handleSplitResize} />
+            </>
+          )}
 
-            {/* App title — centered */}
-            <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-              <button className="chat-header-title-btn">
-                JARVIS
-                <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
-              </button>
-            </div>
+          {/* Chat area on the right (or full width) */}
+          <main className="chat-main" style={selectedDoc ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : undefined}>
+            {/* Minimal header */}
+            <header className="chat-header">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="sidebar-icon-btn"
+                  aria-label="Open sidebar"
+                >
+                  <PanelLeft size={20} />
+                </button>
+              )}
 
-            {/* Spacer to balance sidebar toggle */}
-            <div style={{ width: 40 }} />
-          </header>
+              <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                <button className="chat-header-title-btn">
+                  JARVIS
+                  <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+                </button>
+              </div>
 
-          <ChatArea
-            messages={messages}
-            actions={actions}
-            isLoading={isLoading}
-            streamingText={streamingText}
-            error={error}
-            onSendMessage={sendMessage}
-            onClear={clearMessages}
-            voice={voice}
-          />
-        </main>
+              <div style={{ width: 40 }} />
+            </header>
+
+            <ChatArea
+              messages={messages}
+              actions={actions}
+              isLoading={isLoading}
+              streamingText={streamingText}
+              error={error}
+              onSendMessage={sendMessage}
+              onClear={clearMessages}
+              voice={voice}
+            />
+          </main>
+        </div>
       )}
 
       <SettingsPanel
@@ -145,13 +186,7 @@ export default function App() {
         providers={providers}
       />
 
-      <DocumentsPanel
-        isOpen={documentsOpen}
-        onClose={() => setDocumentsOpen(false)}
-      />
-
-
-      {/* Error toast — shows when backend is unreachable or API errors */}
+      {/* Error toast */}
       <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 9999 }}>
         <Toast
           show={!!error}

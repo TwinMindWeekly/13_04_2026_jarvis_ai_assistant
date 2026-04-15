@@ -1,40 +1,34 @@
 import { useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Network, PanelLeftClose, PanelLeft, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Network, MessageSquare } from 'lucide-react'
 import { Badge } from 'react-bootstrap'
 import { useGraph } from '../hooks/useGraph'
-import GraphLeftPanel from './GraphLeftPanel'
 import GraphCanvas from './GraphCanvas'
 import GraphChatPanel from './GraphChatPanel'
 import MarkdownEditorPanel from './MarkdownEditorPanel'
 import ResizeHandle from './ResizeHandle'
 
-const SIDEBAR_MIN = 160
-const SIDEBAR_MAX = 400
-const SIDEBAR_DEFAULT = 240
 const CHAT_MIN = 280
 const CHAT_MAX = 520
 const CHAT_DEFAULT = 380
-const SPLIT_MIN_PX = 200 // minimum width for either split pane
+const SPLIT_MIN_PX = 200
 
 /**
  * GraphPage — Obsidian-style split layout for the knowledge graph.
  *
- * All vertical dividers are draggable:
- *   [Sidebar ↔]  [Graph Canvas ↔ Markdown Editor]  [↔ Chat overlay]
+ * Layout:
+ *   [Markdown Editor (left)] ↔ [Graph Canvas (right)]
+ *   Click a node → editor opens on the left, graph stays on the right.
+ *   Chat panel is a floating overlay toggled via header button.
  */
 export default function GraphPage({ onBack, settings }) {
   const { t } = useTranslation()
   const { data, loading, error } = useGraph({ enabled: true })
   const [selected, setSelected] = useState(null)
   const [highlighted, setHighlighted] = useState([])
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
 
-  // Resizable widths
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT)
-  // splitRatio: fraction of the split-container width allocated to graph (left)
   const [splitRatio, setSplitRatio] = useState(0.5)
   const splitContainerRef = useRef(null)
 
@@ -46,12 +40,7 @@ export default function GraphPage({ onBack, settings }) {
     setSelected(null)
   }, [])
 
-  // ── Sidebar resize ──
-  const handleSidebarResize = useCallback((delta) => {
-    setSidebarWidth((w) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, w + delta)))
-  }, [])
-
-  // ── Split resize (graph ↔ editor) ──
+  // ── Split resize (editor ↔ graph) ──
   const handleSplitResize = useCallback((delta) => {
     const container = splitContainerRef.current
     if (!container) return
@@ -66,7 +55,6 @@ export default function GraphPage({ onBack, settings }) {
 
   // ── Chat resize (drag left edge) ──
   const handleChatResize = useCallback((delta) => {
-    // dragging left edge to the left = wider chat, so negate delta
     setChatWidth((w) => Math.min(CHAT_MAX, Math.max(CHAT_MIN, w - delta)))
   }, [])
 
@@ -78,14 +66,6 @@ export default function GraphPage({ onBack, settings }) {
           <button className="graph-page-back-btn" onClick={onBack}>
             <ArrowLeft size={18} />
             <span className="d-none d-md-inline">{t('graph.back', 'Back to Chat')}</span>
-          </button>
-
-          <button
-            className="graph-page-toggle-btn"
-            onClick={() => setSidebarOpen((v) => !v)}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
           </button>
         </div>
 
@@ -118,28 +98,27 @@ export default function GraphPage({ onBack, settings }) {
         </div>
       </div>
 
-      {/* ── Body: sidebar + split view + chat ── */}
+      {/* ── Body: [editor | graph] + chat overlay ── */}
       <div className="graph-page-body">
-        {/* File list sidebar */}
-        {sidebarOpen && (
-          <>
-            <GraphLeftPanel
-              nodes={data.nodes}
-              links={data.links}
-              selected={selected}
-              onSelectNode={handleSelectNode}
-              style={{ width: sidebarWidth, minWidth: sidebarWidth }}
-            />
-            <ResizeHandle onResize={handleSidebarResize} />
-          </>
-        )}
-
-        {/* Split: Graph + Editor */}
         <div className="graph-split-container" ref={splitContainerRef}>
-          <div
-            className="graph-split-left"
-            style={selected ? { flex: `0 0 ${splitRatio * 100}%` } : undefined}
-          >
+          {/* Editor on the LEFT */}
+          {selected && (
+            <>
+              <div
+                className="graph-split-left"
+                style={{ flex: `0 0 ${splitRatio * 100}%` }}
+              >
+                <MarkdownEditorPanel
+                  selected={selected}
+                  onClose={handleCloseEditor}
+                />
+              </div>
+              <ResizeHandle onResize={handleSplitResize} />
+            </>
+          )}
+
+          {/* Graph on the RIGHT (or full width when no selection) */}
+          <div className="graph-split-right" style={selected ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1, borderLeft: 'none' }}>
             <GraphCanvas
               data={data}
               loading={loading}
@@ -149,21 +128,6 @@ export default function GraphPage({ onBack, settings }) {
               onSelectNode={handleSelectNode}
             />
           </div>
-
-          {selected && (
-            <>
-              <ResizeHandle onResize={handleSplitResize} />
-              <div
-                className="graph-split-right"
-                style={{ flex: `0 0 ${(1 - splitRatio) * 100}%` }}
-              >
-                <MarkdownEditorPanel
-                  selected={selected}
-                  onClose={handleCloseEditor}
-                />
-              </div>
-            </>
-          )}
         </div>
 
         {/* Chat overlay */}

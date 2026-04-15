@@ -1,12 +1,14 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SquarePen, Settings, MessageSquare, PanelLeft, Zap, FileText, Network } from 'lucide-react'
+import { SquarePen, Settings, PanelLeft, Zap, FileText, Network, Upload, Trash2, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { documentsAPI } from '../services/api'
 
 const SIDEBAR_WIDTH = 260
 
-function SidebarNavItem({ icon: Icon, label, onClick }) {
+function SidebarNavItem({ icon: Icon, label, onClick, active }) {
   return (
-    <button className="sidebar-nav-item" onClick={onClick}>
+    <button className={`sidebar-nav-item ${active ? 'active' : ''}`} onClick={onClick}>
       <Icon size={18} />
       <span>{label}</span>
     </button>
@@ -18,12 +20,62 @@ export default function Sidebar({
   onToggle,
   onNewChat,
   onOpenSettings,
-  onOpenDocuments,
   onOpenGraph,
+  onSelectDocument,
+  selectedDocId,
   currentProvider,
   currentModel,
 }) {
   const { t } = useTranslation()
+  const [documents, setDocuments] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const loadDocuments = useCallback(async () => {
+    try {
+      const { data } = await documentsAPI.list()
+      setDocuments(data?.documents || [])
+    } catch {
+      // silent
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) loadDocuments()
+  }, [isOpen, loadDocuments])
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      await documentsAPI.upload(file)
+      await loadDocuments()
+    } catch {
+      // silent
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (e, docId) => {
+    e.stopPropagation()
+    try {
+      await documentsAPI.delete(docId)
+      setDocuments((prev) => prev.filter((d) => d.id !== docId))
+      if (selectedDocId === docId) onSelectDocument(null)
+    } catch {
+      // silent
+    }
+  }
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return '-'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  }
 
   return (
     <>
@@ -70,18 +122,8 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Navigation items */}
+          {/* Navigation: Graph only */}
           <div className="px-2 py-1">
-            <SidebarNavItem
-              icon={SquarePen}
-              label={t('sidebar.newChat')}
-              onClick={onNewChat}
-            />
-            <SidebarNavItem
-              icon={FileText}
-              label={t('sidebar.documents', 'Documents')}
-              onClick={onOpenDocuments}
-            />
             <SidebarNavItem
               icon={Network}
               label={t('sidebar.graph', 'Knowledge Graph')}
@@ -89,26 +131,61 @@ export default function Sidebar({
             />
           </div>
 
-          {/* Chat history */}
-          <div className="flex-grow-1 px-2 py-2 overflow-auto">
-            <p
-              className="px-3 py-2 text-uppercase fw-medium"
-              style={{
-                fontSize: '0.7rem',
-                letterSpacing: '0.08em',
-                color: 'var(--text-muted)',
-              }}
-            >
-              Recents
-            </p>
-            <div className="d-flex flex-column align-items-center justify-content-center gap-2 py-4">
-              <MessageSquare size={18} style={{ color: 'var(--text-muted)' }} />
-              <span
-                className="text-center"
-                style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+          {/* Documents section */}
+          <div className="sidebar-docs-section">
+            <div className="sidebar-docs-header">
+              <div className="sidebar-docs-title">
+                <FileText size={14} />
+                <span>{t('sidebar.documents', 'Documents')} ({documents.length})</span>
+              </div>
+              <button
+                className="sidebar-docs-upload-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="Upload"
               >
-                No conversations yet
-              </span>
+                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleUpload}
+                accept=".pdf,.docx,.txt,.md,.pptx,.xlsx"
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            <div className="sidebar-docs-list">
+              {documents.length === 0 ? (
+                <div className="sidebar-docs-empty">
+                  {t('sidebar.noDocuments', 'No documents yet')}
+                </div>
+              ) : (
+                documents.map((doc) => (
+                  <button
+                    key={doc.id}
+                    className={`sidebar-doc-item ${selectedDocId === doc.id ? 'active' : ''}`}
+                    onClick={() => onSelectDocument(doc)}
+                  >
+                    <FileText size={14} className="flex-shrink-0" style={{ color: '#888' }} />
+                    <div className="sidebar-doc-info">
+                      <div className="sidebar-doc-name" title={doc.filename}>
+                        {doc.filename}
+                      </div>
+                      <div className="sidebar-doc-meta">
+                        {formatBytes(doc.size_bytes)}
+                      </div>
+                    </div>
+                    <button
+                      className="sidebar-doc-delete"
+                      onClick={(e) => handleDelete(e, doc.id)}
+                      title="Delete"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 

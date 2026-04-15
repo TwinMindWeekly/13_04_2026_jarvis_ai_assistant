@@ -399,6 +399,140 @@ select option {
   color: var(--text-primary);
 }
 
+.sidebar-nav-item.active {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent);
+}
+
+/* Sidebar documents section */
+.sidebar-docs-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--border-light);
+  margin-top: 4px;
+}
+
+.sidebar-docs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.sidebar-docs-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.sidebar-docs-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sidebar-docs-upload-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+.sidebar-docs-upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar-docs-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 4px 4px;
+}
+
+.sidebar-docs-empty {
+  text-align: center;
+  padding: 20px 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sidebar-doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+.sidebar-doc-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.sidebar-doc-item.active {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text-primary);
+}
+
+.sidebar-doc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-doc-name {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-doc-meta {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.sidebar-doc-delete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.sidebar-doc-item:hover .sidebar-doc-delete {
+  display: flex;
+}
+.sidebar-doc-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 /* Mobile overlay */
 .sidebar-overlay {
   position: fixed;
@@ -410,6 +544,23 @@ select option {
 /* =============================================
    Chat layout utilities
    ============================================= */
+
+/* Split wrapper: [MD editor | Chat] when a document is selected */
+.chat-split-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  height: 100%;
+}
+
+.chat-split-editor {
+  height: 100%;
+  overflow: hidden;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
 .chat-main {
   flex: 1;
   display: flex;
@@ -935,12 +1086,16 @@ select option {
 .graph-split-left {
   flex: 1;
   min-width: 0;
+  height: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 .graph-split-right {
   flex: 1;
   min-width: 0;
+  height: 100%;
+  overflow: hidden;
   border-left: 2px solid #2a2b33;
 }
 
@@ -1167,7 +1322,8 @@ select option {
 /* ── Graph Canvas ── */
 
 .graph-canvas {
-  flex: 1;
+  width: 100%;
+  height: 100%;
   position: relative;
   background: #0f1014;
   overflow: hidden;
@@ -1545,6 +1701,20 @@ select option {
 .md-editor-preview p { margin: 0 0 12px; }
 .md-editor-preview a { color: #818cf8; text-decoration: none; }
 .md-editor-preview a:hover { text-decoration: underline; }
+/* Obsidian-style wikilink pill */
+.md-wikilink {
+  display: inline;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: default;
+  transition: background 0.12s;
+}
+.md-wikilink:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
 .md-editor-preview code {
   background: rgba(99, 102, 241, 0.12);
   padding: 2px 6px;

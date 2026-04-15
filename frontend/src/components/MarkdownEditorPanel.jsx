@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -6,6 +6,30 @@ import {
   FileText, Eye, Pencil, Save, Loader2, AlertCircle, X,
 } from 'lucide-react'
 import { vaultAPI } from '../services/api'
+
+/**
+ * Convert [[WikiLink]] and [[Target|Display]] to markdown links
+ * that ReactMarkdown can render, using a wikilink: URI scheme.
+ */
+function processWikilinks(md) {
+  if (!md) return md
+  return md.replace(
+    /(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g,
+    (_match, target, display) => `[${display || target}](wikilink:${target})`
+  )
+}
+
+/** Custom link renderer — styles wikilink: URIs as Obsidian-style pills. */
+function WikilinkAnchor({ href, children, ...props }) {
+  if (href && href.startsWith('wikilink:')) {
+    return (
+      <span className="md-wikilink" title={href.slice(9)}>
+        {children}
+      </span>
+    )
+  }
+  return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
+}
 
 /**
  * MarkdownEditorPanel — Obsidian-style Markdown viewer/editor.
@@ -176,7 +200,12 @@ export default function MarkdownEditorPanel({ selected, onClose }) {
         {!loading && !error && mode === 'view' && (
           <div className="md-editor-preview" onDoubleClick={() => setMode('edit')}>
             {content ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{ a: WikilinkAnchor }}
+              >
+                {processWikilinks(content)}
+              </ReactMarkdown>
             ) : (
               <p className="md-editor-no-content">
                 {t('graph.editorNoContent', 'No content available.')}
