@@ -1,7 +1,7 @@
 # JARVIS AI Assistant - Technical Reference
 
 > Tài liệu kỹ thuật chi tiết về kiến trúc, API, và luồng dữ liệu.
-> Cập nhật lần cuối: 15/04/2026 (Phase 7)
+> Cập nhật lần cuối: 15/04/2026 (Phase 8 — Knowledge Graph)
 
 ---
 
@@ -349,10 +349,10 @@ Chunks (≈ semantic chunks từ unstructured)
 sentence-transformers (all-MiniLM-L6-v2) → 384-dim vector
     ↓
 ChromaDB PersistentClient (backend/chroma_data/)
-   collection = "documents"  (single shared collection)
+   collection = "jarvis_default"  (single shared collection, cosine distance)
     ↓
-Metadata index: backend/uploads/_index.json
-   {doc_id, filename, uploaded_at, chunk_count}
+Metadata index: backend/uploads/documents_metadata.json
+   [{doc_id, filename, uploaded_at, chunk_count, size_bytes, folder, file_ext}]
 ```
 
 Query path: `rag_search(query, top_k)` → embed query → cosine top-K → trả `[{content, metadata, score}]`.
@@ -437,12 +437,19 @@ App.jsx
 
 | Layer | Framework | Coverage |
 |-------|-----------|----------|
-| Backend unit | pytest + pytest-asyncio | LLM Factory, Tool Registry, Safety Layer (127/127 passed cuối Phase 6) |
-| Backend integration | pytest + httpx | /api/chat, /api/agent endpoints |
+| Backend unit | pytest + pytest-asyncio | LLM Factory, Tool Registry, Safety Layer |
+| Backend integration | pytest + httpx | `/api/chat`, `/api/agent`, `/api/documents`, `/api/graph` |
 | Backend RAG | pytest | embeddings, vector_store, document_parser |
-| Frontend E2E | Playwright (Phase 7) | 2-3 critical flows: chat, settings, documents |
+| Backend Graph (Phase 8) | pytest | cosine, cache hashing, builder edge cases (`test_graph.py`) |
+| Frontend E2E | Playwright | 4 flows: `app-loads`, `settings-panel`, `documents-panel`, `graph-panel` |
 
 ```bash
-cd backend && pytest -v
-cd frontend && npx playwright test
+# Backend — run in backend/ with venv active
+pytest -v                                         # full suite
+pytest tests/test_graph.py -v                     # single file
+pytest tests/test_agent.py::TestAgent -v          # single class
+
+# Frontend — backend MUST already be running on :8000
+cd frontend && npm run test:e2e
+cd frontend && npm run test:e2e:ui                # UI mode
 ```

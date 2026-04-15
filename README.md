@@ -134,7 +134,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 # OLLAMA_BASE_URL=http://localhost:11434  (mặc định, có thể bỏ)
 
 DEFAULT_PROVIDER=openai
-DEFAULT_MODEL=gpt-4o-mini
+DEFAULT_MODEL=gpt-4o
 ```
 
 Chỉ cần ít nhất **1 API key** để chạy. Provider có thể đổi runtime từ Settings panel.
@@ -151,12 +151,13 @@ Chỉ cần ít nhất **1 API key** để chạy. Provider có thể đổi run
 
 ## Trạng thái dự án
 
-Tất cả 7 phase đã hoàn thành. Xem [task.md](./task.md) và [implementation_plan.md](./implementation_plan.md) cho chi tiết.
+Cả 8 phase đã hoàn thành (Phase 8 — Knowledge Graph merge vào `develop` ngày 15/04/2026, [PR #9](https://github.com/TwinMindWeekly/13_04_2026_jarvis_ai_assistant/pull/9)). Xem [task.md](./task.md) và [implementation_plan.md](./implementation_plan.md) cho chi tiết.
 
 ## Tài liệu
 
 - [Technical Reference](./docs/technical_reference.md) — API, tool spec, message protocol
 - [Project Scope & Tech](./docs/project_scope_and_tech.md) — phạm vi & lựa chọn công nghệ
+- [Phase 8 Summary](./PHASE_8_SUMMARY.md) — Knowledge Graph deliverable & kiến trúc
 - [Known Issues & Learnings](./docs/known_issues_and_learnings.md) — nhật ký bug + bài học
 - [AI Agent Protocol](./AI_AGENT_PROTOCOL.md) — quy trình phát triển
 
