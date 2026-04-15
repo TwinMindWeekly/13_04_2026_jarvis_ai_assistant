@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
@@ -22,6 +22,7 @@ export default function ChatArea({
   const { t } = useTranslation()
   const [input, setInput] = useState('')
   const [appliedIdx, setAppliedIdx] = useState(null)
+  const [docContextOn, setDocContextOn] = useState(true)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -29,7 +30,8 @@ export default function ChatArea({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText, actions])
 
-  // Reset applied state when doc changes.
+  // Reset context toggle + applied state when doc changes.
+  useEffect(() => { setDocContextOn(true) }, [selectedDoc?.id])
   useEffect(() => { setAppliedIdx(null) }, [selectedDoc?.id])
 
   const handleInputChange = useCallback((e) => {
@@ -44,9 +46,9 @@ export default function ChatArea({
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
 
-    // If a doc is selected, fetch its content and pass as context.
+    // If a doc is selected AND context toggle is on, fetch content as context.
     let docContext = null
-    if (selectedDoc) {
+    if (selectedDoc && docContextOn) {
       try {
         const { data } = await vaultAPI.get(selectedDoc.id)
         docContext = { filename: selectedDoc.label || selectedDoc.filename, content: data.content }
@@ -60,7 +62,7 @@ export default function ChatArea({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [input, isLoading, onSendMessage, selectedDoc])
+  }, [input, isLoading, onSendMessage, selectedDoc, docContextOn])
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -91,12 +93,17 @@ export default function ChatArea({
   /* Shared input bar — centered, max 768px like ChatGPT */
   const inputBar = (
     <div style={{ width: '100%', maxWidth: 768, margin: '0 auto', padding: '0 16px' }}>
-      {/* Doc context badge */}
+      {/* Doc context toggle badge */}
       {selectedDoc && (
-        <div className="chat-doc-context-badge">
+        <button
+          className={`chat-doc-context-badge ${docContextOn ? '' : 'off'}`}
+          onClick={() => setDocContextOn((v) => !v)}
+          title={docContextOn ? t('chat.contextOn', 'Document context ON — click to disable') : t('chat.contextOff', 'Document context OFF — click to enable')}
+        >
           <FileText size={13} />
           <span>{selectedDoc.label || selectedDoc.filename}</span>
-        </div>
+          {docContextOn && <X size={12} className="chat-doc-context-x" />}
+        </button>
       )}
 
       {/* Voice transcript preview */}
@@ -126,7 +133,7 @@ export default function ChatArea({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={
-            selectedDoc
+            selectedDoc && docContextOn
               ? t('chat.placeholderDoc', 'Ask AI to improve this document...')
               : t('chat.placeholder')
           }

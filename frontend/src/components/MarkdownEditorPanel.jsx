@@ -19,6 +19,23 @@ function processWikilinks(md) {
   )
 }
 
+/**
+ * Highlight [[wikilinks]] in edit mode by escaping HTML, then wrapping
+ * matches in <span class="md-wikilink-edit">. Used as innerHTML for the
+ * transparent overlay behind the textarea.
+ */
+function highlightWikilinks(text) {
+  if (!text) return ''
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(
+    /(?:!?)(\[\[[^\]]+?\]\])/g,
+    '<span class="md-wikilink-edit">$1</span>'
+  ) + '\n' // trailing newline keeps overlay height in sync
+}
+
 /** Custom link renderer — styles wikilink: URIs as Obsidian-style pills. */
 function WikilinkAnchor({ href, children, ...props }) {
   if (href && href.startsWith('wikilink:')) {
@@ -215,13 +232,21 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
         )}
 
         {!loading && !error && mode === 'edit' && (
-          <textarea
-            ref={textareaRef}
-            className="md-editor-textarea"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            spellCheck={false}
-          />
+          <div className="md-editor-edit-container">
+            {/* Highlight overlay behind textarea */}
+            <div
+              className="md-editor-highlight-overlay"
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: highlightWikilinks(content) }}
+            />
+            <textarea
+              ref={textareaRef}
+              className="md-editor-textarea"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
         )}
       </div>
     </div>
