@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PanelLeft, ChevronDown } from 'lucide-react'
 import { useAgent } from './hooks/useAgent'
 import { useSettings } from './hooks/useSettings'
+import { useVoice } from './hooks/useVoice'
 import { chatAPI } from './services/api'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
@@ -25,6 +26,23 @@ export default function App() {
     sendMessage,
     clearMessages,
   } = useAgent(settings.provider, settings.model)
+
+  const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
+  const voice = useVoice({
+    language: voiceLang,
+    onTranscript: (text) => { if (text) sendMessage(text) },
+    enabled: settings.voiceEnabled !== false,
+  })
+
+  // Auto TTS for assistant responses when voice mode is on
+  useEffect(() => {
+    if (settings.voiceEnabled === false) return
+    if (messages.length === 0) return
+    const last = messages[messages.length - 1]
+    if (last.role === 'assistant' && last.content) {
+      voice.speak(last.content, settings.ttsVoice)
+    }
+  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
@@ -100,6 +118,7 @@ export default function App() {
           error={error}
           onSendMessage={sendMessage}
           onClear={clearMessages}
+          voice={voice}
         />
       </main>
 

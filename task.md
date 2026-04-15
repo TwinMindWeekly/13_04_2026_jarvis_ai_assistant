@@ -45,11 +45,11 @@
 ## Phase 4: Voice Interface (STT + TTS)
 > Mục tiêu: Giao tiếp bằng giọng nói real-time
 
-- [ ] Tích hợp Web Speech API (Speech-to-Text) trên frontend
-- [ ] Tích hợp TTS (Text-to-Speech): OpenAI TTS / Google TTS / Browser native
-- [ ] UI: Nút microphone, hiệu ứng sóng âm khi nghe/nói
-- [ ] Backend: WebSocket endpoint cho voice streaming
-- [ ] Wake word detection (tuỳ chọn: "Hey Jarvis")
+- [x] Tích hợp Web Speech API (Speech-to-Text) trên frontend
+- [x] Tích hợp TTS (Text-to-Speech): Browser native SpeechSynthesis
+- [x] UI: Nút microphone với pulse animation, transcript preview
+- [ ] Backend: WebSocket endpoint cho voice streaming (deferred)
+- [ ] Wake word detection (deferred)
 
 ---
 
