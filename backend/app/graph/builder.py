@@ -141,8 +141,13 @@ async def build_document_graph(threshold: float = 0.5) -> GraphData:
         )
 
     result = collection.get(include=["embeddings", "metadatas"])
-    all_embeds: list[list[float]] = result.get("embeddings") or []
-    all_metas: list[dict] = result.get("metadatas") or []
+    # ChromaDB ≥1.5 returns `embeddings` as a numpy 2D array, not a list.
+    # `ndarray or []` raises ValueError (ambiguous truth value), so fall back
+    # to None-check and coerce to a list for downstream zip/iteration.
+    embeds_raw = result.get("embeddings")
+    metas_raw = result.get("metadatas")
+    all_embeds = list(embeds_raw) if embeds_raw is not None else []
+    all_metas: list[dict] = list(metas_raw) if metas_raw is not None else []
 
     # Group chunk embeddings by doc_id.
     per_doc: dict[str, list[list[float]]] = {}
