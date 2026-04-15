@@ -7,7 +7,7 @@ export const chatAPI = {
     api.post('/chat', { messages, provider, model, stream: false }),
   getProviders: () => api.get('/providers'),
   testProvider: (provider, apiKey) =>
-    api.post('/providers/test', { provider, api_key: apiKey }),
+    api.post('/providers/test', { provider, api_key: apiKey || '' }),
 }
 
 export const agentAPI = {

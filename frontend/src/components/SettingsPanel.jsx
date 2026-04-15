@@ -67,9 +67,9 @@ export default function SettingsPanel({
       setTestMessage(t('settings.success'))
     } catch (err) {
       setTestStatus('failed')
-      setTestMessage(
-        err.response?.data?.detail ?? err.message ?? t('settings.failed')
-      )
+      const detail = err.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : err.message || t('settings.failed')
+      setTestMessage(msg)
     }
   }
 

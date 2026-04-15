@@ -64,7 +64,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     const recognition = new SpeechRecognition()
     recognition.lang = language
     recognition.interimResults = true
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.maxAlternatives = 1
 
     recognition.onstart = () => {
@@ -87,22 +87,33 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
 
       setTranscript(finalText || interimText)
 
-      // Auto-send when we get a final result
+      // Auto-send when we get a final result, then clear transcript
       if (finalText && onTranscriptRef.current) {
         onTranscriptRef.current(finalText.trim())
+        setTranscript('')
       }
     }
 
     recognition.onerror = (event) => {
-      // 'no-speech' and 'aborted' are expected, not real errors
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
         setIsListening(false)
       }
     }
 
+    // With continuous=true, auto-restart if it stops unexpectedly while still "listening"
     recognition.onend = () => {
-      setIsListening(false)
-      recognitionRef.current = null
+      // Only truly stop if user clicked stop
+      if (!recognitionRef.current) {
+        setIsListening(false)
+      } else {
+        // Browser stopped it (timeout, etc.) — restart
+        try {
+          recognition.start()
+        } catch {
+          setIsListening(false)
+          recognitionRef.current = null
+        }
+      }
     }
 
     recognitionRef.current = recognition
@@ -112,7 +123,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   // --- STT: Stop listening ---
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      const ref = recognitionRef.current
+      recognitionRef.current = null  // signal onend: user stopped intentionally
+      ref.stop()
     }
   }, [])
 
