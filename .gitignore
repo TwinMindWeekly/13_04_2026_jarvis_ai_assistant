@@ -48,3 +48,7 @@ chroma_data/
 
 # OMC state
 .omc/
+
+# Claude Code (local config, không chia sẻ)
+CLAUDE.md
+.claude/
