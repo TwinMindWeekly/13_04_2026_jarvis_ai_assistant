@@ -31,14 +31,14 @@
 ## Phase 3: Frontend Chat & Action Viewer
 > Mục tiêu: Giao diện người dùng hiện đại với khả năng hiển thị hành động agent
 
-- [ ] Khởi tạo React + Vite project
-- [ ] Thiết kế UI: Chat interface (glassmorphism, dark mode)
-- [ ] Component: MessageBubble (text, markdown, code block, image)
-- [ ] Component: ActionViewer (hiển thị tool đang chạy, screenshot, kết quả)
-- [ ] Component: SettingsPanel (chọn provider, API key, model)
-- [ ] Tích hợp WebSocket cho streaming response
-- [ ] Tích hợp REST API cho agent execution
-- [ ] i18n (Tiếng Việt / English)
+- [x] Khởi tạo React 19 + Vite 8 + Tailwind CSS v4
+- [x] Thiết kế UI: Chat interface (glassmorphism, dark mode, JARVIS aesthetic)
+- [x] Component: MessageBubble (text, markdown, code block, streaming cursor)
+- [x] Component: ActionViewer + ActionStep (tool timeline, collapsible, shimmer loading)
+- [x] Component: SettingsPanel (provider/model dropdown, test connection, language toggle)
+- [x] Tích hợp WebSocket cho streaming response (useWebSocket + auto-reconnect)
+- [x] Tích hợp REST API cho agent execution (useAgent + REST fallback)
+- [x] i18n (Tiếng Việt / English) + Sidebar + App.jsx wiring
 
 ---
 
