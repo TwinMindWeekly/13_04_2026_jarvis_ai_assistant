@@ -79,6 +79,21 @@
     "editorEdit": "Chỉnh sửa",
     "editorSave": "Lưu",
     "editorLoading": "Đang tải tài liệu...",
-    "editorNoContent": "Không có nội dung."
+    "editorNoContent": "Không có nội dung.",
+    "chatEmptyTitle": "Khám phá kiến thức của bạn",
+    "suggestFind": "Tìm note liên quan đến...",
+    "suggestFindPrompt": "Tìm note liên quan đến ",
+    "suggestSummarize": "Tóm tắt note về...",
+    "suggestSummarizePrompt": "Tóm tắt các note về ",
+    "suggestListAll": "Liệt kê tất cả tài liệu",
+    "suggestListAllPrompt": "Liệt kê tất cả tài liệu của tôi kèm mô tả ngắn.",
+    "suggestCompare": "So sánh note về...",
+    "suggestComparePrompt": "So sánh note về "
+  },
+  "sidebar2": {
+    "newFile": "Tạo file mới",
+    "newFolder": "Tạo folder mới",
+    "untitled": "Không tên",
+    "untitledFolder": "Folder không tên"
   }
 }

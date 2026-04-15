@@ -1,16 +1,18 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Network, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Network, MessageSquare, X } from 'lucide-react'
 import { Badge } from 'react-bootstrap'
 import { useGraph } from '../hooks/useGraph'
+import { useAgent } from '../hooks/useAgent'
+import { useVoice } from '../hooks/useVoice'
 import GraphCanvas from './GraphCanvas'
-import GraphChatPanel from './GraphChatPanel'
+import ChatArea from './ChatArea'
 import MarkdownEditorPanel from './MarkdownEditorPanel'
 import ResizeHandle from './ResizeHandle'
 
-const CHAT_MIN = 280
-const CHAT_MAX = 520
-const CHAT_DEFAULT = 380
+const CHAT_MIN = 320
+const CHAT_MAX = 640
+const CHAT_DEFAULT = 420
 const SPLIT_MIN_PX = 200
 
 /**
@@ -19,7 +21,7 @@ const SPLIT_MIN_PX = 200
  * Layout:
  *   [Markdown Editor (left)] ↔ [Graph Canvas (right)]
  *   Click a node → editor opens on the left, graph stays on the right.
- *   Chat panel is a floating overlay toggled via header button.
+ *   Chat panel is a floating overlay on the right edge.
  */
 export default function GraphPage({ onBack, settings }) {
   const { t } = useTranslation()
@@ -31,6 +33,12 @@ export default function GraphPage({ onBack, settings }) {
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT)
   const [splitRatio, setSplitRatio] = useState(0.5)
   const splitContainerRef = useRef(null)
+
+  // Dedicated agent instance for the graph chat (independent conversation).
+  const graphAgent = useAgent(settings.provider, settings.model)
+
+  // Voice disabled inside graph chat (keeps UI focused on document discovery).
+  const voice = useVoice({ language: 'en-US', enabled: false })
 
   const handleSelectNode = useCallback((node) => {
     setSelected(node)
@@ -57,6 +65,60 @@ export default function GraphPage({ onBack, settings }) {
   const handleChatResize = useCallback((delta) => {
     setChatWidth((w) => Math.min(CHAT_MAX, Math.max(CHAT_MIN, w - delta)))
   }, [])
+
+  // ── Highlight graph nodes mentioned by the AI ──
+  const findMentionedNodes = useCallback(
+    (text) => {
+      if (!text || !data.nodes?.length) return []
+      const lower = text.toLowerCase()
+      return data.nodes.filter((n) => {
+        const name = (n.label || '').toLowerCase()
+        // Also strip .md extension so "[[foo]]" matches filename "foo.md"
+        const stem = name.replace(/\.[a-z0-9]+$/, '')
+        return (
+          (name.length > 2 && lower.includes(name)) ||
+          (stem.length > 2 && lower.includes(stem))
+        )
+      })
+    },
+    [data.nodes]
+  )
+
+  // Watch the latest assistant message and highlight matching nodes.
+  useEffect(() => {
+    if (graphAgent.messages.length === 0) {
+      setHighlighted([])
+      return
+    }
+    const last = graphAgent.messages[graphAgent.messages.length - 1]
+    if (last.role === 'assistant' && last.content) {
+      const matched = findMentionedNodes(last.content)
+      setHighlighted(matched.map((n) => n.id))
+    }
+  }, [graphAgent.messages, findMentionedNodes])
+
+  // Suggestion chips (Vietnamese-friendly; i18n keys available).
+  const suggestionChips = useMemo(
+    () => [
+      {
+        label: t('graph.suggestFind', 'Find notes related to...'),
+        prompt: t('graph.suggestFindPrompt', 'Find notes related to ',),
+      },
+      {
+        label: t('graph.suggestSummarize', 'Summarize my notes about...'),
+        prompt: t('graph.suggestSummarizePrompt', 'Summarize my notes about '),
+      },
+      {
+        label: t('graph.suggestListAll', 'List all my documents'),
+        prompt: t('graph.suggestListAllPrompt', 'List all my documents with a short description of each.'),
+      },
+      {
+        label: t('graph.suggestCompare', 'Compare notes on...'),
+        prompt: t('graph.suggestComparePrompt', 'Compare notes on '),
+      },
+    ],
+    [t]
+  )
 
   return (
     <div className="graph-page">
@@ -118,7 +180,10 @@ export default function GraphPage({ onBack, settings }) {
           )}
 
           {/* Graph on the RIGHT (or full width when no selection) */}
-          <div className="graph-split-right" style={selected ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1, borderLeft: 'none' }}>
+          <div
+            className="graph-split-right"
+            style={selected ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1, borderLeft: 'none' }}
+          >
             <GraphCanvas
               data={data}
               loading={loading}
@@ -130,16 +195,35 @@ export default function GraphPage({ onBack, settings }) {
           </div>
         </div>
 
-        {/* Chat overlay */}
+        {/* Chat overlay — unified ChatArea */}
         {chatOpen && (
           <div className="graph-chat-overlay" style={{ width: chatWidth }}>
             <ResizeHandle onResize={handleChatResize} />
-            <GraphChatPanel
-              settings={settings}
-              graphNodes={data.nodes}
-              onHighlightNodes={setHighlighted}
-              onSelectNode={handleSelectNode}
-            />
+            <div className="graph-chat-overlay-inner">
+              <div className="graph-chat-overlay-header">
+                <MessageSquare size={16} />
+                <span>{t('graph.aiChatTitle', 'Document AI')}</span>
+                <button
+                  className="graph-chat-close-btn"
+                  onClick={() => setChatOpen(false)}
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <ChatArea
+                messages={graphAgent.messages}
+                actions={graphAgent.actions}
+                isLoading={graphAgent.isLoading}
+                streamingText={graphAgent.streamingText}
+                error={graphAgent.error}
+                onSendMessage={graphAgent.sendMessage}
+                onClear={graphAgent.clearMessages}
+                voice={voice}
+                suggestionChips={suggestionChips}
+                emptyTitle={t('graph.chatEmptyTitle', 'Explore your knowledge')}
+              />
+            </div>
           </div>
         )}
       </div>

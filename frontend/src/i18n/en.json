@@ -79,6 +79,21 @@
     "editorEdit": "Edit",
     "editorSave": "Save",
     "editorLoading": "Loading document...",
-    "editorNoContent": "No content available."
+    "editorNoContent": "No content available.",
+    "chatEmptyTitle": "Explore your knowledge",
+    "suggestFind": "Find notes related to...",
+    "suggestFindPrompt": "Find notes related to ",
+    "suggestSummarize": "Summarize my notes about...",
+    "suggestSummarizePrompt": "Summarize my notes about ",
+    "suggestListAll": "List all my documents",
+    "suggestListAllPrompt": "List all my documents with a short description of each.",
+    "suggestCompare": "Compare notes on...",
+    "suggestComparePrompt": "Compare notes on "
+  },
+  "sidebar2": {
+    "newFile": "New file",
+    "newFolder": "New folder",
+    "untitled": "Untitled",
+    "untitledFolder": "Untitled folder"
   }
 }

@@ -18,6 +18,8 @@ export default function ChatArea({
   voice = {},
   selectedDoc = null,
   onDocApplied,
+  suggestionChips = null,
+  emptyTitle = null,
 }) {
   const { t } = useTranslation()
   const [input, setInput] = useState('')
@@ -226,12 +228,36 @@ export default function ChatArea({
               className="fw-medium mb-4"
               style={{ color: 'var(--text-primary)', fontSize: '1.5rem' }}
             >
-              What&apos;s on the agenda today?
+              {emptyTitle || 'What\u2019s on the agenda today?'}
             </h1>
 
             <div className="w-100 d-flex justify-content-center">
               {inputBar}
             </div>
+
+            {/* Suggestion chips (optional) */}
+            {Array.isArray(suggestionChips) && suggestionChips.length > 0 && (
+              <div className="chat-suggestion-chips">
+                {suggestionChips.map((chip, i) => {
+                  const label = typeof chip === 'string' ? chip : chip.label
+                  const prompt = typeof chip === 'string' ? chip : (chip.prompt || chip.label)
+                  return (
+                    <button
+                      key={i}
+                      className="chat-suggestion-chip"
+                      onClick={() => {
+                        setInput(prompt)
+                        if (textareaRef.current) {
+                          textareaRef.current.focus()
+                        }
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
