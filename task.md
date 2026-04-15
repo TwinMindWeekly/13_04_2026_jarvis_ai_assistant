@@ -7,24 +7,24 @@
 ## Phase 1: Nền tảng Backend & LLM Provider Factory
 > Mục tiêu: Xây dựng backend FastAPI với khả năng gọi LLM đa nhà cung cấp
 
-- [ ] Khởi tạo project FastAPI với cấu trúc thư mục chuẩn
-- [ ] Thiết kế và triển khai LLM Provider Factory (OpenAI, Gemini, Claude, Ollama)
-- [ ] Xây dựng API endpoint `/api/chat` cơ bản (text in → text out)
-- [ ] Cấu hình môi trường (.env, settings, CORS)
-- [ ] Viết Unit Test cho LLM Factory
+- [x] Khởi tạo project FastAPI với cấu trúc thư mục chuẩn
+- [x] Thiết kế và triển khai LLM Provider Factory (OpenAI, Gemini, Claude, Ollama)
+- [x] Xây dựng API endpoint `/api/chat` cơ bản (text in → text out)
+- [x] Cấu hình môi trường (.env, settings, CORS)
+- [x] Viết Unit Test cho LLM Factory (19/19 passed)
 
 ---
 
 ## Phase 2: Tool Registry & Agent Brain
 > Mục tiêu: Xây dựng hệ thống tool và agent có khả năng suy luận + gọi tool
 
-- [ ] Thiết kế Tool Registry (interface chuẩn cho mọi tool)
-- [ ] Triển khai tool: `web_search` (Google/Bing Search API)
-- [ ] Triển khai tool: `web_browser` (Playwright - mở URL, đọc nội dung, chụp ảnh)
-- [ ] Triển khai tool: `screenshot` (chụp màn hình desktop)
-- [ ] Xây dựng Agent Brain với LangGraph (Planner → Executor → Reviewer loop)
-- [ ] API endpoint `/api/agent/execute` (nhận yêu cầu → agent tự chọn tool → trả kết quả)
-- [ ] Viết Integration Test cho Agent workflow
+- [x] Thiết kế Tool Registry (interface chuẩn cho mọi tool)
+- [x] Triển khai tool: `web_search` (DuckDuckGo — no API key required)
+- [x] Triển khai tool: `web_browser` (Playwright - mở URL, đọc nội dung, chụp ảnh)
+- [x] Triển khai tool: `screenshot` (chụp màn hình desktop)
+- [x] Xây dựng Agent Brain với LangGraph (ReAct loop via create_react_agent)
+- [x] API endpoint `/api/agent/execute` + WebSocket `/ws/agent` streaming
+- [x] Viết Integration Test cho Agent workflow (60/60 passed)
 
 ---
 
