@@ -52,8 +52,10 @@ class WikilinkGenerator:
         if not markdown.strip():
             return markdown
 
-        provider = provider or settings.default_provider
-        model = model or settings.default_model
+        # Use dedicated wikilink provider/model (Ollama local by default),
+        # separate from the main agent chat provider.
+        provider = provider or settings.wikilink_provider
+        model = model or settings.wikilink_model
 
         try:
             llm = _build_llm(provider, model)

@@ -15,9 +15,13 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     anthropic_api_key: str = ""
 
-    # Default provider and model
+    # Default provider and model (used for agent chat + tool calling)
     default_provider: str = "openai"
     default_model: str = "gpt-4o"
+
+    # Wikilink generation provider (separate from chat — Ollama local recommended)
+    wikilink_provider: str = "ollama"
+    wikilink_model: str = "huihui_ai/llama3.2-abliterate:3b"
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
