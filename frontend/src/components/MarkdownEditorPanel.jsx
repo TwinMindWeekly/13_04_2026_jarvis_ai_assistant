@@ -66,6 +66,14 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const textareaRef = useRef(null)
+  const overlayRef = useRef(null)
+
+  const handleEditorScroll = useCallback((e) => {
+    if (overlayRef.current) {
+      overlayRef.current.scrollTop = e.target.scrollTop
+      overlayRef.current.scrollLeft = e.target.scrollLeft
+    }
+  }, [])
 
   const hasChanges = content !== savedContent
 
@@ -233,8 +241,9 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
 
         {!loading && !error && mode === 'edit' && (
           <div className="md-editor-edit-container">
-            {/* Highlight overlay behind textarea */}
+            {/* Highlight overlay — shows colored text, syncs scroll with textarea */}
             <div
+              ref={overlayRef}
               className="md-editor-highlight-overlay"
               aria-hidden="true"
               dangerouslySetInnerHTML={{ __html: highlightWikilinks(content) }}
@@ -244,6 +253,7 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
               className="md-editor-textarea"
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onScroll={handleEditorScroll}
               spellCheck={false}
             />
           </div>
