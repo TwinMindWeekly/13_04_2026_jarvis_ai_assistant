@@ -128,12 +128,27 @@ async def run_agent(
     messages = result.get("messages", [])
 
     # Extract the final text response from the last AI message.
+    # Gemini 2.5 returns content as list of dicts: [{"type": "text", "text": "..."}, ...]
     final_response: str = ""
     for msg in reversed(messages):
         content = getattr(msg, "content", None)
-        if content and not isinstance(msg, ToolMessage):
-            final_response = content if isinstance(content, str) else str(content)
+        if not content or isinstance(msg, ToolMessage):
+            continue
+        if isinstance(content, str):
+            final_response = content
             break
+        if isinstance(content, list):
+            # Concatenate all text blocks, skip thinking/signature blocks
+            text_parts = []
+            for block in content:
+                if isinstance(block, dict):
+                    if block.get("type") == "text" and block.get("text"):
+                        text_parts.append(block["text"])
+                elif isinstance(block, str):
+                    text_parts.append(block)
+            if text_parts:
+                final_response = "\n".join(text_parts)
+                break
 
     # Build action history from ToolMessages in the conversation.
     actions: list[dict] = []
@@ -212,6 +227,18 @@ async def stream_agent(
                 content = getattr(chunk, "content", None)
                 if not content:
                     continue
+                # Gemini 2.5 returns list of dicts; extract only "text" blocks
+                if isinstance(content, list):
+                    text_parts = []
+                    for block in content:
+                        if isinstance(block, dict):
+                            if block.get("type") == "text" and block.get("text"):
+                                text_parts.append(block["text"])
+                        elif isinstance(block, str):
+                            text_parts.append(block)
+                    if not text_parts:
+                        continue
+                    content = "".join(text_parts)
                 yield {
                     "type": "text",
                     "content": content,

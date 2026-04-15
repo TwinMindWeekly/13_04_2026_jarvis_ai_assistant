@@ -64,7 +64,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     const recognition = new SpeechRecognition()
     recognition.lang = language
     recognition.interimResults = true
-    recognition.continuous = true
+    // continuous=false: stop after one final result so we don't echo-loop
+    // when TTS plays the response back through the speakers
+    recognition.continuous = false
     recognition.maxAlternatives = 1
 
     recognition.onstart = () => {
@@ -100,20 +102,11 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
     }
 
-    // With continuous=true, auto-restart if it stops unexpectedly while still "listening"
+    // continuous=false: when recognition ends naturally, just stop.
+    // User must click mic again to record next message — prevents TTS echo loop.
     recognition.onend = () => {
-      // Only truly stop if user clicked stop
-      if (!recognitionRef.current) {
-        setIsListening(false)
-      } else {
-        // Browser stopped it (timeout, etc.) — restart
-        try {
-          recognition.start()
-        } catch {
-          setIsListening(false)
-          recognitionRef.current = null
-        }
-      }
+      setIsListening(false)
+      recognitionRef.current = null
     }
 
     recognitionRef.current = recognition
