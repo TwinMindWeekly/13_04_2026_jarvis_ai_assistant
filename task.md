@@ -115,18 +115,37 @@
 ## Phase 9: Graph View Redesign — Obsidian 3-Panel Layout + AI Chat
 > Mục tiêu: Chuyển Knowledge Graph từ modal popup → full-page 3-panel layout giống Obsidian, tích hợp AI chat sidebar để query tài liệu ngay trong graph view.
 
-- [ ] Thiết kế layout 3 panel: Left (search/docs) + Center (graph canvas) + Right (AI chat)
-- [ ] GraphPanel.jsx — chuyển từ Modal fullscreen → flex 3-column page view
-- [ ] GraphLeftPanel.jsx (mới) — search box, document list, folder grouping, click → focus node
-- [ ] GraphChatPanel.jsx (mới) — mini AI chat sidebar tái sử dụng useAgent hook
-- [ ] App.jsx — toggle giữa Chat mode ↔ Graph mode (không còn modal overlay)
-- [ ] Xoá GraphToolbar.jsx — bỏ threshold slider + rebuild button (search chuyển vào left panel)
-- [ ] Merge GraphDetailPanel vào left panel — click node → hiện detail + neighbors trong left panel
-- [ ] Cập nhật main.css — graph page dark theme, left/right panel styles, responsive
-- [ ] useGraph.js — bỏ threshold state, hardcode 0.5 hoặc auto-tune
-- [ ] AI chat trong graph: user hỏi → agent dùng rag_search → highlight related nodes trên graph
-- [ ] Click node trên graph → hiện document detail + preview content trong left panel
-- [ ] Graph canvas: nền đen #0f1014, giữ ForceGraph2D, floating zoom-to-fit button
-- [ ] i18n — thêm keys mới cho graph page vào en.json + vi.json
-- [ ] Docs sync — cập nhật technical_reference.md, README.md, task.md
+- [x] Thiết kế layout 3 panel: Left (search/docs) + Center (graph canvas) + Right (AI chat)
+- [x] GraphPage.jsx (mới) — container 3-column page view thay thế GraphPanel modal
+- [x] GraphLeftPanel.jsx (mới) — search box, document list, detail/neighbors khi click node
+- [x] GraphChatPanel.jsx (mới) — AI chat sidebar dùng /api/agent/execute + rag_search, highlight nodes
+- [x] GraphCanvas.jsx (mới) — ForceGraph2D tách riêng, AI highlight ring, floating zoom-to-fit
+- [x] App.jsx — viewMode state ('chat'|'graph'), render GraphPage thay vì modal
+- [x] Xoá GraphToolbar.jsx, GraphPanel.jsx, GraphDetailPanel.jsx (merge vào components mới)
+- [x] Cập nhật main.css — ~300 dòng graph page dark theme, 3-panel layout, responsive
+- [x] useGraph.js — đơn giản hoá: bỏ threshold/rebuild, hardcode 0.5
+- [x] AI chat trong graph: user hỏi → agent dùng rag_search → highlight related nodes
+- [x] Click node → detail + neighbors trong left panel
+- [x] Graph canvas: nền đen #0f1014, ForceGraph2D, floating Fit button
+- [x] i18n — 8 keys mới cho graph page vào en.json + vi.json
+- [ ] Docs sync — cập nhật technical_reference.md, README.md
 - [ ] E2E test — Playwright test cho graph page layout mới
+
+---
+
+## Phase 10: AI Auto-Convert Pipeline — Wikilinks Only Graph
+> Mục tiêu: Upload PDF/DOCX → AI tự convert sang .md + chèn [[wikilinks]] → graph chỉ dùng explicit wikilink edges + backlinks. Bỏ cosine similarity edges.
+
+- [ ] Install MarkItDown dependency
+- [ ] Backend: `rag/md_converter.py` — MarkItDown wrapper, convert PDF/DOCX/PPTX/XLSX → clean .md
+- [ ] Backend: `rag/wikilink_generator.py` — LLM prompt chèn [[wikilinks]] vào markdown + chunking cho file lớn
+- [ ] Backend: `graph/link_extractor.py` — regex parse [[Target]] và [[Target|Display]] từ .md
+- [ ] Backend: vault storage — lưu .md vào `backend/uploads/vault/{doc_id}.md`
+- [ ] Backend: `routers/vault.py` — GET /api/vault/{doc_id} xem nội dung .md
+- [ ] Sửa `routers/documents.py` — upload pipeline thêm background task: convert + LLM wikilinks
+- [ ] Sửa `graph/builder.py` — xoá cosine similarity, chỉ dùng wikilink edges + backlinks
+- [ ] Sửa `models/graph_schemas.py` — GraphLink thêm context field
+- [ ] Frontend: GraphLeftPanel — hiện backlinks section khi click node
+- [ ] Fallback: nếu không có LLM key → bỏ qua wikilink step, graph trống (chỉ orphan nodes)
+- [ ] Tests — unit tests cho link_extractor, wikilink_generator, md_converter
+- [ ] Docs sync — technical_reference.md, README.md, task.md

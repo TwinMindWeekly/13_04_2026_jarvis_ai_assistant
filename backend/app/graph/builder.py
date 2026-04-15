@@ -1,16 +1,14 @@
-"""Build a document similarity graph from ChromaDB embeddings.
+"""Build a document knowledge graph from [[wikilinks]] in vault Markdown files.
 
-Algorithm:
-  1. Load the documents metadata index (filename, size, folder, …).
-  2. For each document, fetch all its chunk embeddings from ChromaDB
-     (filter on ``metadata.doc_id``).
-  3. Compute the document-level embedding as the mean of its chunks.
-  4. Compute the pairwise cosine similarity matrix.
-  5. Emit an edge for every pair whose similarity exceeds the threshold.
+Algorithm (Phase 10 — wikilinks only, no cosine similarity):
+  1. Load the documents metadata index (filename, size, wikilinks, …).
+  2. For each document that has wikilinks, resolve [[target]] names to
+     document IDs via fuzzy filename matching.
+  3. Emit an edge for every resolved wikilink.
+  4. Build a backlinks index (reverse lookup: who links to this doc?).
 
-Complexity is O(n²) which is fine up to ~1 000 documents. Beyond that we
-should switch to ChromaDB's HNSW nearest-neighbour queries (top-K per
-document) which is O(n·k·log n).
+This is O(n·k) where k = average wikilinks per doc — much cheaper than
+the O(n²) cosine similarity matrix used in Phase 8.
 """
 
 from __future__ import annotations
@@ -19,8 +17,6 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-
-import numpy as np
 
 from app.core.config import settings
 from app.models.graph_schemas import (
@@ -33,7 +29,6 @@ from app.models.graph_schemas import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_COLLECTION = "jarvis_default"
 _METADATA_FILENAME = "documents_metadata.json"
 
 
@@ -61,15 +56,41 @@ def _folder_of(filename: str) -> str:
     return "" if str(parent) in ("", ".") else str(parent)
 
 
-def _cosine_similarity_matrix(vectors: np.ndarray) -> np.ndarray:
-    """Pairwise cosine similarity — normalized dot product."""
-    if vectors.size == 0:
-        return np.array([])
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-    # Avoid divide-by-zero for accidental zero vectors.
-    norms[norms == 0] = 1.0
-    normalized = vectors / norms
-    return normalized @ normalized.T
+def _resolve_link_target(target_name: str, docs: list[dict]) -> str | None:
+    """Resolve a [[wikilink]] target name to a document ID.
+
+    Matching strategy (in order):
+      1. Exact filename match (case-insensitive, with or without extension)
+      2. Filename starts with target (e.g. [[API]] matches "API.docx")
+      3. Target is a substring of filename
+
+    Returns the document ID or None if no match.
+    """
+    target_lower = target_name.lower().strip()
+    if not target_lower:
+        return None
+
+    # Pass 1: exact match (filename without extension)
+    for doc in docs:
+        fname = doc.get("filename", "")
+        stem = Path(fname).stem.lower()
+        if stem == target_lower or fname.lower() == target_lower:
+            return doc.get("id")
+
+    # Pass 2: filename starts with target
+    for doc in docs:
+        fname = doc.get("filename", "")
+        stem = Path(fname).stem.lower()
+        if stem.startswith(target_lower):
+            return doc.get("id")
+
+    # Pass 3: substring match
+    for doc in docs:
+        fname = doc.get("filename", "")
+        if target_lower in fname.lower():
+            return doc.get("id")
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -77,19 +98,15 @@ def _cosine_similarity_matrix(vectors: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-async def build_document_graph(threshold: float = 0.5) -> GraphData:
-    """Compute the document similarity graph from current ChromaDB state.
+async def build_document_graph() -> GraphData:
+    """Build the knowledge graph from [[wikilinks]] stored in document metadata.
 
-    Args:
-        threshold: Minimum cosine similarity for an edge to be emitted.
-            Default 0.5 keeps the graph readable while still revealing
-            meaningful clusters.
-
-    Returns:
-        GraphData with nodes, links and metadata. Returns a graph with just
-        nodes (no links) when fewer than two documents are indexed.
+    Returns GraphData with nodes (all documents) and links (resolved wikilinks).
+    Documents without wikilinks appear as orphan nodes.
     """
     docs = _load_documents_index()
+
+    # Build nodes for all documents.
     nodes: list[GraphNode] = []
     for doc in docs:
         filename = doc.get("filename", "")
@@ -105,103 +122,37 @@ async def build_document_graph(threshold: float = 0.5) -> GraphData:
             )
         )
 
-    if len(nodes) < 2:
-        logger.info("Graph build skipped — need 2+ documents, got %d", len(nodes))
-        return GraphData(
-            nodes=nodes,
-            links=[],
-            meta=GraphMeta(
-                total_docs=len(nodes),
-                total_links=0,
-                threshold=threshold,
-                generated_at=datetime.now(timezone.utc).isoformat(),
-                cached=False,
-            ),
-        )
-
-    # Fetch all chunks with embeddings once (single round-trip to ChromaDB).
-    # Lazy import so test suites without chromadb can still import this module.
-    import chromadb  # noqa: PLC0415
-
-    client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
-    try:
-        collection = client.get_collection(name=_DEFAULT_COLLECTION)
-    except Exception:
-        logger.info("Collection '%s' not found — empty graph.", _DEFAULT_COLLECTION)
-        return GraphData(
-            nodes=nodes,
-            links=[],
-            meta=GraphMeta(
-                total_docs=len(nodes),
-                total_links=0,
-                threshold=threshold,
-                generated_at=datetime.now(timezone.utc).isoformat(),
-                cached=False,
-            ),
-        )
-
-    result = collection.get(include=["embeddings", "metadatas"])
-    # ChromaDB ≥1.5 returns `embeddings` as a numpy 2D array, not a list.
-    # `ndarray or []` raises ValueError (ambiguous truth value), so fall back
-    # to None-check and coerce to a list for downstream zip/iteration.
-    embeds_raw = result.get("embeddings")
-    metas_raw = result.get("metadatas")
-    all_embeds = list(embeds_raw) if embeds_raw is not None else []
-    all_metas: list[dict] = list(metas_raw) if metas_raw is not None else []
-
-    # Group chunk embeddings by doc_id.
-    per_doc: dict[str, list[list[float]]] = {}
-    for emb, meta in zip(all_embeds, all_metas):
-        doc_id = meta.get("doc_id") if meta else None
-        if not doc_id:
-            continue
-        per_doc.setdefault(doc_id, []).append(emb)
-
-    # Keep only the documents that actually have chunks.
-    doc_ids: list[str] = [n.id for n in nodes if n.id in per_doc]
-    if len(doc_ids) < 2:
-        logger.info("Graph build — fewer than 2 documents have embeddings.")
-        return GraphData(
-            nodes=nodes,
-            links=[],
-            meta=GraphMeta(
-                total_docs=len(nodes),
-                total_links=0,
-                threshold=threshold,
-                generated_at=datetime.now(timezone.utc).isoformat(),
-                cached=False,
-            ),
-        )
-
-    # Mean-pool each doc's chunk embeddings.
-    doc_vectors = np.array(
-        [np.mean(np.array(per_doc[d]), axis=0) for d in doc_ids],
-        dtype=np.float32,
-    )
-
-    similarity = _cosine_similarity_matrix(doc_vectors)
-
-    # Emit edges above threshold (upper triangle only — graph is undirected).
+    # Build edges from wikilinks.
     links: list[GraphLink] = []
-    n = len(doc_ids)
-    for i in range(n):
-        for j in range(i + 1, n):
-            weight = float(similarity[i][j])
-            if weight >= threshold:
-                links.append(
-                    GraphLink(
-                        source=doc_ids[i],
-                        target=doc_ids[j],
-                        weight=round(weight, 4),
-                    )
-                )
+    seen_pairs: set[tuple[str, str]] = set()
 
-    logger.info(
-        "Graph built — %d nodes, %d links (threshold=%.2f)",
-        len(nodes),
-        len(links),
-        threshold,
-    )
+    for doc in docs:
+        source_id = doc.get("id", "")
+        wikilinks = doc.get("wikilinks", [])
+
+        for wl in wikilinks:
+            target_name = wl.get("target", "")
+            target_id = _resolve_link_target(target_name, docs)
+
+            if not target_id or target_id == source_id:
+                continue
+
+            # Deduplicate: A→B and B→A count as one edge.
+            pair = tuple(sorted([source_id, target_id]))
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+
+            links.append(
+                GraphLink(
+                    source=source_id,
+                    target=target_id,
+                    weight=1.0,
+                    context=wl.get("context", ""),
+                )
+            )
+
+    logger.info("Graph built — %d nodes, %d links (wikilinks only)", len(nodes), len(links))
 
     return GraphData(
         nodes=nodes,
@@ -209,7 +160,6 @@ async def build_document_graph(threshold: float = 0.5) -> GraphData:
         meta=GraphMeta(
             total_docs=len(nodes),
             total_links=len(links),
-            threshold=threshold,
             generated_at=datetime.now(timezone.utc).isoformat(),
             cached=False,
         ),
@@ -217,12 +167,12 @@ async def build_document_graph(threshold: float = 0.5) -> GraphData:
 
 
 # ---------------------------------------------------------------------------
-# Stats (cheap — no similarity computation)
+# Stats (cheap — no graph computation)
 # ---------------------------------------------------------------------------
 
 
 def get_graph_stats() -> GraphStats:
-    """Return counts without computing the full similarity graph."""
+    """Return counts without computing the full graph."""
     docs = _load_documents_index()
     total_chunks = sum(int(d.get("chunks_count", 0)) for d in docs)
 

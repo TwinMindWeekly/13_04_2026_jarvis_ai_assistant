@@ -16,11 +16,12 @@ class GraphNode(BaseModel):
 
 
 class GraphLink(BaseModel):
-    """An edge between two documents whose embeddings are similar."""
+    """An edge between two documents connected by an explicit [[wikilink]]."""
 
     source: str = Field(..., description="Source document ID")
     target: str = Field(..., description="Target document ID")
-    weight: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity 0..1")
+    weight: float = Field(default=1.0, ge=0.0, le=1.0, description="Link strength (1.0 for wikilinks)")
+    context: str = Field(default="", description="Text surrounding the [[wikilink]] in the source document")
 
 
 class GraphMeta(BaseModel):
@@ -28,7 +29,6 @@ class GraphMeta(BaseModel):
 
     total_docs: int = 0
     total_links: int = 0
-    threshold: float = 0.5
     generated_at: str = ""
     cached: bool = False
 

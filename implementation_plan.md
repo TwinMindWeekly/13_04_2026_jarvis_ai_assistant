@@ -661,3 +661,462 @@ Không cần thêm dependency mới. Tất cả dựa trên:
 | 9 | en.json + vi.json | ~20 mới | Low |
 | 10 | Docs + E2E | ~100 | Low |
 | **Tổng** | | **~1000 net new** | **Medium** |
+
+---
+
+## Phase 10: AI Auto-Convert Pipeline — Wikilinks + Hybrid Graph
+
+### Mục tiêu
+
+Khi user upload PDF/DOCX/PPTX/XLSX, hệ thống tự động:
+1. Convert sang clean Markdown (giữ structure)
+2. Gọi LLM chèn `[[wikilinks]]` vào markdown (entities, concepts, organizations)
+3. Lưu .md vào vault/ folder
+4. Parse `[[wikilinks]]` → explicit edges (nét liền) trên graph
+5. Kết hợp với cosine similarity → implicit edges (nét đứt) — đã có từ Phase 8
+6. Build backlinks index (ai link đến file này?)
+
+Fallback: nếu không có LLM API key → bỏ qua bước 2, chỉ dùng cosine (như cũ).
+
+### Pipeline tổng quan
+
+```
+Upload file (PDF/DOCX/PPTX/XLSX/TXT/MD)
+    │
+    ▼
+[Existing] Save file + parse chunks + embed → ChromaDB (giữ nguyên)
+    │
+    ▼
+[New — background task, async]
+    │
+    ├─► [Step A] MarkItDown convert → clean Markdown
+    │       Input:  backend/uploads/{doc_id}.ext
+    │       Output: raw markdown string
+    │
+    ├─► [Step B] LLM chèn [[wikilinks]]
+    │       Input:  raw markdown (chunk nếu > 4000 tokens)
+    │       Prompt: "Identify entities, insert [[WikiLink]] around first occurrence"
+    │       Output: markdown có [[links]]
+    │
+    ├─► [Step C] Lưu vault/{doc_id}.md
+    │       Cũng update documents_metadata.json: thêm vault_file, links[]
+    │
+    └─► [Step D] Invalidate graph cache → next request sẽ rebuild với explicit edges
+```
+
+Upload response trả ngay `200 OK` (không đợi LLM). Background task chạy Step A-D.
+Metadata cập nhật `status: "processing" → "ready"` khi xong.
+
+### Chọn thư viện convert: MarkItDown (Microsoft)
+
+| Tiêu chí | MarkItDown | Marker |
+|---|---|---|
+| Accuracy | Tốt cho DOCX/PPTX/XLSX, OK cho PDF | Tốt nhất cho PDF (95.67%) |
+| Size | Nhẹ (~2 MB) | Nặng (~500 MB, cần torch) |
+| Install | `pip install markitdown` | `pip install marker-pdf` + torch |
+| Speed | Nhanh (< 2s cho 100 trang) | Chậm hơn (5-15s, dùng model vision) |
+| Dependencies | Minimal (docx, pptx, openpyxl) | Nặng (torch, layoutparser, tesseract) |
+
+**Chọn MarkItDown** vì:
+- Project đã có torch cho sentence-transformers nhưng MarkItDown nhẹ hơn, nhanh hơn
+- DOCX/PPTX/XLSX convert rất tốt (cùng thư viện python-docx, openpyxl mà project đang dùng)
+- PDF convert OK cho text-based PDF (hầu hết tài liệu business)
+- Không cần GPU
+- Có thể upgrade sang Marker cho PDF nặng sau nếu cần
+
+### Chi tiết từng step
+
+#### Step 1: Install MarkItDown
+
+**File sửa**: `backend/requirements.txt`
+
+```
+markitdown>=0.1.0
+```
+
+#### Step 2: md_converter.py — Convert file → Markdown
+
+**File tạo mới**: `backend/app/rag/md_converter.py`
+
+```python
+"""Convert uploaded documents to clean Markdown using MarkItDown."""
+
+import asyncio
+import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+class MarkdownConverter:
+    """Wrapper around MarkItDown for async document → Markdown conversion."""
+
+    async def convert(self, file_path: str) -> str:
+        """Convert a document file to Markdown text.
+
+        Runs synchronously in a thread pool to avoid blocking the event loop.
+        Returns empty string on failure (non-fatal — graph still works via cosine).
+        """
+        return await asyncio.to_thread(self._convert_sync, file_path)
+
+    def _convert_sync(self, file_path: str) -> str:
+        try:
+            from markitdown import MarkItDown
+            md = MarkItDown()
+            result = md.convert(file_path)
+            text = result.text_content or ""
+            logger.info("Converted '%s' → %d chars Markdown", Path(file_path).name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("MarkItDown conversion failed for '%s': %s", file_path, exc)
+            return ""
+```
+
+#### Step 3: wikilink_generator.py — LLM chèn [[wikilinks]]
+
+**File tạo mới**: `backend/app/rag/wikilink_generator.py`
+
+```python
+"""Use LLM to extract entities and insert [[wikilinks]] into Markdown."""
+
+import asyncio
+import logging
+from app.agent.brain import _build_llm
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+WIKILINK_PROMPT = '''You are a knowledge organizer. Read the document below and:
+
+1. Identify all key entities: people, organizations, technologies, concepts, products, standards.
+2. For each entity, create a canonical wiki page name in PascalCase (e.g., "FastAPI", "ChromaDB").
+3. Insert [[WikiPageName]] around the FIRST occurrence of each entity only.
+4. Do NOT modify the document text — only add [[ ]] brackets.
+5. Return the FULL document with [[wikilinks]] inserted. No commentary.
+
+Document:
+---
+{content}
+---
+
+Return the document with [[wikilinks]]:'''
+
+# Max tokens per chunk sent to LLM (leave room for prompt + response)
+_CHUNK_MAX_CHARS = 12000
+
+
+class WikilinkGenerator:
+    """Generate [[wikilinks]] in Markdown using an LLM."""
+
+    async def generate(self, markdown: str, provider: str = None, model: str = None) -> str:
+        """Insert [[wikilinks]] into markdown using configured LLM.
+
+        For documents exceeding _CHUNK_MAX_CHARS, processes in chunks and merges.
+        Returns original markdown on any failure (non-fatal).
+        """
+        provider = provider or settings.default_provider
+        model = model or settings.default_model
+
+        try:
+            llm = _build_llm(provider, model)
+        except Exception as exc:
+            logger.warning("Cannot build LLM for wikilinks (provider=%s): %s", provider, exc)
+            return markdown
+
+        chunks = self._split_for_llm(markdown)
+        results = []
+        seen_entities = set()
+
+        for i, chunk in enumerate(chunks):
+            prompt = WIKILINK_PROMPT.format(content=chunk)
+            if seen_entities:
+                prompt += f"\n\nEntities already linked in previous chunks (do NOT re-link): {', '.join(sorted(seen_entities))}"
+
+            try:
+                response = await asyncio.to_thread(self._call_llm_sync, llm, prompt)
+                results.append(response)
+                # Track entities found in this chunk
+                import re
+                for match in re.finditer(r'\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]', response):
+                    seen_entities.add(match.group(1))
+            except Exception as exc:
+                logger.warning("LLM wikilink generation failed for chunk %d: %s", i, exc)
+                results.append(chunk)  # fallback: original text
+
+        merged = "\n\n".join(results)
+        logger.info("Wikilink generation complete: %d entities found", len(seen_entities))
+        return merged
+
+    def _call_llm_sync(self, llm, prompt: str) -> str:
+        """Synchronous LLM call — runs in thread pool."""
+        from langchain_core.messages import HumanMessage
+        response = llm.invoke([HumanMessage(content=prompt)])
+        content = response.content
+        if isinstance(content, list):
+            parts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+            return "\n".join(parts)
+        return str(content)
+
+    @staticmethod
+    def _split_for_llm(text: str) -> list[str]:
+        """Split text into chunks of at most _CHUNK_MAX_CHARS on paragraph boundaries."""
+        if len(text) <= _CHUNK_MAX_CHARS:
+            return [text]
+        chunks = []
+        while text:
+            if len(text) <= _CHUNK_MAX_CHARS:
+                chunks.append(text)
+                break
+            split_at = text.rfind("\n\n", 0, _CHUNK_MAX_CHARS)
+            if split_at == -1:
+                split_at = text.rfind("\n", 0, _CHUNK_MAX_CHARS)
+            if split_at == -1:
+                split_at = _CHUNK_MAX_CHARS
+            chunks.append(text[:split_at])
+            text = text[split_at:].lstrip("\n")
+        return chunks
+```
+
+#### Step 4: link_extractor.py — Parse [[wikilinks]] từ .md
+
+**File tạo mới**: `backend/app/graph/link_extractor.py`
+
+```python
+"""Extract [[wikilinks]] from Markdown text using regex."""
+
+import re
+
+WIKILINK_PATTERN = re.compile(r'(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]')
+
+
+def extract_wikilinks(markdown: str, source_doc_id: str = "") -> list[dict]:
+    """Extract [[Target]] and [[Target|Display]] from markdown.
+
+    Returns list of dicts: [{target, display, context, source_doc_id}]
+    """
+    links = []
+    seen_targets = set()
+    for match in WIKILINK_PATTERN.finditer(markdown):
+        target = match.group(1).strip()
+        display = (match.group(2) or target).strip()
+        if target in seen_targets:
+            continue  # deduplicate within same doc
+        seen_targets.add(target)
+        start = max(0, match.start() - 60)
+        end = min(len(markdown), match.end() + 60)
+        context = markdown[start:end].replace("\n", " ").strip()
+        links.append({
+            "target": target,
+            "display": display,
+            "context": context,
+            "source_doc_id": source_doc_id,
+        })
+    return links
+```
+
+#### Step 5: Sửa documents.py — Upload pipeline + background task
+
+**File sửa**: `backend/app/routers/documents.py`
+
+Thêm vào sau dòng `invalidate_graph_cache()`:
+
+```python
+from fastapi import BackgroundTasks
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+):
+    # ... existing code (save file, parse chunks, embed, ChromaDB) ...
+
+    # NEW: background task — convert to .md + LLM wikilinks
+    if background_tasks:
+        background_tasks.add_task(
+            _process_vault_file,
+            doc_id=doc_id,
+            file_path=str(file_path),
+            filename=file.filename or "",
+        )
+
+    return DocumentUploadResponse(...)
+
+
+async def _process_vault_file(doc_id: str, file_path: str, filename: str):
+    """Background: convert → LLM wikilinks → save vault .md → update metadata."""
+    from app.rag.md_converter import MarkdownConverter
+    from app.rag.wikilink_generator import WikilinkGenerator
+    from app.graph.link_extractor import extract_wikilinks
+    from app.graph.cache import invalidate_cache as invalidate_graph_cache
+
+    converter = MarkdownConverter()
+    md_text = await converter.convert(file_path)
+    if not md_text:
+        return  # conversion failed — cosine-only graph still works
+
+    generator = WikilinkGenerator()
+    md_with_links = await generator.generate(md_text)
+
+    # Save to vault/
+    vault_dir = Path(settings.upload_dir) / "vault"
+    vault_dir.mkdir(exist_ok=True)
+    vault_path = vault_dir / f"{doc_id}.md"
+    vault_path.write_text(md_with_links, encoding="utf-8")
+
+    # Extract links + update metadata
+    links = extract_wikilinks(md_with_links, source_doc_id=doc_id)
+    docs = _load_metadata()
+    for doc in docs:
+        if doc["id"] == doc_id:
+            doc["vault_file"] = str(vault_path)
+            doc["wikilinks"] = [{"target": l["target"], "context": l["context"]} for l in links]
+            doc["status"] = "ready"
+            break
+    _save_metadata(docs)
+
+    invalidate_graph_cache()
+    logger.info("Vault file ready for '%s': %d wikilinks extracted", filename, len(links))
+```
+
+#### Step 6: Sửa graph/builder.py — Hybrid edges
+
+**File sửa**: `backend/app/graph/builder.py`
+
+Thêm logic merge explicit + implicit edges:
+
+```python
+# After computing cosine similarity links...
+
+# Load explicit links from metadata wikilinks field
+explicit_links = []
+for doc in docs:
+    for wl in doc.get("wikilinks", []):
+        # Resolve wikilink target name → document ID (fuzzy match on filename)
+        target_id = _resolve_link_target(wl["target"], docs)
+        if target_id and target_id != doc["id"]:
+            explicit_links.append(GraphLink(
+                source=doc["id"],
+                target=target_id,
+                weight=1.0,
+                link_type="explicit",
+                context=wl.get("context", ""),
+            ))
+
+# Dedup: if explicit link A→B exists, remove implicit A→B
+explicit_pairs = {(l.source, l.target) for l in explicit_links}
+explicit_pairs |= {(l.target, l.source) for l in explicit_links}  # bidirectional
+implicit_links = [l for l in cosine_links if (l.source, l.target) not in explicit_pairs]
+
+# Tag implicit links
+for l in implicit_links:
+    l.link_type = "implicit"
+
+all_links = explicit_links + implicit_links
+```
+
+#### Step 7: Sửa GraphLink schema
+
+**File sửa**: `backend/app/models/graph_schemas.py`
+
+```python
+class GraphLink(BaseModel):
+    source: str
+    target: str
+    weight: float
+    link_type: str = "implicit"   # "explicit" (wikilink) | "implicit" (cosine)
+    context: str | None = None    # text around [[link]] for explicit
+```
+
+#### Step 8: Frontend — Edge styles + Backlinks
+
+**File sửa**: `frontend/src/components/GraphCanvas.jsx`
+
+```jsx
+// linkLineDash callback: explicit = solid, implicit = dashed
+const linkLineDash = useCallback(
+  (link) => link.link_type === 'implicit' ? [4, 2] : null,
+  []
+)
+
+// Add prop to ForceGraph2D:
+<ForceGraph2D linkLineDash={linkLineDash} ... />
+```
+
+**File sửa**: `frontend/src/components/GraphLeftPanel.jsx`
+
+Thêm section "Backlinks" trong detail mode — docs có wikilink trỏ đến node này.
+
+#### Step 9: Vault viewer endpoint
+
+**File tạo mới**: `backend/app/routers/vault.py`
+
+```python
+@router.get("/api/vault/{doc_id}")
+async def get_vault_file(doc_id: str):
+    """Return the converted Markdown content of a document."""
+    vault_path = Path(settings.upload_dir) / "vault" / f"{doc_id}.md"
+    if not vault_path.exists():
+        raise HTTPException(404, "Vault file not found — document may still be processing.")
+    return {"doc_id": doc_id, "content": vault_path.read_text(encoding="utf-8")}
+```
+
+### Files tạo/sửa/xoá tổng hợp
+
+| Action | File | Mô tả |
+|---|---|---|
+| **Tạo** | `backend/app/rag/md_converter.py` | MarkItDown wrapper |
+| **Tạo** | `backend/app/rag/wikilink_generator.py` | LLM chèn [[wikilinks]] |
+| **Tạo** | `backend/app/graph/link_extractor.py` | Regex parse [[...]] |
+| **Tạo** | `backend/app/routers/vault.py` | GET /api/vault/{doc_id} |
+| **Sửa** | `backend/requirements.txt` | Thêm `markitdown` |
+| **Sửa** | `backend/app/routers/documents.py` | Background task pipeline |
+| **Sửa** | `backend/app/graph/builder.py` | Merge explicit + implicit edges |
+| **Sửa** | `backend/app/models/graph_schemas.py` | GraphLink + link_type/context |
+| **Sửa** | `backend/app/main.py` | Register vault router |
+| **Sửa** | `frontend/src/components/GraphCanvas.jsx` | Edge line dash by type |
+| **Sửa** | `frontend/src/components/GraphLeftPanel.jsx` | Backlinks section |
+
+### Dependencies giữa các steps
+
+```
+Step 1 (install)     ──→ Step 2 (converter)
+Step 2 (converter)   ──→ Step 5 (upload pipeline)
+Step 3 (wikilinks)   ──→ Step 5 (upload pipeline)
+Step 4 (extractor)   ──→ Step 5 (upload pipeline)
+Step 5 (pipeline)    ──→ Step 6 (builder)
+Step 7 (schema)      ──→ Step 6 (builder) + Step 8 (frontend)
+Step 9 (vault API)   ── song song ──
+```
+
+### Rủi ro & giải pháp
+
+| Rủi ro | Mức | Giải pháp |
+|---|---|---|
+| LLM hallucinate entity → link sai | MEDIUM | User có thể GET vault .md để review; fallback: cosine vẫn hoạt động |
+| File 200 trang vượt context window | MEDIUM | Chunk markdown ≤ 12K chars, process lần lượt, track seen_entities |
+| MarkItDown fail format lạ | LOW | Return empty string → skip wikilinks, cosine-only |
+| Background task fail | LOW | Non-fatal: log warning, graph vẫn build từ cosine |
+| Upload latency tăng | LOW | Background task — response trả ngay 200, LLM chạy sau |
+| Không có LLM key | LOW | Skip wikilink step hoàn toàn, code path giống Phase 8 |
+
+### Thư viện mới
+
+```
+markitdown>=0.1.0    # Microsoft MarkItDown — PDF/DOCX/PPTX/XLSX → Markdown
+```
+
+### Ước tính khối lượng
+
+| Step | File | Dòng | Phức tạp |
+|---|---|---|---|
+| 1 | requirements.txt | 1 | Low |
+| 2 | md_converter.py | ~40 | Low |
+| 3 | wikilink_generator.py | ~100 | Medium |
+| 4 | link_extractor.py | ~40 | Low |
+| 5 | documents.py sửa | ~50 | Medium |
+| 6 | builder.py sửa | ~60 | Medium |
+| 7 | graph_schemas.py sửa | ~5 | Low |
+| 8 | GraphCanvas + LeftPanel sửa | ~30 | Low |
+| 9 | vault.py | ~25 | Low |
+| Tests | test_link_extractor, test_converter | ~80 | Medium |
+| **Tổng** | | **~430 net new** | **Medium** |

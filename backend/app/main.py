@@ -13,6 +13,7 @@ from app.routers.agent import router as agent_router
 from app.routers.chat import router as chat_router
 from app.routers.documents import router as documents_router
 from app.routers.graph import router as graph_router
+from app.routers.vault import router as vault_router
 
 # ---------------------------------------------------------------------------
 # Logging configuration
@@ -165,6 +166,7 @@ app.include_router(chat_router)
 app.include_router(agent_router)
 app.include_router(documents_router)
 app.include_router(graph_router)
+app.include_router(vault_router)
 
 
 # ---------------------------------------------------------------------------

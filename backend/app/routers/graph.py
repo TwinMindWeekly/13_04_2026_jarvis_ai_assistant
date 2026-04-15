@@ -1,4 +1,4 @@
-"""Knowledge graph API router — returns document similarity network."""
+"""Knowledge graph API router — returns document wikilink network."""
 
 import logging
 
@@ -22,18 +22,20 @@ router = APIRouter(prefix="/api/graph")
 
 @router.get("/data", response_model=GraphData)
 async def get_graph(
-    threshold: float = Query(0.5, ge=0.0, le=1.0, description="Edge similarity threshold"),
     force: bool = Query(False, description="Force recompute and overwrite cache"),
+    # Keep threshold param for backward compat with frontend but ignore it.
+    threshold: float = Query(0.5, include_in_schema=False),
 ) -> GraphData:
-    """Return the document similarity graph, using cache when possible."""
+    """Return the document wikilink graph, using cache when possible."""
     docs = _load_documents_index()
     doc_ids = [d.get("id", "") for d in docs]
-    key = cache_key(doc_ids, threshold)
+    # Include wikilinks in cache key so cache invalidates when links change.
+    wikilink_count = sum(len(d.get("wikilinks", [])) for d in docs)
+    key = cache_key(doc_ids, float(wikilink_count))
 
     if not force:
         cached = load_cache(key)
         if cached is not None:
-            # Mark the response so the UI knows it came from cache.
             cached.meta.cached = True
             logger.info(
                 "Graph cache hit — %d nodes, %d links",
@@ -43,7 +45,7 @@ async def get_graph(
             return cached
 
     try:
-        data = await build_document_graph(threshold)
+        data = await build_document_graph()
     except Exception as exc:
         logger.exception("Graph build failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Graph build failed: {exc}") from exc
@@ -54,14 +56,12 @@ async def get_graph(
 
 @router.get("/stats", response_model=GraphStats)
 async def stats() -> GraphStats:
-    """Cheap stats — no similarity computation, just counts."""
+    """Cheap stats — no graph computation, just counts."""
     return get_graph_stats()
 
 
 @router.post("/rebuild", response_model=GraphData)
-async def rebuild(
-    threshold: float = Query(0.5, ge=0.0, le=1.0),
-) -> GraphData:
+async def rebuild() -> GraphData:
     """Invalidate cache and rebuild the graph from scratch."""
     invalidate_cache()
-    return await get_graph(threshold=threshold, force=True)
+    return await get_graph(force=True)
