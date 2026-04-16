@@ -5,13 +5,27 @@ import ForceGraph2D from 'react-force-graph-2d'
 import { Maximize2 } from 'lucide-react'
 import GraphLegend from './GraphLegend'
 
-/** Brighten a hex color by a factor (1.0 = no change, 1.4 = 40% brighter). */
-function _brighten(hex, factor) {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const clamp = (v) => Math.min(255, Math.round(v * factor))
-  return `rgb(${clamp(r)}, ${clamp(g)}, ${clamp(b)})`
+/**
+ * Neural-network color gradient based on connection count (degree).
+ * 0 connections = cool dim blue, many connections = bright warm white/pink.
+ * Creates a "brain" aesthetic where hub nodes glow brighter.
+ */
+const _DEGREE_COLORS = [
+  [60, 100, 180],    // 0: dim blue (orphan)
+  [70, 140, 220],    // 1: blue
+  [90, 180, 240],    // 2: light blue
+  [120, 210, 230],   // 3: cyan
+  [160, 230, 200],   // 4: teal
+  [200, 240, 160],   // 5: yellow-green
+  [240, 220, 120],   // 6: warm yellow
+  [255, 190, 100],   // 7: orange
+  [255, 150, 120],   // 8+: warm pink
+]
+
+function _degreeColor(degree) {
+  const idx = Math.min(degree, _DEGREE_COLORS.length - 1)
+  const [r, g, b] = _DEGREE_COLORS[idx]
+  return `rgb(${r}, ${g}, ${b})`
 }
 
 /**
@@ -138,13 +152,10 @@ export default function GraphCanvas({
       const isHighlighted = highlightedSet.has(node.id)
       const dimmed = searchLower && !matchesSearch(node)
 
-      // Size scales with connection count (degree) — more links = bigger node
+      // Size + color scale with connection count — neural network aesthetic
       const degree = degreeMap[node.id] || 0
-      let radius = Math.max(3, 3 + degree * 1.8)
-      // Base color from folder, brighten for high-degree nodes
-      const baseColor = folderColors[node.folder || ''] || '#888'
-      const brightness = Math.min(1.4, 1 + degree * 0.08)
-      const color = _brighten(baseColor, brightness)
+      let radius = Math.max(3, 3 + degree * 2)
+      const color = _degreeColor(degree)
 
       // New node fade-in + scale animation (1 second)
       const addedAt = newNodeTimestamps.current[node.id]
@@ -190,10 +201,22 @@ export default function GraphCanvas({
         ctx.stroke()
       }
 
-      ctx.beginPath()
-      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
-      ctx.fillStyle = color
-      ctx.fill()
+      // Glow effect for hub nodes (degree >= 2) — brain-like aesthetic
+      if (degree >= 2) {
+        ctx.save()
+        ctx.shadowColor = color
+        ctx.shadowBlur = 4 + degree * 2
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
+        ctx.restore()
+      } else {
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
+      }
 
       // Label — only when zoomed in or currently hovered/selected/highlighted.
       if (globalScale > 1.3 || isHovered || isSelected || isHighlighted) {
@@ -213,7 +236,7 @@ export default function GraphCanvas({
 
   const nodePointerAreaPaint = useCallback((node, color, ctx) => {
     const degree = degreeMap[node.id] || 0
-    const radius = Math.max(6, 3 + degree * 1.8 + 4)
+    const radius = Math.max(6, 3 + degree * 2 + 4)
     ctx.fillStyle = color
     ctx.beginPath()
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
@@ -227,9 +250,8 @@ export default function GraphCanvas({
       const isActive =
         (hovered && (sId === hovered.id || tId === hovered.id)) ||
         (selected && (sId === selected.id || tId === selected.id))
-      if (isActive) return 'rgba(255, 170, 0, 0.85)'
-      const opacity = 0.1 + (link.weight || 0.5) * 0.25
-      return `rgba(180, 180, 200, ${opacity})`
+      if (isActive) return 'rgba(120, 200, 255, 0.9)'
+      return 'rgba(80, 140, 200, 0.2)'
     },
     [hovered, selected]
   )
