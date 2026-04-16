@@ -221,7 +221,7 @@ export default function ChatArea({
 
         <VoiceButton
           isListening={voice.isListening}
-          isSpeaking={voice.isSpeaking}
+          isSpeaking={onToggleVoice ? false : voice.isSpeaking}
           supported={voice.sttSupported}
           onToggle={voice.toggleListening}
           onStopTTS={voice.stopSpeaking}

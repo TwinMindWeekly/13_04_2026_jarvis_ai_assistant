@@ -146,7 +146,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         window.speechSynthesis.cancel()
         fullSpeechTextRef.current = text
         revealOffsetRef.current = 0
-        setRevealedText('')
+        setRevealedText('\u200b') // truthy placeholder — prevents full text flash
       } else {
         fullSpeechTextRef.current += text
       }
