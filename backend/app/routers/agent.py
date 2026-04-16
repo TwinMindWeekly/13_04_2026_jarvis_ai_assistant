@@ -80,7 +80,8 @@ async def execute_agent(request: AgentExecuteRequest) -> AgentExecuteResponse:
             continue
 
         try:
-            result = await run_agent(brain, request.message)
+            history = [{"role": m.role, "content": m.content} for m in request.history]
+            result = await run_agent(brain, request.message, history=history)
 
             actions: list[ActionStep] = [
                 ActionStep(
@@ -162,6 +163,7 @@ async def agent_websocket(websocket: WebSocket) -> None:
         provider: str = payload.get("provider", settings.default_provider)
         model: str = payload.get("model", settings.default_model)
         language: str = payload.get("language", "en")
+        ws_history: list[dict] = payload.get("history", [])
 
         registry = create_default_registry()
         lc_tools = registry.to_langchain_tools()
@@ -184,7 +186,7 @@ async def agent_websocket(websocket: WebSocket) -> None:
                 continue
 
             try:
-                async for event in stream_agent(brain, message):
+                async for event in stream_agent(brain, message, history=ws_history):
                     try:
                         await websocket.send_text(json.dumps(event))
                     except WebSocketDisconnect:

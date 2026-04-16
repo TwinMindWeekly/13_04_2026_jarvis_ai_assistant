@@ -84,10 +84,16 @@ export function useAgent(provider, model, language) {
         ? `[Document context — "${docContext.filename}"]\n\`\`\`markdown\n${docContext.content}\n\`\`\`\n[End document context]\n\n${text}`
         : text
 
+      // Build conversation history (last 20 messages, exclude current)
+      const history = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map(({ role, content }) => ({ role, content: (content || '').slice(0, 2000) }))
+        .slice(-20)
+
       // 2. WebSocket path — single send, server pushes events back.
       if (wsStatus === 'connected') {
         try {
-          wsSend({ message: apiMessage, provider, model, language })
+          wsSend({ message: apiMessage, provider, model, language, history })
           return
         } catch (err) {
           // Fall through to REST fallback
@@ -107,7 +113,8 @@ export function useAgent(provider, model, language) {
             model,
             conversationIdRef.current,
             language,
-            abortController.signal
+            abortController.signal,
+            history
           )
           conversationIdRef.current = data.conversation_id
           setMessages((prev) => [

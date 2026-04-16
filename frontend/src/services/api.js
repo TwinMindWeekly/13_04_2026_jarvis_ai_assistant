@@ -11,13 +11,14 @@ export const chatAPI = {
 }
 
 export const agentAPI = {
-  execute: (message, provider, model, conversationId, language, signal) =>
+  execute: (message, provider, model, conversationId, language, signal, history) =>
     api.post('/agent/execute', {
       message,
       provider,
       model,
       language: language || 'en',
       conversation_id: conversationId,
+      history: history || [],
     }, { signal }),
 }
 

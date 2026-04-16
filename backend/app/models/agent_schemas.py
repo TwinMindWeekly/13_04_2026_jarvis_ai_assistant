@@ -3,6 +3,12 @@
 from pydantic import BaseModel, Field
 
 
+class ChatMessage(BaseModel):
+    """A single message in conversation history."""
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class AgentExecuteRequest(BaseModel):
     """Request body for POST /api/agent/execute."""
 
@@ -11,6 +17,7 @@ class AgentExecuteRequest(BaseModel):
     model: str = ""
     language: str = "en"
     conversation_id: str | None = None
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
 
 
 class ActionStep(BaseModel):

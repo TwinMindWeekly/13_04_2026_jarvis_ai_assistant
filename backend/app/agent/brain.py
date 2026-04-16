@@ -3,7 +3,7 @@ import time
 from datetime import date
 from typing import AsyncIterator
 
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph.state import CompiledStateGraph
 
@@ -208,17 +208,30 @@ def create_agent_brain(
     return brain, actual_provider, actual_model
 
 
+def _build_history_messages(history: list[dict]) -> list:
+    """Convert chat history dicts to LangChain message objects."""
+    msgs = []
+    for msg in history:
+        if msg.get("role") == "user":
+            msgs.append(HumanMessage(content=msg["content"]))
+        elif msg.get("role") == "assistant":
+            msgs.append(AIMessage(content=msg["content"]))
+    return msgs
+
+
 async def run_agent(
     brain: CompiledStateGraph,
     user_message: str,
     recursion_limit: int = 25,
+    history: list[dict] | None = None,
 ) -> dict:
     """Invoke the agent and return a structured result dict.
 
     Args:
         brain: Compiled agent graph from create_agent_brain().
         user_message: The user's raw text input.
-        recursion_limit: Maximum ReAct loop iterations (default 10).
+        recursion_limit: Maximum ReAct loop iterations.
+        history: Optional conversation history as list of {"role", "content"} dicts.
 
     Returns:
         {
@@ -229,9 +242,12 @@ async def run_agent(
     """
     config: dict = {"recursion_limit": recursion_limit}
 
+    input_messages = _build_history_messages(history or [])
+    input_messages.append(HumanMessage(content=user_message))
+
     try:
         result = await brain.ainvoke(
-            {"messages": [HumanMessage(content=user_message)]},
+            {"messages": input_messages},
             config=config,
         )
     except Exception as exc:
@@ -301,6 +317,7 @@ async def stream_agent(
     brain: CompiledStateGraph,
     user_message: str,
     recursion_limit: int = 25,
+    history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     """Stream agent events for real-time frontend updates.
 
@@ -314,12 +331,16 @@ async def stream_agent(
         brain: Compiled agent graph from create_agent_brain().
         user_message: The user's raw text input.
         recursion_limit: Maximum ReAct loop iterations.
+        history: Optional conversation history as list of {"role", "content"} dicts.
     """
     config: dict = {"recursion_limit": recursion_limit}
 
+    input_messages = _build_history_messages(history or [])
+    input_messages.append(HumanMessage(content=user_message))
+
     try:
         async for event in brain.astream_events(
-            {"messages": [HumanMessage(content=user_message)]},
+            {"messages": input_messages},
             version="v2",
             config=config,
         ):
