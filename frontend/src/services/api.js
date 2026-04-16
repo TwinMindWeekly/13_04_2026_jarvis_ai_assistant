@@ -34,8 +34,9 @@ export const documentsAPI = {
   delete: (docId) => api.delete(`/documents/${docId}`),
   create: (filename, folder_path = '', content = '') =>
     api.post('/documents/create', { filename, folder_path, content }),
-  update: (docId, { filename, folder_path } = {}) =>
-    api.patch(`/documents/${docId}`, { filename, folder_path }),
+  update: (docId, { filename, folder_path, sort_order } = {}) =>
+    api.patch(`/documents/${docId}`, { filename, folder_path, sort_order }),
+  reorder: (items) => api.post('/documents/reorder', items),
 }
 
 export const graphAPI = {

@@ -7,16 +7,11 @@ import SidebarDocNode from './SidebarDocNode'
 /**
  * SidebarDocTree — Obsidian-style tree view for documents.
  *
- * Props:
- *   documents          flat list from API
- *   extraFolders       client-side folders (empty ones that haven't received any file yet)
- *   selectedDocId      currently selected doc id
- *   onSelectFile(doc)  open document in editor
- *   onDeleteFile(id)   delete via API + remove from list
- *   onRenameFile(id,name)    rename via PATCH
- *   onMoveFile(id,folder)    move via PATCH
- *   onRenameFolder(oldPath, newName)   rename folder (bulk move children)
- *   onMoveFolder(path, newParent)      move folder (bulk move children)
+ * Supports:
+ * - Drag file onto folder → move into folder
+ * - Drag file onto another file → reorder (insert before target)
+ * - Drag folder onto folder → nest folder
+ * - Drag onto root zone → move to root
  */
 export default function SidebarDocTree({
   documents,
@@ -27,6 +22,7 @@ export default function SidebarDocTree({
   onDeleteFolder,
   onRenameFile,
   onMoveFile,
+  onReorderFiles,
   onRenameFolder,
   onMoveFolder,
 }) {
@@ -35,7 +31,6 @@ export default function SidebarDocTree({
   const [renamingId, setRenamingId] = useState(null)
   const [activeDrag, setActiveDrag] = useState(null)
 
-  // pointer drag requires 5px movement before activating so clicks still work
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const handleToggleExpand = useCallback((path) => {
@@ -54,19 +49,28 @@ export default function SidebarDocTree({
     const overData = over.data.current
     if (!activeData || !overData) return
 
-    // Drop onto a folder → move file (or folder) into it.
+    // Drop file onto another file → reorder within same folder
+    if (activeData.type === 'file' && overData.type === 'file') {
+      if (activeData.docId === overData.docId) return
+      onReorderFiles?.(activeData.docId, overData.docId)
+      return
+    }
+
+    // Drop onto a folder or root
     if (overData.type === 'folder' || overData.type === 'root') {
       const destPath = overData.type === 'root' ? '' : overData.path
       if (activeData.type === 'file') {
         onMoveFile(activeData.docId, destPath)
       } else if (activeData.type === 'folder') {
-        // Don't drop folder into itself or a descendant.
         if (destPath === activeData.path) return
         if (destPath.startsWith(activeData.path + '/')) return
         onMoveFolder(activeData.path, destPath)
       }
+      if (destPath) {
+        setExpanded((prev) => ({ ...prev, [destPath]: true }))
+      }
     }
-  }, [onMoveFile, onMoveFolder])
+  }, [onMoveFile, onMoveFolder, onReorderFiles])
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

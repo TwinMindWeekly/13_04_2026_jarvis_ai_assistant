@@ -245,6 +245,40 @@ export default function Sidebar({
     }
   }
 
+  // ── Reorder: drag file onto another file → insert before target ──
+  const handleReorderFiles = async (draggedId, targetId) => {
+    const dragged = documents.find((d) => d.id === draggedId)
+    const target = documents.find((d) => d.id === targetId)
+    if (!dragged || !target) return
+
+    const targetFolder = target.folder_path || ''
+    const siblings = documents
+      .filter((d) => (d.folder_path || '') === targetFolder && d.id !== draggedId)
+      .sort((a, b) => (a.sort_order ?? 999999) - (b.sort_order ?? 999999))
+
+    const targetIdx = siblings.findIndex((d) => d.id === targetId)
+    siblings.splice(targetIdx, 0, { ...dragged, folder_path: targetFolder })
+
+    const updates = siblings.map((d, i) => ({
+      id: d.id,
+      sort_order: i,
+      folder_path: targetFolder,
+    }))
+
+    try {
+      await documentsAPI.reorder(updates)
+      const lookup = Object.fromEntries(updates.map((u) => [u.id, u]))
+      setDocuments((prev) =>
+        prev.map((d) => {
+          const upd = lookup[d.id]
+          return upd ? { ...d, sort_order: upd.sort_order, folder_path: upd.folder_path } : d
+        })
+      )
+    } catch (err) {
+      console.error('[Sidebar] Reorder failed:', err)
+    }
+  }
+
   return (
     <>
       {/* Mobile overlay */}
@@ -355,6 +389,7 @@ export default function Sidebar({
                   onDeleteFolder={handleDeleteFolder}
                   onRenameFile={handleRenameFile}
                   onMoveFile={handleMoveFile}
+                  onReorderFiles={handleReorderFiles}
                   onRenameFolder={handleRenameFolder}
                   onMoveFolder={handleMoveFolder}
                 />

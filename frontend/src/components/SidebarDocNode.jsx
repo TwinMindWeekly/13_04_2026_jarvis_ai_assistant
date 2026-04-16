@@ -128,16 +128,12 @@ function FolderNode({
     data: { type: 'folder', path: node.path },
   })
 
-  const mergedRef = useMergedRef(setDropRef, setDragRef)
-
   const fileCount = node.children.filter((c) => c.type === 'file').length
 
   return (
     <div>
       <div
-        ref={mergedRef}
-        {...attributes}
-        {...listeners}
+        ref={setDropRef}
         className={`sidebar-tree-row folder ${isOver ? 'drop-active' : ''} ${isDragging ? 'dragging' : ''}`}
         style={{ paddingLeft: depth * 12 + 8 }}
         onClick={() => onToggleExpand(node.path)}
@@ -150,7 +146,9 @@ function FolderNode({
         <span className="sidebar-tree-chevron">
           {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
-        {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
+        <span ref={setDragRef} {...attributes} {...listeners} style={{ display: 'flex', cursor: 'grab' }}>
+          {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
+        </span>
         {isRenaming ? (
           <InlineRename
             initial={node.name}
@@ -226,19 +224,25 @@ function FileNode({
   const renamingKey = `file:${node.id}`
   const isRenaming = renamingId === renamingKey
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: `doc-${node.id}`,
-    data: { type: 'file', docId: node.id, filename: node.filename },
+    data: { type: 'file', docId: node.id, filename: node.filename, folderPath: node.folder_path || '' },
   })
 
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `file-drop-${node.id}`,
+    data: { type: 'file', docId: node.id, folderPath: node.folder_path || '' },
+  })
+
+  const mergedRef = useMergedRef(setDragRef, setDropRef)
   const isActive = selectedDocId === node.id
 
   return (
     <div
-      ref={setNodeRef}
+      ref={mergedRef}
       {...attributes}
       {...listeners}
-      className={`sidebar-tree-row file ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`sidebar-tree-row file ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isOver ? 'drop-active' : ''}`}
       style={{ paddingLeft: depth * 12 + 28 }}
       onClick={() => onSelectFile(node)}
       onDoubleClick={(e) => {

@@ -231,16 +231,41 @@ async def update_document(doc_id: str, body: UpdateDocRequest) -> DocumentInfo:
             target["filename"] = new_name
     if body.folder_path is not None:
         target["folder_path"] = body.folder_path.strip().strip("/")
+    if body.sort_order is not None:
+        target["sort_order"] = body.sort_order
 
     _save_metadata(docs)
     invalidate_graph_cache()
     logger.info(
-        "Updated document %s: filename='%s' folder_path='%s'",
+        "Updated document %s: filename='%s' folder_path='%s' sort_order=%s",
         doc_id,
         target.get("filename"),
         target.get("folder_path"),
+        target.get("sort_order"),
     )
     return DocumentInfo(**{k: v for k, v in target.items() if k in DocumentInfo.model_fields})
+
+
+@router.post("/reorder")
+async def reorder_documents(body: list[dict]) -> dict:
+    """Batch update sort_order for multiple documents.
+
+    Body: [{"id": "doc-uuid", "sort_order": 0, "folder_path": "..."}, ...]
+    """
+    docs = _load_metadata()
+    lookup = {d["id"]: d for d in docs}
+    updated = 0
+    for item in body:
+        doc = lookup.get(item.get("id"))
+        if not doc:
+            continue
+        if "sort_order" in item:
+            doc["sort_order"] = item["sort_order"]
+        if "folder_path" in item:
+            doc["folder_path"] = item["folder_path"]
+        updated += 1
+    _save_metadata(docs)
+    return {"updated": updated}
 
 
 @router.delete("/{doc_id}")

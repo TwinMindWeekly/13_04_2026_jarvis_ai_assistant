@@ -61,7 +61,12 @@ function buildTree(docs, extraFolders) {
 function sortTree(node) {
   if (node.type !== 'folder') return
   node.children.sort((a, b) => {
+    // Folders first
     if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+    // Then by sort_order (manual drag order), fallback to alphabetical
+    const aOrder = a.sort_order ?? 999999
+    const bOrder = b.sort_order ?? 999999
+    if (aOrder !== bOrder) return aOrder - bOrder
     const aName = a.type === 'folder' ? a.name : a.filename
     const bName = b.type === 'folder' ? b.name : b.filename
     return (aName || '').localeCompare(bName || '', undefined, { sensitivity: 'base' })
