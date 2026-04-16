@@ -222,7 +222,7 @@ def _build_history_messages(history: list[dict]) -> list:
 async def run_agent(
     brain: CompiledStateGraph,
     user_message: str,
-    recursion_limit: int = 25,
+    recursion_limit: int = 10,
     history: list[dict] | None = None,
 ) -> dict:
     """Invoke the agent and return a structured result dict.
@@ -316,7 +316,7 @@ async def run_agent(
 async def stream_agent(
     brain: CompiledStateGraph,
     user_message: str,
-    recursion_limit: int = 25,
+    recursion_limit: int = 10,
     history: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     """Stream agent events for real-time frontend updates.
