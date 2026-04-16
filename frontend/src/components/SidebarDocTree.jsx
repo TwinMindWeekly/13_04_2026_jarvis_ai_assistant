@@ -44,14 +44,16 @@ export default function SidebarDocTree({
   const handleDragEnd = useCallback((event) => {
     setActiveDrag(null)
     const { active, over } = event
-    if (!over) return
+    console.log('[DnD] dragEnd', { active: active?.id, activeData: active?.data?.current, over: over?.id, overData: over?.data?.current })
+    if (!over) { console.log('[DnD] SKIP: over is null'); return }
     const activeData = active.data.current
     const overData = over.data.current
-    if (!activeData || !overData) return
+    if (!activeData || !overData) { console.log('[DnD] SKIP: missing data'); return }
 
     // Drop file onto another file → reorder within same folder
     if (activeData.type === 'file' && overData.type === 'file') {
-      if (activeData.docId === overData.docId) return
+      if (activeData.docId === overData.docId) { console.log('[DnD] SKIP: same file'); return }
+      console.log('[DnD] REORDER:', activeData.docId, 'before', overData.docId)
       onReorderFiles?.(activeData.docId, overData.docId)
       return
     }
@@ -60,15 +62,19 @@ export default function SidebarDocTree({
     if (overData.type === 'folder' || overData.type === 'root') {
       const destPath = overData.type === 'root' ? '' : overData.path
       if (activeData.type === 'file') {
+        console.log('[DnD] MOVE file', activeData.docId, '→', destPath)
         onMoveFile(activeData.docId, destPath)
       } else if (activeData.type === 'folder') {
         if (destPath === activeData.path) return
         if (destPath.startsWith(activeData.path + '/')) return
+        console.log('[DnD] MOVE folder', activeData.path, '→', destPath)
         onMoveFolder(activeData.path, destPath)
       }
       if (destPath) {
         setExpanded((prev) => ({ ...prev, [destPath]: true }))
       }
+    } else {
+      console.log('[DnD] SKIP: unhandled over type', overData.type)
     }
   }, [onMoveFile, onMoveFolder, onReorderFiles])
 
