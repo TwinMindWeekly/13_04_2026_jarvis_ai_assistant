@@ -6,6 +6,7 @@ import {
   FileText, Eye, Pencil, Save, Loader2, AlertCircle, X,
 } from 'lucide-react'
 import { vaultAPI } from '../services/api'
+import { extractWikilinkTargets } from '../utils/wikilinkDetector'
 
 /**
  * Convert [[WikiLink]] and [[Target|Display]] to markdown links
@@ -57,7 +58,7 @@ function WikilinkAnchor({ href, children, ...props }) {
  *
  * Loads vault .md content when `selected` node changes.
  */
-export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
+export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onWikilinksChange }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState('view')
   const [content, setContent] = useState('')
@@ -126,6 +127,7 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
     try {
       await vaultAPI.save(selected.id, content)
       setSavedContent(content)
+      window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       const detail = err.response?.data?.detail || err.message
       setError(detail)
@@ -145,6 +147,16 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
+
+  // Debounced wikilink detection — notify parent when links change during editing
+  useEffect(() => {
+    if (mode !== 'edit' || !content || !onWikilinksChange || !selected) return
+    const timer = setTimeout(() => {
+      const targets = extractWikilinkTargets(content)
+      onWikilinksChange(selected.id, targets)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [content, mode, selected?.id, onWikilinksChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Empty state ──
   if (!selected) {

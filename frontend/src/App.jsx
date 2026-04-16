@@ -123,11 +123,16 @@ export default function App() {
     if (window.innerWidth < 1024) setSidebarOpen(false)
   }
 
+  const [graphSelectedDoc, setGraphSelectedDoc] = useState(null)
+
   const handleSelectDocument = useCallback((doc) => {
-    setSelectedDoc(doc)
-    setViewMode('chat')
+    if (viewMode === 'graph') {
+      setGraphSelectedDoc(doc)
+    } else {
+      setSelectedDoc(doc)
+    }
     if (window.innerWidth < 1024) setSidebarOpen(false)
-  }, [])
+  }, [viewMode])
 
   const handleSplitResize = useCallback((delta) => {
     const container = splitRef.current
@@ -162,6 +167,8 @@ export default function App() {
         <GraphPage
           onBack={() => setViewMode('chat')}
           settings={settings}
+          externalSelectedDoc={graphSelectedDoc}
+          onExternalDocConsumed={() => setGraphSelectedDoc(null)}
         />
       ) : (
         <div className="chat-split-wrapper" ref={splitRef}>

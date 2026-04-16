@@ -68,9 +68,9 @@ export default function Sidebar({
     try {
       await documentsAPI.upload(file)
       await loadDocuments()
+      window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       console.error('[Sidebar] Upload failed:', err)
-      // silent
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -95,6 +95,7 @@ export default function Sidebar({
       }
       const { data } = await documentsAPI.create(name, '', `# ${name.replace(/\.md$/, '')}\n`)
       await loadDocuments()
+      window.dispatchEvent(new CustomEvent('graph:invalidate'))
       // auto-open the new doc
       if (data?.id) {
         onSelectDocument({ id: data.id, filename: name, folder_path: '' })
@@ -132,6 +133,7 @@ export default function Sidebar({
       await documentsAPI.delete(docId)
       setDocuments((prev) => prev.filter((d) => d.id !== docId))
       if (selectedDocId === docId) onSelectDocument(null)
+      window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       console.error('[Sidebar] Failed to delete file:', err)
     }
@@ -150,6 +152,7 @@ export default function Sidebar({
       ))
       setExtraFolders((prev) => prev.filter((f) => f !== folderPath && !f.startsWith(folderPath + '/')))
       if (filesInFolder.some((d) => d.id === selectedDocId)) onSelectDocument(null)
+      window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       console.error('[Sidebar] Failed to delete folder:', err)
     } finally {

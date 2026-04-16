@@ -5,6 +5,7 @@ import { Badge } from 'react-bootstrap'
 import { useGraph } from '../hooks/useGraph'
 import { useAgent } from '../hooks/useAgent'
 import { useVoice } from '../hooks/useVoice'
+import { resolveWikilinkTargets } from '../utils/wikilinkDetector'
 import GraphCanvas from './GraphCanvas'
 import ChatArea from './ChatArea'
 import MarkdownEditorPanel from './MarkdownEditorPanel'
@@ -23,9 +24,9 @@ const SPLIT_MIN_PX = 200
  *   Click a node → editor opens on the left, graph stays on the right.
  *   Chat panel is a floating overlay on the right edge.
  */
-export default function GraphPage({ onBack, settings }) {
+export default function GraphPage({ onBack, settings, externalSelectedDoc, onExternalDocConsumed }) {
   const { t } = useTranslation()
-  const { data, loading, error } = useGraph({ enabled: true })
+  const { data, loading, error, refetch, patchData } = useGraph({ enabled: true })
   const [selected, setSelected] = useState(null)
   const [highlighted, setHighlighted] = useState([])
   const [chatOpen, setChatOpen] = useState(false)
@@ -62,6 +63,41 @@ export default function GraphPage({ onBack, settings }) {
     }
     lastSpokenCount.current = msgs.length
   }, [graphAgent.messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle external document selection (from Sidebar file create/click while in graph view)
+  useEffect(() => {
+    if (!externalSelectedDoc) return
+    const graphNode = data.nodes.find((n) => n.id === externalSelectedDoc.id)
+    if (graphNode) {
+      setSelected(graphNode)
+    } else {
+      // Doc just created — graph doesn't have it yet, create minimal node representation
+      setSelected({
+        id: externalSelectedDoc.id,
+        label: (externalSelectedDoc.filename || '').replace(/\.md$/, ''),
+        folder: externalSelectedDoc.folder_path || '',
+      })
+      // Trigger graph refresh to pick up the new doc
+      refetch()
+    }
+    onExternalDocConsumed?.()
+  }, [externalSelectedDoc]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real-time wikilink detection — optimistically update graph edges
+  const handleWikilinksChange = useCallback((docId, targets) => {
+    if (!docId || !data.nodes.length) return
+    const resolvedIds = resolveWikilinkTargets(targets, data.nodes)
+    patchData((prev) => {
+      const otherLinks = prev.links.filter((link) => {
+        const srcId = typeof link.source === 'object' ? link.source.id : link.source
+        return srcId !== docId
+      })
+      const newLinks = resolvedIds
+        .filter((tid) => tid !== docId)
+        .map((tid) => ({ source: docId, target: tid, weight: 1.0, context: '' }))
+      return { ...prev, links: [...otherLinks, ...newLinks] }
+    })
+  }, [data.nodes, patchData])
 
   const handleSelectNode = useCallback((node) => {
     setSelected(node)
@@ -196,6 +232,7 @@ export default function GraphPage({ onBack, settings }) {
                 <MarkdownEditorPanel
                   selected={selected}
                   onClose={handleCloseEditor}
+                  onWikilinksChange={handleWikilinksChange}
                 />
               </div>
               <ResizeHandle onResize={handleSplitResize} />

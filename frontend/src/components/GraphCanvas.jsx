@@ -35,6 +35,24 @@ export default function GraphCanvas({
   const containerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [hovered, setHovered] = useState(null)
+  const prevNodeIdsRef = useRef(new Set())
+  const newNodeTimestamps = useRef({})
+
+  // Track newly added nodes for fade-in animation
+  useEffect(() => {
+    const currentIds = new Set(data.nodes.map((n) => n.id))
+    const now = Date.now()
+    for (const id of currentIds) {
+      if (!prevNodeIdsRef.current.has(id)) {
+        newNodeTimestamps.current[id] = now
+      }
+    }
+    // Clean up old entries
+    for (const id of Object.keys(newNodeTimestamps.current)) {
+      if (!currentIds.has(id)) delete newNodeTimestamps.current[id]
+    }
+    prevNodeIdsRef.current = currentIds
+  }, [data.nodes])
 
   // Resize canvas to container using ResizeObserver (detects panel resizes too).
   useEffect(() => {
@@ -66,7 +84,7 @@ export default function GraphCanvas({
     const map = {}
     let i = 0
     for (const node of data.nodes) {
-      const key = node.folder || '(root)'
+      const key = node.folder || ''
       if (!(key in map)) {
         map[key] = palette[i % palette.length]
         i += 1
@@ -114,13 +132,23 @@ export default function GraphCanvas({
 
       // Size scales with connection count (degree) — more links = bigger node
       const degree = degreeMap[node.id] || 0
-      const radius = Math.max(3, 3 + degree * 1.8)
+      let radius = Math.max(3, 3 + degree * 1.8)
       // Base color from folder, brighten for high-degree nodes
-      const baseColor = folderColors[node.folder || '(root)'] || '#888'
+      const baseColor = folderColors[node.folder || ''] || '#888'
       const brightness = Math.min(1.4, 1 + degree * 0.08)
       const color = _brighten(baseColor, brightness)
 
-      ctx.globalAlpha = dimmed ? 0.15 : 1.0
+      // New node fade-in + scale animation (1 second)
+      const addedAt = newNodeTimestamps.current[node.id]
+      let animAlpha = 1
+      if (addedAt) {
+        const t = Math.min(1, (Date.now() - addedAt) / 1000)
+        animAlpha = t
+        radius *= 0.3 + 0.7 * t
+        if (t < 1) fgRef.current?.refresh?.() // keep animating
+      }
+
+      ctx.globalAlpha = (dimmed ? 0.15 : 1.0) * animAlpha
 
       // Ring for AI-highlighted nodes (blue glow).
       if (isHighlighted) {

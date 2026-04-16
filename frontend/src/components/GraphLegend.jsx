@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next'
  */
 export default function GraphLegend({ folderColors }) {
   const { t } = useTranslation()
-  const entries = Object.entries(folderColors)
+  // Filter out root (empty string) entries — no need to show in legend
+  const entries = Object.entries(folderColors).filter(([folder]) => folder !== '')
   if (entries.length === 0) return null
 
   return (

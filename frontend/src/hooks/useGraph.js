@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { graphAPI } from '../services/api'
 
 /**
  * useGraph — fetch + manage the knowledge-graph data.
  *
- * Simplified for Phase 9: threshold is fixed at 0.5 (no slider),
- * rebuild is removed (cache invalidation happens automatically on
- * document upload/delete).
+ * Listens for 'graph:invalidate' events (dispatched after doc create/delete/upload)
+ * and auto-refetches with debounce. Supports optimistic updates via patchData().
+ * Preserves node positions (x/y/vx/vy) across refetches to avoid layout jumps.
  */
 export function useGraph({ enabled = true } = {}) {
   const [data, setData] = useState({ nodes: [], links: [], meta: null })
@@ -18,7 +18,20 @@ export function useGraph({ enabled = true } = {}) {
     setError(null)
     try {
       const { data: payload } = await graphAPI.getData(0.5, false)
-      setData(payload)
+      setData((prev) => {
+        // Preserve node positions from previous render to avoid layout reset
+        if (prev.nodes.length > 0) {
+          const prevMap = new Map(prev.nodes.map((n) => [n.id, n]))
+          const mergedNodes = payload.nodes.map((n) => {
+            const existing = prevMap.get(n.id)
+            return existing
+              ? { ...n, x: existing.x, y: existing.y, vx: existing.vx, vy: existing.vy }
+              : n
+          })
+          return { ...payload, nodes: mergedNodes }
+        }
+        return payload
+      })
     } catch (err) {
       setError(
         err.response?.data?.detail ||
@@ -35,10 +48,31 @@ export function useGraph({ enabled = true } = {}) {
     if (enabled) fetchGraph()
   }, [enabled, fetchGraph])
 
+  // Listen for 'graph:invalidate' events — debounced auto-refresh
+  useEffect(() => {
+    if (!enabled) return
+    let timer
+    const handler = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => fetchGraph(), 300)
+    }
+    window.addEventListener('graph:invalidate', handler)
+    return () => {
+      window.removeEventListener('graph:invalidate', handler)
+      clearTimeout(timer)
+    }
+  }, [enabled, fetchGraph])
+
+  // Optimistic update — patch data without re-fetching from server
+  const patchData = useCallback((patcher) => {
+    setData((prev) => (typeof patcher === 'function' ? patcher(prev) : { ...prev, ...patcher }))
+  }, [])
+
   return {
     data,
     loading,
     error,
     refetch: fetchGraph,
+    patchData,
   }
 }

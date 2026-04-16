@@ -46,5 +46,26 @@ async def save_vault_file(doc_id: str, body: VaultSaveRequest) -> dict:
             detail="Vault file not found — cannot save to a non-existent document.",
         )
     vault_path.write_text(body.content, encoding="utf-8")
-    logger.info("Vault file saved: %s", doc_id)
+
+    # Re-extract wikilinks from saved content and update metadata + graph cache.
+    try:
+        from app.graph.link_extractor import extract_wikilinks  # noqa: PLC0415
+        from app.routers.documents import _load_metadata, _save_metadata  # noqa: PLC0415
+        from app.graph.cache import invalidate_cache as invalidate_graph_cache  # noqa: PLC0415
+
+        links = extract_wikilinks(body.content, source_doc_id=doc_id)
+        docs = _load_metadata()
+        for doc in docs:
+            if doc["id"] == doc_id:
+                doc["wikilinks"] = [
+                    {"target": lnk["target"], "context": lnk["context"]}
+                    for lnk in links
+                ]
+                break
+        _save_metadata(docs)
+        invalidate_graph_cache()
+    except Exception as exc:
+        logger.warning("Wikilink re-extraction failed for %s: %s", doc_id, exc)
+
+    logger.info("Vault file saved: %s (%d wikilinks)", doc_id, len(links) if 'links' in dir() else 0)
     return {"doc_id": doc_id, "saved": True}
