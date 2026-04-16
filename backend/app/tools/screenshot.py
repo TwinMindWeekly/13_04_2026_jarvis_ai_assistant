@@ -37,8 +37,9 @@ def _capture_sync(region: dict[str, int] | None) -> bytes:
                 "height": region["height"],
             }
         else:
-            # mss.monitors[1] is the first/primary monitor; [0] is "all".
-            monitor = sct.monitors[1]
+            # mss.monitors[0] captures ALL monitors as a single virtual screen.
+            # mss.monitors[1] is primary only — use [0] for multi-monitor setups.
+            monitor = sct.monitors[0]
 
         screenshot = sct.grab(monitor)
 

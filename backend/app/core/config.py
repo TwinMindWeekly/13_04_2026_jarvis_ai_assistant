@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     wikilink_provider: str = "ollama"
     wikilink_model: str = "huihui_ai/llama3.2-abliterate:3b"
 
-    # Image generation
+    # Image generation (separate from chat proxy — DALL-E needs real OpenAI key)
+    image_api_key: str = ""  # Defaults to OPENAI_API_KEY if empty
+    image_api_base_url: str = "https://api.openai.com/v1"  # Always direct OpenAI unless overridden
     stability_api_key: str = ""
 
     # Code runner

@@ -54,10 +54,12 @@ class ImageGeneratorTool(BaseTool):
         if not prompt:
             return ToolResult(success=False, error="Prompt is required.")
 
-        if not settings.openai_api_key:
+        # Use dedicated IMAGE_API_KEY if set, otherwise fall back to OPENAI_API_KEY
+        api_key = settings.image_api_key or settings.openai_api_key
+        if not api_key:
             return ToolResult(
                 success=False,
-                error="OpenAI API key not configured. Set OPENAI_API_KEY in .env for image generation.",
+                error="Image API key not configured. Set IMAGE_API_KEY (or OPENAI_API_KEY) in .env.",
             )
 
         # DALL-E 3 only supports 1024x1024, 1792x1024, 1024x1792
@@ -67,13 +69,13 @@ class ImageGeneratorTool(BaseTool):
         try:
             import httpx  # noqa: PLC0415
 
-            api_base = settings.openai_base_url or "https://api.openai.com/v1"
+            api_base = settings.image_api_base_url
 
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
                     f"{api_base}/images/generations",
                     headers={
-                        "Authorization": f"Bearer {settings.openai_api_key}",
+                        "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
                     },
                     json={

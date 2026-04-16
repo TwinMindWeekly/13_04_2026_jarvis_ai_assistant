@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, and an Obsidian-style knowledge graph with wikilink-based document relationships.
+JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, Obsidian-style knowledge graph with wikilink-based document relationships, shell commands, clipboard, OS notifications, email (IMAP/SMTP), image generation (DALL-E 3), code execution (Python/JS/Godot), and a skill system with auto-loaded .md skills.
 
-Status: Phases 1–10 complete, Phase 11 (Provider Usage Dashboard) in progress. See `task.md` for scope.
+Status: Phases 1–15 complete (15 tools, 6 LLM providers). Phase 11 (Provider Usage Dashboard) deferred. See `task.md` for scope.
 
 ## Architecture (big picture)
 
@@ -14,7 +14,7 @@ Status: Phases 1–10 complete, Phase 11 (Provider Usage Dashboard) in progress.
 
 - `_build_llm(provider, model)` — returns the right LangChain chat model for 6 providers: `openai`, `gemini`, `claude`, `groq`, `sambanova`, `ollama`. No `LLMFactory` class; extend the provider set by editing this function.
 - `build_llm_with_fallback(provider, model)` — when `provider="auto"`, tries a chain in order: groq → gemini → sambanova → openai → claude → ollama. Skips any provider missing an API key. Runtime quota errors (429, 503) also trigger fallback in `routers/agent.py`.
-- `create_agent_brain()` wraps the LLM with `langgraph.prebuilt.create_react_agent`, binding `JARVIS_SYSTEM_PROMPT` (from `agent/prompts.py`, templated with today's date) and a list of LangChain-compatible tools. Returns `(brain, actual_provider, actual_model)`.
+- `create_agent_brain(provider, model, tools, language, user_message)` wraps the LLM with `langgraph.prebuilt.create_react_agent`, binding `JARVIS_SYSTEM_PROMPT` (from `agent/prompts.py`, templated with today's date and `{language}`) and a list of LangChain-compatible tools. Injects matched skill content via `skill_loader.get_prompt_injection(user_message)`. Returns `(brain, actual_provider, actual_model)`.
 - `run_agent()` returns `{response, actions, messages}`. Content can arrive as plain string **or as a list of content blocks (Gemini 2.5)** — the extractor iterates `content` lists and pulls only `{"type": "text", "text": ...}` blocks. Any new provider must preserve this.
 - `stream_agent()` yields typed events (`action` / `action_result` / `text` / `done`) for `/ws/agent` and SSE routes.
 - Default `recursion_limit=10` — both a safety bound and a soft UX contract (ActionViewer assumes at most ~10 steps).
@@ -23,8 +23,14 @@ Status: Phases 1–10 complete, Phase 11 (Provider Usage Dashboard) in progress.
 
 - Every tool subclasses `BaseTool` (`tools/base.py`) with `name`, `description`, `parameters` (JSON Schema) and async `execute(**kwargs) -> ToolResult`. Tools **must not raise** — failures return `ToolResult(success=False, error=...)`.
 - `ToolRegistry.to_langchain_tools()` (`tools/registry.py`) dynamically builds a Pydantic `args_schema` from JSON Schema and wraps each in `StructuredTool`. LangGraph uses the async path.
-- `create_default_registry()` (`tools/__init__.py`) — the 8 shipped tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`.
-- `SafetyGuard` (`tools/safety.py`) — 4 levels: `AUTO` (read/search/screenshot), `NOTIFY` (open app/navigate), `CONFIRM` (writes), `BLOCK` (delete, system paths, non-whitelisted apps). New tools touching FS/OS/session MUST route through SafetyGuard.
+- `create_default_registry()` (`tools/__init__.py`) — 15 tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`, `skill_manager`, `shell_exec`, `clipboard`, `system_notification`, `email`, `image_generator`, `code_runner`.
+- `SafetyGuard` (`tools/safety.py`) — 4 levels: `AUTO` (read/search/screenshot/clipboard-read/email-read), `NOTIFY` (navigate/notification/image-gen/clipboard-write), `CONFIRM` (file-write/desktop-control/shell-exec/email-send/code-runner), `BLOCK` (rm -rf, format, mkfs, fork bomb, reg delete, taskkill, bcdedit). New tools touching FS/OS/session MUST route through SafetyGuard.
+
+**2b. Skill System (`backend/app/skills/` + `backend/skills/`)**
+
+- Skill files are `.md` with YAML frontmatter (`name`, `description`, `triggers`) in `backend/skills/`.
+- `skills/loader.py` — `SkillLoader` singleton: parses all `.md` files on init, builds keyword triggers (from frontmatter `triggers` + common trigger dictionary), `match(user_message)` returns matching skills, `get_prompt_injection(user_message)` returns skill body text for system prompt injection.
+- `skill_manager` tool — lets the agent `list`/`search` (GitHub API)/`install` (download .md)/`remove` skills at runtime.
 
 **3. RAG + Wikilink pipeline (`backend/app/rag/` + `backend/app/graph/`)**
 
@@ -41,9 +47,14 @@ Status: Phases 1–10 complete, Phase 11 (Provider Usage Dashboard) in progress.
   - **Chat view** — ChatGPT-style layout: `ChatArea`, `Sidebar` with doc tree (`SidebarDocTree` / `SidebarDocNode`), `ActionViewer`, `SettingsPanel`, `DocumentsPanel`.
   - **Graph view** (`GraphPage.jsx`) — Obsidian-style 3-panel layout: left panel (`GraphLeftPanel` — doc list + detail on node click), center (`GraphCanvas` — `react-force-graph-2d` with folder-based coloring, hover highlight, search/filter), right floating chat overlay using `ChatArea` with suggestion chips. A `MarkdownEditorPanel` opens on node select for inline vault editing with wikilink syntax highlighting.
 - `ResizeHandle.jsx` — draggable panel resize for the split layout.
-- State hooks: `useAgent` (REST + SSE, independent instance per page), `useWebSocket` (`/ws/agent`), `useGraph`, `useSettings`, `useVoice`, `useDocTree`.
+- `AttachmentPreview.jsx` — pill badges for attached files with char count and remove button.
+- `ResizeHandle.jsx` — draggable panel resize for the split layout.
+- State hooks: `useAgent` (REST + SSE, independent instance per page, supports `cancelRequest()` via AbortController), `useWebSocket` (`/ws/agent`), `useGraph`, `useSettings`, `useVoice`, `useDocTree`, `useAttachments` (file upload state management).
+- Chat file upload: "+" button and drag-and-drop, max 5 MB, 43 extensions, ephemeral parse (not indexed to ChromaDB).
+- Cancel request: square stop button replaces spinner during processing.
+- Language toggle: EN/VI buttons in header, language passed to agent for response localization.
 - Voice I/O is **browser-native** — `SpeechRecognition` for STT, `SpeechSynthesis` for TTS. No server-side TTS.
-- i18n via `react-i18next` with `en.json` / `vi.json`; language toggled in Settings panel.
+- i18n via `react-i18next` with `en.json` / `vi.json`; language toggled in header and Settings panel.
 
 ## Development commands
 
@@ -106,9 +117,34 @@ SAMBANOVA_API_KEY=...
 DEFAULT_PROVIDER=auto
 DEFAULT_MODEL=                              # empty = auto-detect per provider
 
+# Per-provider model selection (optional, has sensible defaults)
+OPENAI_MODEL=gpt-4o-mini
+GEMINI_MODEL=gemini-2.5-flash
+CLAUDE_MODEL=claude-sonnet-4-5
+GROQ_MODEL=llama-3.3-70b-versatile
+SAMBANOVA_MODEL=Meta-Llama-3.1-8B-Instruct
+
+# Proxy support (e.g. Antigravity Manager on port 8045)
+# OPENAI_BASE_URL=http://localhost:8045/v1
+# GEMINI_BASE_URL=http://localhost:8045/v1
+# ANTHROPIC_BASE_URL=http://localhost:8045   # no /v1 for Anthropic
+
 # Wikilink generation uses a separate provider (Ollama local recommended)
 WIKILINK_PROVIDER=ollama
 WIKILINK_MODEL=huihui_ai/llama3.2-abliterate:3b
+
+# Email (optional — for email tool)
+# IMAP_HOST=imap.gmail.com
+# IMAP_PORT=993
+# IMAP_USER=your@gmail.com
+# IMAP_PASSWORD=your-app-password
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USER=your@gmail.com
+# SMTP_PASSWORD=your-app-password
+
+# Code runner (optional)
+# GODOT_PATH=                               # path to Godot executable
 
 # OLLAMA_BASE_URL=http://localhost:11434    # optional, default
 # SAMBANOVA_BASE_URL=https://api.sambanova.ai/v1  # optional, default
@@ -121,6 +157,8 @@ Provider is switchable at runtime from the frontend Settings panel — `/api/age
 ## Provider caveats
 
 - **Auto-fallback** — `DEFAULT_PROVIDER=auto` tries providers in order by key availability. Runtime quota errors (429/503/"rate_limit"/"quota"/"token pool is empty") trigger retry with the next provider in `routers/agent.py`.
+- **Proxy support** — `OPENAI_BASE_URL`, `GEMINI_BASE_URL`, `ANTHROPIC_BASE_URL` route through an OpenAI-compatible proxy (e.g. Antigravity Manager). Gemini proxy uses `ChatOpenAI` instead of `ChatGoogleGenerativeAI`. Anthropic proxy uses `anthropic_api_url` (no `/v1` suffix).
+- **Per-provider models** — each provider has a configurable default model via env (`OPENAI_MODEL`, `GEMINI_MODEL`, `CLAUDE_MODEL`, `GROQ_MODEL`, `SAMBANOVA_MODEL`). Runtime override via Settings panel or request body.
 - **Groq / SambaNova** — wired through `ChatOpenAI` with custom `base_url`, same as Ollama. Free tier limits: Groq 1000 req/day, SambaNova 200 req/day.
 - **Gemini** safety filters reject `desktop_control`, `browser_control`, `file_manager`, `app_launcher` in practice — tests assume only `web_search` and `rag_search` work reliably with Gemini.
 - **Gemini 2.5** returns assistant content as `list[{"type": "text", "text": ...}]` instead of a plain string. Both `run_agent` and `stream_agent` handle this; keep it that way.
@@ -137,6 +175,8 @@ Provider is switchable at runtime from the frontend Settings panel — `/api/age
 | `documents.py` | `POST /api/documents/upload`, `GET /api/documents`, `DELETE /api/documents/{id}` |
 | `graph.py` | `GET /api/graph/data`, `GET /api/graph/stats`, `POST /api/graph/rebuild` |
 | `vault.py` | `GET /api/vault/{doc_id}`, `PUT /api/vault/{doc_id}` |
+| `attachments.py` | `POST /api/agent/upload-attachment` (ephemeral file parse for chat, 5MB/43 ext) |
+| `files.py` | `GET /api/files/generated/{filename}` (serve DALL-E generated images) |
 | `usage.py` | `GET /api/usage/` (provider usage stats) |
 
 ## Project-specific rules (override generic defaults)

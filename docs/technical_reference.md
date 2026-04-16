@@ -1,7 +1,7 @@
 # JARVIS AI Assistant - Technical Reference
 
 > Tài liệu kỹ thuật chi tiết về kiến trúc, API, và luồng dữ liệu.
-> Cập nhật lần cuối: 15/04/2026 (Phase 8 — Knowledge Graph)
+> Cập nhật lần cuối: 16/04/2026 (Phase 15 complete)
 
 ---
 
@@ -10,51 +10,69 @@
 ### Mô hình kiến trúc: Agent-based Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CLIENT (React 19 + Vite 8)                │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ ChatArea │  │ ActionViewer │  │ DocumentsPanel (RAG) │   │
-│  │ Sidebar  │  │ SettingsPanel│  │ VoiceButton          │   │
-│  └────┬─────┘  └──────┬───────┘  └──────────┬───────────┘   │
-│       └────────────────┴─────────────────────┘               │
-│                  React hooks: useAgent, useWebSocket,        │
-│                              useVoice, useSettings           │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ REST + SSE + WebSocket
-              ┌────────▼────────────────┐
-              │  FastAPI Server (8000)  │
-              ├─────────────────────────┤
-              │ Routers:                │
-              │ ├── /api/chat           │  (direct LLM, SSE stream)
-              │ ├── /api/agent/execute  │  (REST, ReAct loop)
-              │ ├── /ws/agent           │  (WebSocket streaming)
-              │ ├── /api/providers      │  (list / test)
-              │ └── /api/documents      │  (RAG upload/list/delete)
-              ├─────────────────────────┤
-              │ Agent Brain             │
-              │ LangGraph create_react_ │
-              │ agent (Think→Act→Loop)  │
-              ├─────────────────────────┤
-              │ Tool Registry (8 tools) │
-              │ ├── web_search          │
-              │ ├── web_browser         │
-              │ ├── browser_control     │
-              │ ├── screenshot          │
-              │ ├── desktop_control     │
-              │ ├── file_manager        │
-              │ ├── app_launcher        │
-              │ └── rag_search          │
-              ├─────────────────────────┤
-              │ Safety Layer            │
-              │ AUTO/NOTIFY/CONFIRM/    │
-              │ BLOCK                   │
-              ├─────────────────────────┤
-              │ LLM Factory             │
-              │ ├── OpenAI              │
-              │ ├── Gemini (2.5)        │
-              │ ├── Claude              │
-              │ └── Ollama              │
-              └─────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                      CLIENT (React 19 + Vite 8)                      │
+│  ┌──────────┐  ┌──────────────┐  ┌────────────────────────────────┐  │
+│  │ ChatArea │  │ ActionViewer │  │ DocumentsPanel (RAG)           │  │
+│  │ Sidebar  │  │ SettingsPanel│  │ AttachmentPreview (pill badges) │  │
+│  │          │  │              │  │ VoiceButton                    │  │
+│  └────┬─────┘  └──────┬───────┘  └──────────────┬─────────────────┘  │
+│       └────────────────┴───────────────────────────┘                  │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│  │  GraphPage.jsx — 3-panel Obsidian layout                       │   │
+│  │  GraphLeftPanel │ GraphCanvas (react-force-graph-2d) │ ChatArea│   │
+│  └────────────────────────────────────────────────────────────────┘   │
+│  React hooks: useAgent, useWebSocket, useVoice, useSettings,          │
+│               useAttachments, useGraph, useDocTree                    │
+└──────────────────────────┬───────────────────────────────────────────┘
+                           │ REST + SSE + WebSocket
+                  ┌────────▼───────────────────────┐
+                  │     FastAPI Server (8000)       │
+                  ├─────────────────────────────────┤
+                  │ Routers:                        │
+                  │ ├── /api/chat                   │  (direct LLM, SSE stream)
+                  │ ├── /api/agent/execute          │  (REST, ReAct loop)
+                  │ ├── /api/agent/upload-attachment│  (ephemeral file attach)
+                  │ ├── /ws/agent                  │  (WebSocket streaming)
+                  │ ├── /api/providers             │  (list / test)
+                  │ ├── /api/documents             │  (RAG upload/list/delete)
+                  │ ├── /api/vault                 │  (read/edit vault .md)
+                  │ ├── /api/files/generated       │  (serve DALL-E output)
+                  │ ├── /api/usage                 │  (provider usage stats)
+                  │ └── /api/graph                 │  (knowledge graph)
+                  ├─────────────────────────────────┤
+                  │ Agent Brain                     │
+                  │ LangGraph create_react_agent    │
+                  │ (Think→Act→Loop)                │
+                  ├─────────────────────────────────┤
+                  │ Tool Registry (15 tools)        │
+                  │ ├── web_search                  │
+                  │ ├── web_browser                 │
+                  │ ├── browser_control             │
+                  │ ├── screenshot                  │
+                  │ ├── desktop_control             │
+                  │ ├── file_manager                │
+                  │ ├── app_launcher                │
+                  │ ├── rag_search                  │
+                  │ ├── skill_manager               │
+                  │ ├── shell_exec                  │
+                  │ ├── clipboard                   │
+                  │ ├── system_notification         │
+                  │ ├── email                       │
+                  │ ├── image_generator             │
+                  │ └── code_runner                 │
+                  ├─────────────────────────────────┤
+                  │ Safety Layer                    │
+                  │ AUTO/NOTIFY/CONFIRM/BLOCK       │
+                  ├─────────────────────────────────┤
+                  │ LLM Factory (6 providers)       │
+                  │ ├── OpenAI (proxy support)      │
+                  │ ├── Gemini 2.5                  │
+                  │ ├── Claude (proxy support)      │
+                  │ ├── Groq                        │
+                  │ ├── SambaNova                   │
+                  │ └── Ollama                      │
+                  └─────────────────────────────────┘
 ```
 
 ### Luồng xử lý chính
@@ -66,8 +84,10 @@ User input (text or voice via SpeechRecognition)
 [1] /api/agent/execute (POST) hoặc /ws/agent (WebSocket)
     │ Validate qua Pydantic AgentRequest
     ▼
-[2] create_agent_brain(provider, model, tools)
-    │ → LangGraph CompiledStateGraph với system prompt
+[2] create_agent_brain(provider, model, language, user_message)
+    │ → skill_loader.get_prompt_injection(user_message) tự động inject
+    │   nội dung skill .md phù hợp vào system prompt
+    │ → LangGraph CompiledStateGraph với system prompt đã được bổ sung skill
     ▼
 [3] brain.ainvoke / brain.astream_events
     │ ReAct loop: LLM quyết định gọi tool nào
@@ -147,6 +167,14 @@ Agent execution với khả năng gọi tool.
 }
 ```
 
+#### `POST /api/agent/upload-attachment`
+Upload file để phân tích inline trong chat (ephemeral — không index vào ChromaDB).
+
+- **Content-Type**: `multipart/form-data`
+- **Field**: `file` (tối đa 5MB, hỗ trợ 43 extension)
+- **Response**: `{"filename": "report.pdf", "content": "extracted text...", "char_count": 1234}`
+- Nội dung được trích xuất và đính kèm vào system prompt của lượt chat đó; file không lưu lại sau request.
+
 #### `GET /api/providers`
 Liệt kê provider + model khả dụng (kiểm tra theo env keys hiện có).
 
@@ -173,8 +201,26 @@ Liệt kê documents đã upload (đọc từ JSON metadata index).
 #### `DELETE /api/documents/{doc_id}`
 Xoá document khỏi vector store + filesystem + metadata. Tự động invalidate graph cache.
 
-#### `GET /api/graph/data?threshold=0.5&force=false`
-Knowledge Graph data — nodes là documents, edges là cosine similarity giữa mean embedding của 2 docs.
+#### `GET /api/vault/{doc_id}`
+Đọc file Markdown vault của document đã upload. File được lưu tại `uploads/vault/{doc_id}.md` sau khi qua pipeline MarkItDown + wikilink generator.
+
+**Response:** plain text Markdown.
+
+#### `PUT /api/vault/{doc_id}`
+Cập nhật nội dung Markdown vault. Sửa file trên disk; chưa tự động re-extract wikilinks sau khi edit.
+
+**Request body:** `{"content": "# Updated Markdown\n..."}`.
+
+#### `GET /api/files/generated/{filename}`
+Phục vụ ảnh sinh ra bởi `image_generator` tool (DALL-E output). Có bảo vệ path traversal — chỉ cho phép filename không chứa `/` hay `..`.
+
+**Response:** image binary (PNG).
+
+#### `GET /api/usage/`
+Thống kê usage theo provider: số lần gọi, token tiêu thụ, latency trung bình.
+
+#### `GET /api/graph/data?force=false`
+Knowledge Graph data — nodes là documents, edges là wikilinks giữa các vault .md files.
 
 **Response:**
 ```json
@@ -184,23 +230,23 @@ Knowledge Graph data — nodes là documents, edges là cosine similarity giữa
      "size_bytes": 378214, "uploaded_at": "2026-04-15T06:51:14", "file_ext": ".pdf"}
   ],
   "links": [
-    {"source": "uuid1", "target": "uuid2", "weight": 0.82}
+    {"source": "uuid1", "target": "uuid2", "weight": 1.0}
   ],
   "meta": {
-    "total_docs": 10, "total_links": 24, "threshold": 0.5,
+    "total_docs": 10, "total_links": 24,
     "generated_at": "2026-04-15T09:00:00+00:00", "cached": true
   }
 }
 ```
 
-- `threshold` (0.0-1.0) — chỉ giữ edge có cosine ≥ threshold (default 0.5)
-- `force=true` — bỏ qua cache, recompute
-- Cache key = `md5(sorted(doc_ids) + threshold)`; invalidate khi upload/delete document
+- Graph dùng **wikilink edges only** — không còn cosine similarity.
+- `force=true` — bỏ qua cache, recompute.
+- Cache key = `md5(sorted(doc_ids) + wikilink_count)`; invalidate khi upload/delete document.
 
 #### `GET /api/graph/stats`
-Trả counts mà không compute similarity. `{total_docs, total_chunks, cache_exists}`.
+Trả counts mà không compute graph. `{total_docs, total_chunks, cache_exists}`.
 
-#### `POST /api/graph/rebuild?threshold=0.5`
+#### `POST /api/graph/rebuild`
 Invalidate cache và rebuild từ đầu.
 
 ### WebSocket Endpoints
@@ -292,19 +338,65 @@ class ToolResult:
 - **Output**: `[{content, metadata, score}]` cho top-K cosine matches.
 - **Lưu ý**: System prompt yêu cầu agent ưu tiên `rag_search` trước `web_search` khi câu hỏi liên quan tài liệu.
 
+### Tool: `skill_manager` (Phase 11)
+- **Input**: `action: "list"|"search"|"install"|"remove"`, `query: str`, `skill_id: str`
+- **Engine**: Quản lý file .md cục bộ trong `backend/skills/` + GitHub API search để tìm skill từ remote.
+- **Output**: Danh sách skills hoặc thông báo kết quả install/remove.
+- **Safety**: AUTO (list/search), NOTIFY (install/remove)
+
+### Tool: `shell_exec` (Phase 13)
+- **Input**: `command: str`, `timeout: int` (default 30, max 120), `working_dir: str`
+- **Engine**: `asyncio.create_subprocess_shell`; stdout và stderr được capture; output bị truncate ở 50K ký tự.
+- **Safety**: CONFIRM (tất cả). BLOCK tự động nếu command chứa: `rm -rf /`, `format`, `mkfs`, fork bomb, `reg delete`, v.v.
+
+### Tool: `clipboard` (Phase 13)
+- **Input**: `action: "read"|"write"`, `content: str` (chỉ cho write)
+- **Engine**: `pyperclip` chạy qua `asyncio.to_thread`
+- **Safety**: AUTO (read), NOTIFY (write)
+
+### Tool: `system_notification` (Phase 13)
+- **Input**: `title: str`, `message: str`, `urgency: "low"|"normal"|"critical"`
+- **Engine**: `plyer.notification.notify()` (cross-platform: Windows/macOS/Linux)
+- **Safety**: NOTIFY
+
+### Tool: `email` (Phase 14)
+- **Input**: `action: "read_inbox"|"read_email"|"search"|"send"`, params phụ thuộc action
+- **Engine**: `IMAP4_SSL` (đọc) + `SMTP` (gửi), gọi qua `asyncio.to_thread`
+- **Config**: `IMAP_HOST/PORT/USER/PASSWORD`, `SMTP_HOST/PORT/USER/PASSWORD` trong `.env`
+- **Safety**: AUTO (read/search), CONFIRM (send)
+
+### Tool: `image_generator` (Phase 15)
+- **Input**: `prompt: str`, `size: str`, `style: "vivid"|"natural"`, `save_path: str`
+- **Engine**: OpenAI DALL-E 3 API qua `httpx`
+- **Output**: Lưu file vào `uploads/generated/{uuid}.png`; trả về file path. Ảnh có thể serve qua `GET /api/files/generated/{filename}`.
+- **Safety**: NOTIFY
+
+### Tool: `code_runner` (Phase 15)
+- **Input**: `language: "python"|"javascript"|"typescript"|"bash"|"powershell"|"godot"`, `code: str`, `timeout: int`, `working_dir: str`
+- **Engine**: Ghi ra temp file, thực thi qua `asyncio.create_subprocess_exec`. Godot: `godot --headless --script` (cần `GODOT_PATH` env).
+- **Output**: stdout/stderr truncate 50K ký tự. Temp files tự xoá sau 1 giờ.
+- **Safety**: CONFIRM
+
 ---
 
 ## 4. Safety Layer
 
 ```python
 class SafetyLevel(Enum):
-    AUTO    = 1   # web_search, rag_search, screenshot, get_text
-    NOTIFY  = 2   # web_browser goto, file_manager read/list
-    CONFIRM = 3   # file_manager write, desktop_control, app_launcher
-    BLOCK   = 4   # delete system files, format, rm -rf, shutdown
+    AUTO    = 1   # web_search, rag_search, screenshot, clipboard(read), skill_manager(list/search), email(read/search)
+    NOTIFY  = 2   # web_browser goto, file_manager read/list, clipboard(write), system_notification, image_generator, skill_manager(install/remove)
+    CONFIRM = 3   # file_manager write, desktop_control, app_launcher, shell_exec, email(send), code_runner
+    BLOCK   = 4   # delete system files, rm -rf /, format, mkfs, fork bomb, reg delete, taskkill, bcdedit
 ```
 
-Mọi tool call đều đi qua `SafetyGuard.check(action)` trước khi execute. Hiện tại Level 3 chưa block UI confirm runtime — agent chạy nếu prompt cho phép, dependencies trên Safety Layer là layer tham khảo cho audit.
+| Safety Level | Tools |
+|---|---|
+| AUTO | web_search, rag_search, screenshot, clipboard(read), skill_manager(list/search), email(read/search) |
+| NOTIFY | web_browser goto, file_manager read/list, clipboard(write), system_notification, image_generator, skill_manager(install/remove) |
+| CONFIRM | file_manager write, desktop_control, app_launcher, shell_exec, email(send), code_runner |
+| BLOCK | delete system files, `rm -rf /`, format, mkfs, fork bomb, `reg delete`, `taskkill`, `bcdedit` |
+
+Mọi tool call đều đi qua `SafetyGuard.check(action)` trước khi execute. Hiện tại Level 3 chưa block UI confirm runtime — agent chạy nếu prompt cho phép; Safety Layer là tầng tham chiếu cho audit và phát triển tiếp.
 
 ---
 
@@ -314,24 +406,48 @@ Mọi tool call đều đi qua `SafetyGuard.check(action)` trước khi execute.
 
 ```python
 def _build_llm(provider: str, model: str):
-    if provider == "openai":   return ChatOpenAI(model, api_key=settings.openai_api_key, temperature=0)
-    if provider == "gemini":   return ChatGoogleGenerativeAI(model, google_api_key=settings.google_api_key, temperature=0)
-    if provider == "claude":   return ChatAnthropic(model, api_key=settings.anthropic_api_key, temperature=0)
-    if provider == "ollama":   return ChatOpenAI(model, base_url=settings.ollama_base_url+"/v1", api_key="ollama", temperature=0)
+    if provider == "openai":
+        # ChatOpenAI; hỗ trợ base_url proxy qua OPENAI_BASE_URL env
+        return ChatOpenAI(model, api_key=settings.openai_api_key, temperature=0)
+    if provider == "gemini":
+        # ChatGoogleGenerativeAI hoặc ChatOpenAI (proxy mode qua GEMINI_BASE_URL)
+        return ChatGoogleGenerativeAI(model, google_api_key=settings.google_api_key, temperature=0)
+    if provider == "claude":
+        # ChatAnthropic; hỗ trợ anthropic_api_url proxy
+        return ChatAnthropic(model, api_key=settings.anthropic_api_key, temperature=0)
+    if provider == "groq":
+        # ChatOpenAI với base_url trỏ tới Groq API
+        return ChatOpenAI(model, base_url="https://api.groq.com/openai/v1", api_key=settings.groq_api_key, temperature=0)
+    if provider == "sambanova":
+        # ChatOpenAI với base_url trỏ tới SambaNova API
+        return ChatOpenAI(model, base_url=settings.sambanova_base_url, api_key=settings.sambanova_api_key, temperature=0)
+    if provider == "ollama":
+        # ChatOpenAI với base_url=ollama/v1, không cần key thật
+        return ChatOpenAI(model, base_url=settings.ollama_base_url+"/v1", api_key="ollama", temperature=0)
     raise ProviderNotFoundError(provider)
 ```
 
+**Auto-fallback chain** (khi `DEFAULT_PROVIDER=auto`):
+`groq → gemini → sambanova → openai → claude → ollama`
+
+Bỏ qua provider nào thiếu API key. Lỗi quota runtime (429/503/"rate_limit"/"quota"/"token pool is empty") cũng trigger fallback trong `routers/agent.py`.
+
 ### Provider Matrix
 
-| Feature | OpenAI | Gemini 2.5 | Claude | Ollama |
-|---------|--------|-----------|--------|--------|
-| Function/Tool calling | Đầy đủ | Đầy đủ | Đầy đủ | Tuỳ model |
-| Vision | gpt-4o | flash/pro | sonnet | Tuỳ model |
-| Streaming | Có | Có | Có | Có |
-| Computer Use (local) | OK qua tools | **Bị safety filter chặn** | OK qua tools | OK qua tools |
-| RAG search | OK | OK | OK | OK |
-| Local/Offline | Không | Không | Không | **Có** |
-| Thinking format | str | **list[dict]** (cần parse) | str | str |
+| Feature | OpenAI | Gemini 2.5 | Claude | Groq | SambaNova | Ollama |
+|---------|--------|-----------|--------|------|-----------|--------|
+| Tool calling | Đầy đủ | Đầy đủ | Đầy đủ | Đầy đủ | Đầy đủ | Tuỳ model |
+| Vision | gpt-4o | flash/pro | sonnet | Không | Không | Tuỳ model |
+| Streaming | Có | Có | Có | Có | Có | Có |
+| Computer Use (local) | OK | **Bị safety filter chặn** | OK | OK | OK | OK |
+| RAG search | OK | OK | OK | OK | OK | OK |
+| Local/Offline | Không | Không | Không | Không | Không | **Có** |
+| Thinking format | str | **list[dict]** | str | str | str | str |
+| Proxy support | **Có** | Có (proxy mode) | **Có** | Không | Không | Có |
+| Free tier limit | - | - | - | 1000 req/day | 200 req/day | Không giới hạn |
+
+**Model mặc định theo provider** — cấu hình qua env:
+`OPENAI_MODEL`, `GEMINI_MODEL`, `CLAUDE_MODEL`, `GROQ_MODEL`, `SAMBANOVA_MODEL`
 
 **Lưu ý Gemini 2.5**: nội dung message trả về dạng `[{"type":"text","text":"..."}, {"type":"thinking", ...}]`. Backend `run_agent`/`stream_agent` parse list, chỉ extract block `type=="text"`. Xem `backend/app/agent/brain.py`.
 
@@ -339,12 +455,14 @@ def _build_llm(provider: str, model: str):
 
 ## 6. RAG Pipeline
 
+### Upload và indexing chuẩn
+
 ```
 Upload (multipart) → backend/uploads/{doc_id}.{ext}
     ↓
 unstructured.partition(file)  (PDF/DOCX/PPTX/XLSX/MD/TXT)
     ↓
-Chunks (≈ semantic chunks từ unstructured)
+Chunks (semantic chunks từ unstructured)
     ↓
 sentence-transformers (all-MiniLM-L6-v2) → 384-dim vector
     ↓
@@ -357,9 +475,70 @@ Metadata index: backend/uploads/documents_metadata.json
 
 Query path: `rag_search(query, top_k)` → embed query → cosine top-K → trả `[{content, metadata, score}]`.
 
+### Wikilink Pipeline (Phase 10)
+
+```
+Upload → backend/uploads/{doc_id}.{ext}
+    ↓
+MarkItDown (PDF/DOCX/PPTX/XLSX → Markdown)
+    ↓
+Wikilink Generator (LLM inject [[wikilinks]] vào nội dung)
+    ↓
+Lưu vào uploads/vault/{doc_id}.md
+    ↓
+Link Extractor (regex parse [[Target]] và [[Target|Display]])
+    ↓
+Graph: wikilink edges only (không dùng cosine similarity)
+```
+
+**Split LLM config**: wikilink generation dùng `WIKILINK_PROVIDER`/`WIKILINK_MODEL` (khuyến nghị Ollama local để tiết kiệm chi phí), trong khi agent chat dùng `DEFAULT_PROVIDER`. Nếu không có key cho `WIKILINK_PROVIDER`, bước wikilink bị bỏ qua và graph chỉ có orphan nodes (không có edges).
+
 ---
 
-## 7. Security Model
+## 7. Skill System (Phase 11)
+
+### Tổng quan
+
+Skills là các file `.md` trong `backend/skills/` với frontmatter YAML chứa metadata (name, description, triggers). Chúng mở rộng khả năng của agent mà không cần thay đổi code.
+
+### Cơ chế hoạt động
+
+```
+User message
+    ↓
+skill_loader.get_prompt_injection(user_message)
+    ↓ so khớp keyword từ triggers trong frontmatter
+Nội dung skill .md phù hợp → inject vào system prompt
+    ↓
+Agent có thêm context chuyên biệt cho task
+```
+
+### Cấu trúc skill file
+
+```markdown
+---
+name: python-debugging
+description: Hướng dẫn debug Python nâng cao
+triggers: [debug, traceback, error, exception, python]
+---
+
+# Python Debugging Guide
+...nội dung skill...
+```
+
+### skill_manager tool
+
+Agent có thể tự quản lý skills qua `skill_manager` tool:
+- `list` — liệt kê tất cả skills đang active
+- `search` — tìm kiếm skill trên GitHub theo keyword
+- `install` — tải skill về `backend/skills/`
+- `remove` — xoá skill khỏi local
+
+Skills có thể được cài từ GitHub repository hoặc tạo thủ công dưới dạng `.md` files.
+
+---
+
+## 8. Security Model
 
 ### API Key Management
 - Lưu trong `backend/.env` (server-side only); `.env` đã có trong `.gitignore`.
@@ -370,33 +549,43 @@ Query path: `rag_search(query, top_k)` → embed query → cosine top-K → tr�
 - Playwright: browser context riêng, tự `close()` sau session.
 - File operations: whitelist directory.
 - Desktop/App: Safety Layer 4 cấp.
+- Shell exec: BLOCK list cho các lệnh nguy hiểm.
+- Code runner: temp files tự cleanup sau 1 giờ.
 
 ### Input Validation
 - Pydantic v2 schemas validate mọi request.
 - `ChatRequest.messages` min_length=1.
 - `temperature` clamp [0.0, 2.0]; `max_tokens` clamp [1, 128000].
+- `GET /api/files/generated/{filename}`: path traversal protection — reject filename chứa `/` hay `..`.
 
 ### CORS
-- Dev: cho phép `http://localhost:5173`.
+- Dev: cho phép `http://localhost:5173` và `http://localhost:3000`.
 - Production: cấu hình qua `CORS_ORIGINS` env var.
 
 ---
 
-## 8. Frontend Architecture
+## 9. Frontend Architecture
 
 ### Component tree
 
 ```
-App.jsx
-├── Sidebar (conversation list, new chat, documents button)
-├── ChatArea
-│   ├── EmptyState (centered input "What's on the agenda today?")
-│   ├── MessageList (full-width, no bubble)
-│   │   └── MessageBubble (markdown + ActionViewer collapsible)
-│   ├── ActionViewer / ActionStep (timeline tool calls)
-│   └── InputBar (sticky bottom, max-w 768px) + VoiceButton
-├── SettingsPanel (modal: provider, model, test, language)
-└── DocumentsPanel (modal: upload, list, delete)
+App.jsx (viewMode: 'chat' | 'graph')
+├── [Chat View]
+│   ├── Sidebar (doc tree: SidebarDocTree/SidebarDocNode, drag-drop upload)
+│   ├── ChatArea
+│   │   ├── EmptyState (centered input "What's on the agenda today?")
+│   │   ├── MessageList (full-width, no bubble)
+│   │   │   └── MessageBubble (markdown + inline images)
+│   │   ├── ActionViewer / ActionStep (timeline tool calls)
+│   │   ├── AttachmentPreview (pill badges hiển thị file đính kèm)
+│   │   └── InputBar (sticky bottom) + VoiceButton + CancelButton
+│   ├── SettingsPanel (modal: provider, model, test, language)
+│   └── DocumentsPanel (modal: upload, list, delete)
+├── [Graph View] (GraphPage.jsx — 3-panel Obsidian layout)
+│   ├── GraphLeftPanel (search, doc list, detail on node click, MarkdownEditorPanel)
+│   ├── GraphCanvas (react-force-graph-2d, folder-based coloring, hover highlight, filter)
+│   └── ChatArea (floating overlay với suggestion chips)
+└── Header (language toggle EN/VI)
 ```
 
 ### Hooks
@@ -405,6 +594,9 @@ App.jsx
 - `useWebSocket` — generic WS với auto-reconnect exponential backoff
 - `useVoice` — Web Speech API STT (continuous=false để tránh TTS echo loop) + SpeechSynthesis TTS
 - `useSettings` — localStorage persistence cho provider/model/lang/voice
+- `useAttachments` — quản lý file đính kèm ephemeral trong chat (upload, preview, clear)
+- `useGraph` — fetch và quản lý state của knowledge graph
+- `useDocTree` — quản lý cây thư mục tài liệu trong Sidebar
 
 ### Streaming UX
 
@@ -414,7 +606,7 @@ App.jsx
 
 ---
 
-## 9. Error Handling & Reliability (Phase 7)
+## 10. Error Handling & Reliability (Phase 7)
 
 ### Backend
 - Mọi tool wrap try/except → `ToolResult(success=False, error=...)`. Agent loop không crash.
@@ -433,21 +625,26 @@ App.jsx
 
 ---
 
-## 10. Testing
+## 11. Testing
 
-| Layer | Framework | Coverage |
-|-------|-----------|----------|
+| Layer | Framework | Trạng thái |
+|-------|-----------|-----------|
 | Backend unit | pytest + pytest-asyncio | LLM Factory, Tool Registry, Safety Layer |
-| Backend integration | pytest + httpx | `/api/chat`, `/api/agent`, `/api/documents`, `/api/graph` |
+| Backend integration | pytest + httpx | `/api/chat`, `/api/agent`, `/api/documents`, `/api/graph`, `/api/usage` |
 | Backend RAG | pytest | embeddings, vector_store, document_parser |
-| Backend Graph (Phase 8) | pytest | cosine, cache hashing, builder edge cases (`test_graph.py`) |
+| Backend Graph | pytest | wikilink extractor, cache hashing, builder edge cases (`test_graph.py`) |
+| Backend Tools (Phase 13–15) | pytest | shell_exec, clipboard, email, image_generator, code_runner |
 | Frontend E2E | Playwright | 4 flows: `app-loads`, `settings-panel`, `documents-panel`, `graph-panel` |
+
+**Tổng: 148/148 tests passing.**
 
 ```bash
 # Backend — run in backend/ with venv active
 pytest -v                                         # full suite
 pytest tests/test_graph.py -v                     # single file
 pytest tests/test_agent.py::TestAgent -v          # single class
+pytest tests/test_tools.py -v                     # Phase 13-15 tools
+pytest --cov=app --cov-report=term-missing        # coverage report
 
 # Frontend — backend MUST already be running on :8000
 cd frontend && npm run test:e2e

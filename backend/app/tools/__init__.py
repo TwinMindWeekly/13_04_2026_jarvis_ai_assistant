@@ -32,17 +32,11 @@ from app.tools.web_search import WebSearchTool
 def create_default_registry() -> ToolRegistry:
     """Create a ToolRegistry pre-loaded with all default tools.
 
-    Returns:
-        A ToolRegistry instance containing:
-          - web_search       (DuckDuckGo, no API key)
-          - web_browser      (Playwright headless Chromium — read-only browsing)
-          - screenshot       (mss full-screen or region capture)
-          - desktop_control  (PyAutoGUI mouse/keyboard automation)
-          - browser_control  (Playwright DOM-based interactive browsing)
-          - file_manager     (read/write/list files with safety guard)
-          - app_launcher     (launch whitelisted OS applications)
-          - rag_search       (ChromaDB semantic search over uploaded documents)
+    Tools that require external API keys are only registered when the key
+    is configured (e.g. image_generator needs IMAGE_API_KEY or OPENAI_API_KEY).
     """
+    from app.core.config import settings  # noqa: PLC0415
+
     registry = ToolRegistry()
     registry.register(WebSearchTool())
     registry.register(WebBrowserTool())
@@ -57,7 +51,10 @@ def create_default_registry() -> ToolRegistry:
     registry.register(ClipboardTool())
     registry.register(SystemNotificationTool())
     registry.register(EmailTool())
-    registry.register(ImageGeneratorTool())
+    # Only register image_generator if IMAGE_API_KEY is explicitly set.
+    # OPENAI_API_KEY alone is not enough — it may be a proxy key without DALL-E quota.
+    if settings.image_api_key:
+        registry.register(ImageGeneratorTool())
     registry.register(CodeRunnerTool())
     return registry
 

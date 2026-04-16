@@ -205,7 +205,7 @@ def create_agent_brain(
 async def run_agent(
     brain: CompiledStateGraph,
     user_message: str,
-    recursion_limit: int = 10,
+    recursion_limit: int = 25,
 ) -> dict:
     """Invoke the agent and return a structured result dict.
 
@@ -257,6 +257,16 @@ async def run_agent(
                 final_response = "\n".join(text_parts)
                 break
 
+    # Fallback when recursion limit exhausted without a final AI message.
+    if not final_response:
+        actions_count = sum(1 for m in messages if isinstance(m, ToolMessage))
+        if actions_count:
+            final_response = (
+                f"I completed {actions_count} action(s) but ran out of processing steps "
+                f"before I could summarize the results. The actions above show what was done."
+            )
+            logger.warning("Recursion limit likely hit — %d tool calls but no final AI response", actions_count)
+
     # Build action history from ToolMessages in the conversation.
     actions: list[dict] = []
     step = 1
@@ -284,7 +294,7 @@ async def run_agent(
 async def stream_agent(
     brain: CompiledStateGraph,
     user_message: str,
-    recursion_limit: int = 10,
+    recursion_limit: int = 25,
 ) -> AsyncIterator[dict]:
     """Stream agent events for real-time frontend updates.
 

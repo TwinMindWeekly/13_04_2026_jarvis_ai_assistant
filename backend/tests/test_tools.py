@@ -299,22 +299,23 @@ def test_create_default_registry():
     registry = create_default_registry()
     tools = registry.get_all()
     names = {t.name for t in tools}
-    expected = {
+    # image_generator only registered when IMAGE_API_KEY is set
+    always_expected = {
         "web_search", "web_browser", "screenshot",
         "desktop_control", "browser_control", "file_manager", "app_launcher",
         "rag_search", "skill_manager",
         "shell_exec", "clipboard", "system_notification",
-        "email",
-        "image_generator", "code_runner",
+        "email", "code_runner",
     }
-    assert names == expected
+    assert always_expected.issubset(names)
+    assert len(names) in (14, 15)  # 15 when IMAGE_API_KEY is set
 
 
 def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert len(schemas) == 15
+    assert len(schemas) in (14, 15)  # 15 when IMAGE_API_KEY is set
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema
