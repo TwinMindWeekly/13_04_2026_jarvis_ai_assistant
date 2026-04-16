@@ -12,7 +12,9 @@
     "placeholderDoc": "Nhờ AI cải thiện tài liệu này...",
     "applyToDoc": "Áp dụng vào tài liệu",
     "applied": "Đã áp dụng",
-    "applyConfirm": "Thao tác này sẽ ghi đè nội dung tài liệu. Tiếp tục?"
+    "applyConfirm": "Thao tác này sẽ ghi đè nội dung tài liệu. Tiếp tục?",
+    "greeting": "Hôm nay bạn cần gì?",
+    "disclaimer": "JARVIS có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng."
   },
   "actions": {
     "title": "Hành động",

@@ -294,7 +294,7 @@ export default function ChatArea({
         className="text-center mt-2 pb-1"
         style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
       >
-        JARVIS can make mistakes. Consider checking important info.
+        {t('chat.disclaimer', 'JARVIS can make mistakes. Consider checking important info.')}
       </p>
     </div>
   )
@@ -317,7 +317,7 @@ export default function ChatArea({
               className="fw-medium mb-4"
               style={{ color: 'var(--text-primary)', fontSize: '1.5rem' }}
             >
-              {emptyTitle || 'What\u2019s on the agenda today?'}
+              {emptyTitle || t('chat.greeting', 'What\u2019s on the agenda today?')}
             </h1>
 
             <div className="w-100 d-flex justify-content-center">

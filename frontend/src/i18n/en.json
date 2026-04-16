@@ -12,7 +12,9 @@
     "placeholderDoc": "Ask AI to improve this document...",
     "applyToDoc": "Apply to document",
     "applied": "Applied",
-    "applyConfirm": "This will overwrite the document content. Continue?"
+    "applyConfirm": "This will overwrite the document content. Continue?",
+    "greeting": "What\u2019s on the agenda today?",
+    "disclaimer": "JARVIS can make mistakes. Consider checking important info."
   },
   "actions": {
     "title": "Actions",
