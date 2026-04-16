@@ -47,11 +47,10 @@ class WebSearchTool(BaseTool):
 
         try:
             import asyncio
-            from duckduckgo_search import DDGS  # v8: sync only, wrap with to_thread
+            from ddgs import DDGS  # ddgs v9 (replaces deprecated duckduckgo_search)
 
             def _search():
-                with DDGS() as ddgs:
-                    return list(ddgs.text(query, max_results=num_results) or [])
+                return list(DDGS().text(query, max_results=num_results) or [])
 
             raw_results = await asyncio.to_thread(_search)
 

@@ -20,7 +20,7 @@ langchain-google-genai>=2.0.0
 
 # Tools
 playwright>=1.49.0
-duckduckgo-search>=7.0.0
+ddgs>=9.0.0
 Pillow>=11.0.0
 mss>=9.0.0
 pyautogui>=0.9.54
