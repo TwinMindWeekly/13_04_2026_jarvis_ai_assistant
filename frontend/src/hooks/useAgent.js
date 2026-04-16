@@ -112,6 +112,11 @@ export function useAgent(provider, model, language) {
           setIsLoading(false)
           return
         } catch (err) {
+          // User cancelled — stop immediately, no error
+          if (abortController.signal.aborted) {
+            setIsLoading(false)
+            return
+          }
           lastErr = err
           if (attempt < RETRY_DELAYS_MS.length && isRetryableError(err)) {
             await sleep(RETRY_DELAYS_MS[attempt])
@@ -119,6 +124,12 @@ export function useAgent(provider, model, language) {
           }
           break
         }
+      }
+
+      // Don't show error if user cancelled
+      if (abortRef.current?.signal?.aborted) {
+        setIsLoading(false)
+        return
       }
 
       const message =
