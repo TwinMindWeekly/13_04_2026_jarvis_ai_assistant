@@ -58,8 +58,8 @@ export default function GraphCanvas({
   useEffect(() => {
     const fg = fgRef.current
     if (!fg) return
-    fg.d3Force('link')?.distance(150)
-    fg.d3Force('charge')?.strength(-300).distanceMax(500)
+    fg.d3Force('link')?.distance(100)
+    fg.d3Force('charge')?.strength(-200).distanceMax(400)
   }, [data])
 
   // Resize canvas to container using ResizeObserver (detects panel resizes too).
