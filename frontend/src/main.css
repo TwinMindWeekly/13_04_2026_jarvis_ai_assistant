@@ -2299,3 +2299,144 @@ select option {
   border: 1px solid rgba(239, 68, 68, 0.15);
   color: var(--text-secondary);
 }
+
+/* =============================================
+   JARVIS Orb — animated AI status indicator
+   ============================================= */
+
+.jarvis-orb-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  /* Prevent layout jank during animations */
+  will-change: contents;
+}
+
+.jarvis-orb {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Ambient glow — largest layer, blurred outward */
+.orb-ambient {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  filter: blur(10px);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Rotating rings — concentric, dashed, different gaps */
+.orb-ring {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.orb-ring--outer {
+  inset: 0;
+  border-width: 1px;
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+.orb-ring--mid {
+  inset: 5px;
+  border-width: 1px;
+  /* alternating solid+transparent segments */
+  border-style: solid;
+  border-top-color: transparent;
+  border-left-color: transparent;
+  opacity: 0.7;
+}
+
+.orb-ring--inner {
+  inset: 11px;
+  border-width: 1.5px;
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+/* Core sphere */
+.orb-core {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  z-index: 2;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Specular highlight — tiny white dot top-left */
+.orb-specular {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+/* Spinning arc overlay for loading state */
+.orb-loading-arc {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.9);
+  border-right-color: rgba(255, 255, 255, 0.35);
+  animation: orbArcSpin 0.7s linear infinite;
+  z-index: 3;
+}
+
+@keyframes orbArcSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* EQ bars — floating below the core sphere for speaking state */
+.orb-eq {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+  z-index: 3;
+}
+
+.orb-eq-bar {
+  display: block;
+  width: 2.5px;
+  height: 10px;
+  border-radius: 1px;
+  transform-origin: bottom center;
+  opacity: 0.9;
+}
+
+/* Label below the orb */
+.jarvis-orb-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}

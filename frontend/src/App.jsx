@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, ChevronDown } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
+import JarvisOrb from './components/JarvisOrb'
 import { Toast, ToastContainer } from 'react-bootstrap'
 import { useAgent } from './hooks/useAgent'
 import { useAttachments } from './hooks/useAttachments'
@@ -202,10 +203,9 @@ export default function App() {
               )}
 
               <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                <button className="chat-header-title-btn">
-                  JARVIS
-                  <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
-                </button>
+                <JarvisOrb
+                  status={isLoading ? 'loading' : voice.isSpeaking ? 'speaking' : error ? 'error' : 'idle'}
+                />
               </div>
 
               <div className="d-flex align-items-center gap-1">
