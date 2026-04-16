@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -96,7 +96,7 @@ function splitParagraphs(content, speakingCharIndex) {
   })
 }
 
-export default function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 }) {
+function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
   const label = isUser ? 'You' : 'JARVIS'
@@ -164,3 +164,5 @@ export default function MessageBubble({ message, isStreaming = false, speakingCh
     </motion.div>
   )
 }
+
+export default memo(MessageBubble)

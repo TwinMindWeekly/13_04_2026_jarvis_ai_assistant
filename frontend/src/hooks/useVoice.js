@@ -1,12 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { ttsAPI } from '../services/api'
 
 /**
- * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (Edge TTS server)
+ * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (SpeechSynthesis)
  *
  * STT: Listens via microphone, returns transcript, auto-sends on silence.
- * TTS: Sends text to backend Edge TTS → receives MP3 → plays via <audio>.
- *      Edge TTS voices handle Vietnamese + English naturally in one voice.
+ * TTS: Reads text aloud using browser SpeechSynthesis with multilingual
+ *       voice switching (Vietnamese / English) and paragraph-level tracking.
  *
  * Browser support: Chrome, Edge (full), Safari (partial), Firefox (no STT).
  */
@@ -16,18 +15,95 @@ const SpeechRecognition =
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null
 
+// Vietnamese diacritical characters for language detection
+const _VI_CHARS = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/
+
+/**
+ * Split text into language segments (Vietnamese / English).
+ * Short segments (< 3 words) merge into neighbors to reduce choppiness.
+ * Concatenation of all segment texts equals the original text.
+ */
+function _splitByLanguage(text) {
+  const parts = text.match(/\S+\s*/g)
+  if (!parts) return [{ text, lang: 'en' }]
+
+  const raw = []
+  let curLang = null, curText = '', curWords = 0
+  for (const part of parts) {
+    const lang = _VI_CHARS.test(part) ? 'vi' : 'en'
+    if (curLang === null || lang === curLang) {
+      curLang = lang; curText += part; curWords++
+    } else {
+      raw.push({ text: curText, lang: curLang, words: curWords })
+      curLang = lang; curText = part; curWords = 1
+    }
+  }
+  if (curText) raw.push({ text: curText, lang: curLang || 'en', words: curWords })
+  if (raw.length <= 1) return raw
+
+  // Merge short segments (< 3 words) into previous to reduce voice-switching choppiness
+  const merged = [raw[0]]
+  for (let i = 1; i < raw.length; i++) {
+    if (raw[i].words < 3) {
+      const prev = merged[merged.length - 1]
+      prev.text += raw[i].text
+      prev.words += raw[i].words
+    } else {
+      merged.push(raw[i])
+    }
+  }
+  if (merged.length > 1 && merged[0].words < 3) {
+    merged[1].text = merged[0].text + merged[1].text
+    merged[1].words += merged[0].words
+    merged.shift()
+  }
+  return merged
+}
+
+/** Find the best available voice for a language code. */
+function _findVoiceForLang(langCode, voices) {
+  const prefix = langCode.slice(0, 2).toLowerCase()
+  const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(prefix))
+  return matching.find((v) => v.localService) || matching[0] || null
+}
+
 export function useVoice({ language = 'en-US', onTranscript, enabled = true } = {}) {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [sttSupported] = useState(() => !!SpeechRecognition)
+  const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
+  const [availableVoices, setAvailableVoices] = useState([])
+  // True when no voice matches the current language (e.g. Vietnamese voice not installed)
+  const [voiceMissing, setVoiceMissing] = useState(false)
+  // Speaking position: character index in the full queued text that TTS has reached
   const [speakingCharIndex, setSpeakingCharIndex] = useState(-1)
+  const fullSpeechTextRef = useRef('')
 
   const recognitionRef = useRef(null)
-  const audioRef = useRef(null)
-  const abortRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
+
+  // Load available TTS voices and check if current language is supported
+  useEffect(() => {
+    if (!ttsSupported) return
+
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices()
+      if (voices.length > 0) {
+        setAvailableVoices(voices)
+        const prefix = language.slice(0, 2).toLowerCase()
+        const hasMatch = voices.some((v) => v.lang.toLowerCase().startsWith(prefix))
+        setVoiceMissing(!hasMatch)
+      }
+    }
+
+    loadVoices()
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
+    }
+  }, [ttsSupported, language])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -36,12 +112,11 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         recognitionRef.current.abort()
         recognitionRef.current = null
       }
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+      if (ttsSupported) {
+        window.speechSynthesis.cancel()
       }
     }
-  }, [])
+  }, [ttsSupported])
 
   // --- STT: Start listening ---
   const startListening = useCallback(() => {
@@ -112,86 +187,72 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
   }, [isListening, startListening, stopListening])
 
-  // --- TTS: Speak text via Edge TTS server ---
-  // Sends text to POST /api/tts/speak → receives MP3 blob → plays via Audio element.
-  // Edge TTS vi-VN-HoaiMyNeural handles Vietnamese + English terms naturally.
+  // --- TTS: Speak text ---
+  // Uses a single voice matching the user's language setting.
+  // speakingCharIndex tracks reading position for UI paragraph highlighting.
   const speak = useCallback(
-    async (text, _voiceName, { append = false } = {}) => {
-      if (!enabled || !text) return
+    (text, voiceName, { append = false } = {}) => {
+      if (!ttsSupported || !enabled || !text) return
 
-      // Stop any current playback
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+      if (!append) {
+        window.speechSynthesis.cancel()
+        fullSpeechTextRef.current = text
+        setSpeakingCharIndex(0)
+      } else {
+        fullSpeechTextRef.current += text
       }
-      if (abortRef.current) {
-        abortRef.current.abort()
+
+      const utteranceOffset = fullSpeechTextRef.current.length - text.length
+      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
+
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = language
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+
+      const selectedVoice = _findVoiceForLang(language, voices)
+      if (selectedVoice) utterance.voice = selectedVoice
+
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        setSpeakingCharIndex(utteranceOffset)
       }
 
-      const langCode = language.startsWith('vi') ? 'vi' : 'en'
-      setIsSpeaking(true)
-      setSpeakingCharIndex(0)
-
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      try {
-        const { data: blob } = await ttsAPI.speak(text, langCode)
-
-        if (controller.signal.aborted) return
-
-        const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        audioRef.current = audio
-
-        // Estimate reading progress based on audio time
-        const totalChars = text.length
-        audio.ontimeupdate = () => {
-          if (audio.duration > 0) {
-            const progress = audio.currentTime / audio.duration
-            setSpeakingCharIndex(Math.floor(progress * totalChars))
-          }
-        }
-
-        audio.onended = () => {
-          setIsSpeaking(false)
-          setSpeakingCharIndex(-1)
-          URL.revokeObjectURL(url)
-          audioRef.current = null
-        }
-
-        audio.onerror = () => {
-          setIsSpeaking(false)
-          setSpeakingCharIndex(-1)
-          URL.revokeObjectURL(url)
-          audioRef.current = null
-        }
-
-        audio.play()
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          console.error('[TTS] Edge TTS failed:', err)
-          setIsSpeaking(false)
-          setSpeakingCharIndex(-1)
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          setSpeakingCharIndex(utteranceOffset + event.charIndex + event.charLength)
         }
       }
+
+      utterance.onend = () => {
+        setSpeakingCharIndex(utteranceOffset + text.length)
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          setIsSpeaking(false)
+          setSpeakingCharIndex(-1)
+          fullSpeechTextRef.current = ''
+        }
+      }
+
+      utterance.onerror = () => {
+        setIsSpeaking(false)
+        setSpeakingCharIndex(-1)
+        fullSpeechTextRef.current = ''
+      }
+
+      window.speechSynthesis.speak(utterance)
     },
-    [enabled, language]
+    [ttsSupported, enabled, language, availableVoices]
   )
 
   // --- TTS: Stop speaking ---
   const stopSpeaking = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
+    if (ttsSupported) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+      setSpeakingCharIndex(-1)
+      fullSpeechTextRef.current = ''
     }
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current = null
-    }
-    setIsSpeaking(false)
-    setSpeakingCharIndex(-1)
-  }, [])
+  }, [ttsSupported])
 
   return {
     // STT
@@ -206,8 +267,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     isSpeaking,
     speak,
     stopSpeaking,
-    ttsSupported: true, // Edge TTS is always available (server-side)
+    ttsSupported,
+    availableVoices,
     speakingCharIndex,
-    voiceMissing: false, // Edge TTS always has Vietnamese voice
+    voiceMissing,
   }
 }
