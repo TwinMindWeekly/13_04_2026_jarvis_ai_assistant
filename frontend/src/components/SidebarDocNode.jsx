@@ -234,14 +234,11 @@ function FileNode({
     data: { type: 'file', docId: node.id, folderPath: node.folder_path || '' },
   })
 
-  const mergedRef = useMergedRef(setDragRef, setDropRef)
   const isActive = selectedDocId === node.id
 
   return (
     <div
-      ref={mergedRef}
-      {...attributes}
-      {...listeners}
+      ref={setDropRef}
       className={`sidebar-tree-row file ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isOver ? 'drop-active' : ''}`}
       style={{ paddingLeft: depth * 12 + 28 }}
       onClick={() => onSelectFile(node)}
@@ -250,7 +247,9 @@ function FileNode({
         setRenamingId(renamingKey)
       }}
     >
-      <FileText size={13} style={{ color: '#888', flexShrink: 0 }} />
+      <span ref={setDragRef} {...attributes} {...listeners} style={{ display: 'flex', cursor: 'grab', flexShrink: 0 }}>
+        <FileText size={13} style={{ color: '#888' }} />
+      </span>
       {isRenaming ? (
         <InlineRename
           initial={node.filename}
