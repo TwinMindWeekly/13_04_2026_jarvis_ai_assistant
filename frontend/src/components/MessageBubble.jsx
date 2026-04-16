@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Zap } from 'lucide-react'
+import { Zap, ChevronDown } from 'lucide-react'
+import ActionStep from './ActionStep'
 
 const messageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -42,6 +44,38 @@ function AssistantAvatar() {
   )
 }
 
+function InlineActions({ actions }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="inline-actions">
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className="action-summary-btn"
+      >
+        <Zap size={11} />
+        <span>
+          {actions.length} action{actions.length !== 1 ? 's' : ''}
+        </span>
+        <ChevronDown
+          size={13}
+          style={{
+            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+            transition: 'transform 0.2s',
+          }}
+        />
+      </button>
+      {expanded && (
+        <div className="inline-actions-list">
+          {actions.map((action, idx) => (
+            <ActionStep key={idx} action={action} index={idx} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MessageBubble({ message, isStreaming = false }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
@@ -55,9 +89,7 @@ export default function MessageBubble({ message, isStreaming = false }) {
       className="message-row"
     >
       {/* Inner content — full width with comfortable side padding */}
-      <div
-        className="w-100 px-4 d-flex gap-3"
-      >
+      <div className="w-100 px-4 d-flex gap-3">
         {isUser ? <UserAvatar /> : <AssistantAvatar />}
 
         <div className="d-flex flex-column gap-1 flex-grow-1" style={{ minWidth: 0 }}>
@@ -68,12 +100,7 @@ export default function MessageBubble({ message, isStreaming = false }) {
             {label}
           </span>
 
-          {actionCount > 0 && (
-            <div className="tool-used-badge">
-              <Zap size={11} />
-              Used {actionCount} tool{actionCount !== 1 ? 's' : ''}
-            </div>
-          )}
+          {actionCount > 0 && <InlineActions actions={message.actions} />}
 
           {isUser ? (
             <p

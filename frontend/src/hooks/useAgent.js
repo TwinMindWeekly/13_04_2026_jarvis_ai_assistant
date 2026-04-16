@@ -45,13 +45,16 @@ export function useAgent(provider, model, language) {
 
     if (event.type === 'done') {
       const finalText = streamingTextRef.current
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: finalText },
-      ])
+      // Capture current actions before clearing, then persist them in the message
+      setActions((currentActions) => {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: finalText, actions: currentActions },
+        ])
+        return [] // Clear live actions after persisting
+      })
       streamingTextRef.current = ''
       setStreamingText('')
-      setActions([])
       setIsLoading(false)
     }
   }, [])

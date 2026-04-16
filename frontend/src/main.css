@@ -2255,6 +2255,37 @@ select option {
   color: #ef4444;
 }
 
+/* Inline actions (persisted per message) */
+.inline-actions {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.action-summary-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(99, 102, 241, 0.06);
+  color: var(--accent-hover);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.action-summary-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.inline-actions-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Transcript preview bar */
 .voice-transcript {
   display: flex;
