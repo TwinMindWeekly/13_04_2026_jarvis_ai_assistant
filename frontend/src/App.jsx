@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft } from 'lucide-react'
 import JarvisOrb from './components/JarvisOrb'
@@ -74,8 +74,8 @@ export default function App() {
     }
   }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fallback TTS: for REST responses (no streaming), split into sentences and queue
-  useEffect(() => {
+  // Fallback TTS: useLayoutEffect runs BEFORE browser paint — no full text flash
+  useLayoutEffect(() => {
     if (settings.voiceEnabled === false) return
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
