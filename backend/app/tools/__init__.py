@@ -19,6 +19,9 @@ from app.tools.registry import ToolRegistry
 from app.tools.safety import SafetyGuard, SafetyLevel, SafetyResult
 from app.tools.screenshot import ScreenshotTool
 from app.tools.web_browser import WebBrowserTool
+from app.tools.shell_exec import ShellExecTool
+from app.tools.clipboard import ClipboardTool
+from app.tools.system_notification import SystemNotificationTool
 from app.tools.skill_manager import SkillManagerTool
 from app.tools.web_search import WebSearchTool
 
@@ -47,6 +50,9 @@ def create_default_registry() -> ToolRegistry:
     registry.register(AppLauncherTool())
     registry.register(RagSearchTool())
     registry.register(SkillManagerTool())
+    registry.register(ShellExecTool())
+    registry.register(ClipboardTool())
+    registry.register(SystemNotificationTool())
     return registry
 
 
@@ -63,6 +69,9 @@ __all__ = [
     "AppLauncherTool",
     "RagSearchTool",
     "SkillManagerTool",
+    "ShellExecTool",
+    "ClipboardTool",
+    "SystemNotificationTool",
     "SafetyGuard",
     "SafetyLevel",
     "SafetyResult",
