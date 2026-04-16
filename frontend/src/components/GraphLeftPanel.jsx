@@ -37,12 +37,12 @@ export default function GraphLeftPanel({
     for (const link of links) {
       const s = typeof link.source === 'object' ? link.source.id : link.source
       const tgt = typeof link.target === 'object' ? link.target.id : link.target
-      if (s === selected.id) adj[tgt] = link.weight
-      if (tgt === selected.id) adj[s] = link.weight
+      if (s === selected.id) adj[tgt] = { weight: link.weight, context: link.context || '' }
+      if (tgt === selected.id) adj[s] = { weight: link.weight, context: link.context || '' }
     }
     const nodesById = Object.fromEntries(nodes.map((n) => [n.id, n]))
     return Object.entries(adj)
-      .map(([id, weight]) => ({ node: nodesById[id], weight }))
+      .map(([id, info]) => ({ node: nodesById[id], weight: info.weight, context: info.context }))
       .filter((x) => x.node)
       .sort((a, b) => b.weight - a.weight)
   }, [selected, links, nodes])
@@ -111,7 +111,7 @@ export default function GraphLeftPanel({
             </div>
           ) : (
             <div className="graph-left-neighbors-list">
-              {neighbors.map(({ node: nb, weight }) => (
+              {neighbors.map(({ node: nb, context }) => (
                 <button
                   key={nb.id}
                   className="graph-left-neighbor-item"
@@ -120,9 +120,11 @@ export default function GraphLeftPanel({
                   <span className="graph-left-neighbor-name" title={nb.label}>
                     {nb.label}
                   </span>
-                  <span className="graph-left-neighbor-score">
-                    {(weight * 100).toFixed(0)}%
-                  </span>
+                  {context && (
+                    <span className="graph-left-neighbor-context" title={context}>
+                      {context}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
