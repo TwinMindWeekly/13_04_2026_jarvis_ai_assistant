@@ -11,11 +11,17 @@ from app.tools.base import BaseTool, ToolResult
 logger = logging.getLogger(__name__)
 
 
+# Max dimension for screenshots sent to LLM. Larger images are scaled down
+# to avoid blowing up the context window (dual-monitor can exceed 1M tokens).
+_MAX_SCREENSHOT_WIDTH = 1920
+
+
 def _capture_sync(region: dict[str, int] | None) -> bytes:
     """Synchronous screen capture using mss.
 
     Runs in a thread pool via ``asyncio.to_thread`` so it never blocks the
-    event loop.
+    event loop.  Multi-monitor captures are automatically scaled down to
+    keep the base64 payload within LLM token limits.
 
     Args:
         region: Optional dict with keys ``left``, ``top``, ``width``,
@@ -37,16 +43,24 @@ def _capture_sync(region: dict[str, int] | None) -> bytes:
                 "height": region["height"],
             }
         else:
-            # mss.monitors[0] captures ALL monitors as a single virtual screen.
-            # mss.monitors[1] is primary only — use [0] for multi-monitor setups.
-            monitor = sct.monitors[0]
+            # mss.monitors[1] is the primary monitor.
+            # mss.monitors[0] would capture ALL monitors but is too large for LLM.
+            monitor = sct.monitors[1]
 
         screenshot = sct.grab(monitor)
 
         # Convert mss ScreenShot → Pillow Image → PNG bytes.
         img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+
+        # Scale down if too wide (e.g. dual 1920px monitors = 3840px total).
+        if img.width > _MAX_SCREENSHOT_WIDTH:
+            ratio = _MAX_SCREENSHOT_WIDTH / img.width
+            new_size = (int(img.width * ratio), int(img.height * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+            logger.info("Screenshot resized from %dx%d to %dx%d", screenshot.size.width, screenshot.size.height, *new_size)
+
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG", optimize=False)
+        img.save(buffer, format="JPEG", quality=75)
         return buffer.getvalue()
 
 
@@ -93,21 +107,21 @@ class ScreenshotTool(BaseTool):
 
         try:
             # mss is sync; run it in a thread to avoid blocking the event loop.
-            png_bytes: bytes = await asyncio.to_thread(_capture_sync, region)
+            img_bytes: bytes = await asyncio.to_thread(_capture_sync, region)
 
-            encoded = base64.b64encode(png_bytes).decode("utf-8")
+            encoded = base64.b64encode(img_bytes).decode("utf-8")
 
             logger.info(
                 "ScreenshotTool captured %d bytes (base64 length=%d)",
-                len(png_bytes),
+                len(img_bytes),
                 len(encoded),
             )
             return ToolResult(
                 success=True,
                 data=encoded,
                 metadata={
-                    "format": "png/base64",
-                    "size_bytes": len(png_bytes),
+                    "format": "jpeg/base64",
+                    "size_bytes": len(img_bytes),
                     "region": region,
                 },
             )
