@@ -129,6 +129,30 @@ function _formatParsed(obj) {
   }).join('\n')
 }
 
+/** Format input as friendly text instead of raw JSON. */
+function formatInput(tool, input) {
+  if (!input) return null
+  if (typeof input === 'string') return input
+  const parts = []
+  for (const [k, v] of Object.entries(input)) {
+    if (v == null || v === '') continue
+    parts.push(`${k}: ${v}`)
+  }
+  return parts.join('\n') || null
+}
+
+/** Extract actual content from tool output — handles `content='...'` pattern from LangChain. */
+function _extractContent(output) {
+  if (!output) return null
+  const str = typeof output === 'object' ? JSON.stringify(output) : String(output)
+  // LangChain wraps tool output as `content='{"results":...}'` — extract the inner JSON
+  const contentMatch = str.match(/^content='([\s\S]*)'$/)
+  if (contentMatch) return contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  const contentMatch2 = str.match(/^content="([\s\S]*)"$/)
+  if (contentMatch2) return contentMatch2[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  return str
+}
+
 function ShimmerLine({ width = '100%' }) {
   return <div className="shimmer-line" style={{ width }} />
 }
@@ -146,18 +170,9 @@ export default function ActionStep({ action, index }) {
   const ToolIcon = TOOL_ICONS[action.tool] ?? Globe
   const summary = getActionSummary(action)
 
-  const inputStr = action.input
-    ? typeof action.input === 'object'
-      ? JSON.stringify(action.input, null, 2)
-      : action.input
-    : null
+  const inputStr = action.input ? formatInput(action.tool, action.input) : null
 
-  const rawOutput = action.output
-    ? typeof action.output === 'object'
-      ? JSON.stringify(action.output)
-      : action.output
-    : null
-
+  const rawOutput = action.output ? _extractContent(action.output) : null
   const formattedOutput = rawOutput ? formatOutput(rawOutput) : null
   const isLongOutput = formattedOutput && formattedOutput.length > OUTPUT_TRUNCATE_LENGTH
   const displayedOutput =
