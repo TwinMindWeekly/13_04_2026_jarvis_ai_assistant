@@ -66,4 +66,9 @@ export const usageAPI = {
   getUsage: () => api.get('/usage/'),
 }
 
+export const ttsAPI = {
+  speak: (text, language = 'vi', rate = '+0%') =>
+    api.post('/tts/speak', { text, language, rate }, { responseType: 'blob' }),
+}
+
 export default api
