@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PanelLeft, ChevronDown } from 'lucide-react'
 import { Toast, ToastContainer } from 'react-bootstrap'
 import { useAgent } from './hooks/useAgent'
+import { useAttachments } from './hooks/useAttachments'
 import { useSettings } from './hooks/useSettings'
 import { useVoice } from './hooks/useVoice'
 import { chatAPI } from './services/api'
@@ -35,9 +36,12 @@ export default function App() {
     error,
     streamingText,
     sendMessage,
+    cancelRequest,
     clearMessages,
     dismissError,
   } = useAgent(settings.provider, settings.model, settings.language)
+
+  const chatAttachments = useAttachments()
 
   const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
   const voice = useVoice({
@@ -193,8 +197,10 @@ export default function App() {
               streamingText={streamingText}
               error={error}
               onSendMessage={sendMessage}
+              onCancel={cancelRequest}
               onClear={clearMessages}
               voice={voice}
+              attachments={chatAttachments}
               selectedDoc={selectedDoc}
               onDocApplied={() => setEditorRefreshKey((k) => k + 1)}
             />

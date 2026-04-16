@@ -177,3 +177,59 @@
 - [ ] Reset logic: daily counter reset midnight UTC, RPM counter rolling 60s
 - [ ] i18n — keys mới cho usage dashboard
 - [ ] Docs sync
+
+---
+
+## Phase 12: Chat File Upload (Inline Attachments)
+> Mục tiêu: User đính kèm file trực tiếp vào chat (như ChatGPT), agent đọc và phân tích inline.
+
+- [ ] Backend: `routers/attachments.py` — POST /api/agent/upload-attachment (parse file, trả text)
+- [ ] Backend: `models/attachment_schemas.py` — response schema
+- [ ] Backend: Mở rộng document_parser.py hỗ trợ thêm .py, .js, .ts, .json, .csv, .html, .css, .yaml, .xml, .log
+- [ ] Backend: Giới hạn 5MB/file, tối đa 3 files/message, text cap 100K chars
+- [ ] Frontend: `hooks/useAttachments.js` — quản lý state attachments
+- [ ] Frontend: `components/AttachmentPreview.jsx` — hiện pill badges file đã chọn
+- [ ] Frontend: Wire nút "+" trong ChatArea → file picker + drag-and-drop
+- [ ] Frontend: useAgent.js serialize attachments vào message
+- [ ] Tests — backend upload endpoint
+- [ ] Docs sync
+
+---
+
+## Phase 13: Shell, Clipboard, Notification Tools
+> Mục tiêu: 3 tools mới cho desktop power users — shell command là tool có impact cao nhất.
+
+- [ ] Backend: `tools/shell_exec.py` — chạy lệnh terminal (CONFIRM), timeout 30-120s, blocked patterns
+- [ ] Backend: `tools/clipboard.py` — đọc/ghi clipboard (AUTO/NOTIFY)
+- [ ] Backend: `tools/system_notification.py` — thông báo OS (NOTIFY)
+- [ ] Backend: Mở rộng safety.py — thêm blocked patterns cho shell
+- [ ] Backend: Cập nhật prompts.py — thêm 3 tool docs
+- [ ] Backend: Cài pyperclip, plyer
+- [ ] Tests — shell_exec, clipboard, system_notification
+- [ ] Docs sync
+
+---
+
+## Phase 14: Email Tool (Read & Send)
+> Mục tiêu: Đọc/gửi email qua IMAP/SMTP — hoạt động với Gmail App Password, Outlook, Yahoo.
+
+- [ ] Backend: `tools/email_tool.py` — actions: read_inbox, read_email, search, send (CONFIRM)
+- [ ] Backend: `services/email_client.py` — IMAP/SMTP async connection management
+- [ ] Backend: Config .env — IMAP_HOST/PORT/USER/PASSWORD, SMTP_HOST/PORT/USER/PASSWORD
+- [ ] Backend: Cài aioimaplib, aiosmtplib
+- [ ] Backend: skills/email.md — skill triggers
+- [ ] Tests — email tool với mocked connections
+- [ ] Docs sync
+
+---
+
+## Phase 15: Image Generation + Code Runner
+> Mục tiêu: Tạo hình ảnh AI + chạy code trực tiếp (Python, JS, Godot).
+
+- [ ] Backend: `tools/image_generator.py` — DALL-E 3 API, lưu uploads/generated/
+- [ ] Backend: `tools/code_runner.py` — chạy Python/JS/TS/Bash/PowerShell/Godot
+- [ ] Backend: `routers/files.py` — serve generated images
+- [ ] Backend: Config — GODOT_PATH, STABILITY_API_KEY
+- [ ] Frontend: MessageBubble hiện inline image khi response chứa image path
+- [ ] Tests — image_generator (mocked API), code_runner
+- [ ] Docs sync

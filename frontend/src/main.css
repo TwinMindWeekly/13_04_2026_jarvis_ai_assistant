@@ -888,6 +888,11 @@ select option {
   border-color: #555;
 }
 
+.chat-input-wrapper.drag-over {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.06);
+}
+
 /* Textarea inside input wrapper */
 .chat-textarea {
   flex: 1;

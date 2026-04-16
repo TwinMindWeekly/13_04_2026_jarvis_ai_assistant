@@ -11,14 +11,14 @@ export const chatAPI = {
 }
 
 export const agentAPI = {
-  execute: (message, provider, model, conversationId, language) =>
+  execute: (message, provider, model, conversationId, language, signal) =>
     api.post('/agent/execute', {
       message,
       provider,
       model,
       language: language || 'en',
       conversation_id: conversationId,
-    }),
+    }, { signal }),
 }
 
 export const documentsAPI = {
@@ -48,6 +48,16 @@ export const graphAPI = {
 export const vaultAPI = {
   get: (docId) => api.get(`/vault/${docId}`),
   save: (docId, content) => api.put(`/vault/${docId}`, { content }),
+}
+
+export const attachmentAPI = {
+  upload: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/agent/upload-attachment', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 export const usageAPI = {

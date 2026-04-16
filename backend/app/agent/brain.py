@@ -10,6 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agent.prompts import JARVIS_SYSTEM_PROMPT
 from app.core.config import settings
 from app.core.exceptions import ProviderNotFoundError, ProviderAuthError
+from app.skills.loader import skill_loader
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,7 @@ def create_agent_brain(
     model: str,
     tools: list,
     language: str = "en",
+    user_message: str = "",
 ) -> tuple[CompiledStateGraph, str, str]:
     """Build and return a compiled LangGraph ReAct agent.
 
@@ -173,6 +175,7 @@ def create_agent_brain(
                for auto-detection.
         tools: List of LangChain-compatible tool objects to bind.
         language: User's chosen response language code (e.g. "en", "vi").
+        user_message: The user's message, used for skill matching.
 
     Returns:
         Tuple of (compiled StateGraph, actual_provider, actual_model).
@@ -181,6 +184,13 @@ def create_agent_brain(
 
     lang_label = _LANGUAGE_LABELS.get(language, language)
     system_prompt = JARVIS_SYSTEM_PROMPT.format(date=date.today().isoformat(), language=lang_label)
+
+    # Auto-inject matched skills into the system prompt
+    if user_message:
+        skill_section = skill_loader.get_prompt_injection(user_message)
+        if skill_section:
+            system_prompt += skill_section
+            logger.info("Injected skills into prompt for message: %.80s...", user_message)
 
     brain = create_react_agent(
         model=llm,

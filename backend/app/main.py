@@ -15,6 +15,7 @@ from app.routers.documents import router as documents_router
 from app.routers.graph import router as graph_router
 from app.routers.vault import router as vault_router
 from app.routers.usage import router as usage_router
+from app.routers.attachments import router as attachments_router
 
 # ---------------------------------------------------------------------------
 # Logging configuration
@@ -225,6 +226,7 @@ app.include_router(documents_router)
 app.include_router(graph_router)
 app.include_router(vault_router)
 app.include_router(usage_router)
+app.include_router(attachments_router)
 
 
 # ---------------------------------------------------------------------------

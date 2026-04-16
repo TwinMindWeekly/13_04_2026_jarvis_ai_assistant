@@ -1,10 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check, X } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check, X, Square } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
 import VoiceButton from './VoiceButton'
+import AttachmentPreview from './AttachmentPreview'
 import { vaultAPI } from '../services/api'
 
 export default function ChatArea({
@@ -15,9 +16,11 @@ export default function ChatArea({
   error = null,
   onSendMessage,
   onClear,
+  onCancel,
   voice = {},
   selectedDoc = null,
   onDocApplied,
+  attachments = {},
   suggestionChips = null,
   emptyTitle = null,
 }) {
@@ -25,8 +28,10 @@ export default function ChatArea({
   const [input, setInput] = useState('')
   const [appliedIdx, setAppliedIdx] = useState(null)
   const [docContextOn, setDocContextOn] = useState(true)
+  const [dragOver, setDragOver] = useState(false)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -59,12 +64,42 @@ export default function ChatArea({
       }
     }
 
-    onSendMessage(trimmed, docContext)
+    // Serialize attachments into the message
+    let fullMessage = trimmed
+    const attachmentText = attachments.serializeForPrompt?.() || ''
+    if (attachmentText) {
+      fullMessage = `${attachmentText}\n\n${trimmed}`
+    }
+
+    onSendMessage(fullMessage, docContext)
     setInput('')
+    attachments.clearAttachments?.()
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [input, isLoading, onSendMessage, selectedDoc, docContextOn])
+  }, [input, isLoading, onSendMessage, selectedDoc, docContextOn, attachments])
+
+  const handleFileSelect = useCallback((e) => {
+    const files = Array.from(e.target.files || [])
+    files.forEach((f) => attachments.addFile?.(f))
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [attachments])
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files || [])
+    files.forEach((f) => attachments.addFile?.(f))
+  }, [attachments])
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    setDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false)
+  }, [])
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -87,7 +122,8 @@ export default function ChatArea({
     }
   }, [selectedDoc, onDocApplied])
 
-  const canSend = input.trim().length > 0 && !isLoading
+  const hasAttachments = (attachments.attachments?.length || 0) > 0
+  const canSend = (input.trim().length > 0 || hasAttachments) && !isLoading
   const showStreaming = streamingText.length > 0
   const showActions = actions.length > 0 || (isLoading && !showStreaming)
   const isEmpty = messages.length === 0 && !showStreaming && !showActions
@@ -116,16 +152,30 @@ export default function ChatArea({
         </div>
       )}
 
+      <AttachmentPreview
+        attachments={attachments.attachments || []}
+        uploading={attachments.uploading}
+        error={attachments.uploadError}
+        onRemove={attachments.removeAttachment}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileSelect}
+      />
+
       <div
-        className="chat-input-wrapper"
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = '#555'
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = 'var(--border)'
-        }}
+        className={`chat-input-wrapper${dragOver ? ' drag-over' : ''}`}
+        onFocus={(e) => { e.currentTarget.style.borderColor = '#555' }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = dragOver ? 'var(--accent)' : 'var(--border)' }}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
       >
-        <button className="attach-btn" aria-label="Attach">
+        <button className="attach-btn" aria-label="Attach" onClick={() => fileInputRef.current?.click()}>
           <Plus size={20} />
         </button>
 
@@ -170,33 +220,21 @@ export default function ChatArea({
           )}
 
           {isLoading && (
-            <motion.span
-              key="spinner"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{
-                flexShrink: 0,
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <motion.button
+              key="cancel"
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ duration: 0.15 }}
+              onClick={onCancel}
+              className="send-btn"
+              style={{ background: 'var(--error, #ef4444)' }}
+              whileTap={{ scale: 0.9 }}
+              aria-label={t('chat.cancel', 'Cancel')}
+              title={t('chat.cancel', 'Cancel')}
             >
-              <motion.span
-                style={{
-                  display: 'block',
-                  width: 20,
-                  height: 20,
-                  borderRadius: '50%',
-                  border: '2px solid var(--text-muted)',
-                  borderTopColor: 'transparent',
-                }}
-                animate={{ rotate: 360 }}
-                transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-              />
-            </motion.span>
+              <Square size={16} fill="currentColor" />
+            </motion.button>
           )}
         </AnimatePresence>
       </div>

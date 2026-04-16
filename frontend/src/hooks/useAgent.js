@@ -21,6 +21,7 @@ export function useAgent(provider, model, language) {
   const [streamingText, setStreamingText] = useState('')
   const conversationIdRef = useRef(null)
   const streamingTextRef = useRef('')
+  const abortRef = useRef(null)
 
   const handleWsMessage = useCallback((event) => {
     if (event.type === 'text') {
@@ -85,15 +86,19 @@ export function useAgent(provider, model, language) {
       }
 
       // 3. REST fallback with retry on transient network errors.
+      const abortController = new AbortController()
+      abortRef.current = abortController
       let lastErr = null
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        if (abortController.signal.aborted) break
         try {
           const { data } = await agentAPI.execute(
             apiMessage,
             provider,
             model,
             conversationIdRef.current,
-            language
+            language,
+            abortController.signal
           )
           conversationIdRef.current = data.conversation_id
           setMessages((prev) => [
@@ -127,6 +132,22 @@ export function useAgent(provider, model, language) {
     [provider, model, language, wsStatus, wsSend]
   )
 
+  const cancelRequest = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    disconnect()
+    setIsLoading(false)
+    setActions([])
+    const partial = streamingTextRef.current
+    if (partial) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: partial + '\n\n*(cancelled)*' }])
+      streamingTextRef.current = ''
+      setStreamingText('')
+    }
+  }, [disconnect])
+
   const clearMessages = useCallback(() => {
     setMessages([])
     setActions([])
@@ -145,6 +166,7 @@ export function useAgent(provider, model, language) {
     error,
     streamingText,
     sendMessage,
+    cancelRequest,
     clearMessages,
     dismissError,
     wsStatus,
