@@ -146,10 +146,10 @@ class UsageTracker:
         """Pre-populate all providers that have API keys so Usage tab shows them immediately."""
         key_map = {
             "groq": (settings.groq_api_key, settings.groq_model),
-            "gemini": (settings.google_api_key, "gemini-2.5-flash"),
+            "gemini": (settings.google_api_key, settings.gemini_model),
             "sambanova": (settings.sambanova_api_key, settings.sambanova_model),
-            "openai": (settings.openai_api_key, "gpt-4o-mini"),
-            "claude": (settings.anthropic_api_key, "claude-sonnet-4-5"),
+            "openai": (settings.openai_api_key, settings.openai_model),
+            "claude": (settings.anthropic_api_key, settings.claude_model),
             "ollama": ("always", settings.wikilink_model),
         }
         changed = False

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Per-provider default models
     openai_model: str = "gpt-4o-mini"
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.1-pro-high"
     claude_model: str = "claude-sonnet-4-6"
 
     # Groq (free tier: 1000 req/day, Llama 3.3 70B with tool calling)
