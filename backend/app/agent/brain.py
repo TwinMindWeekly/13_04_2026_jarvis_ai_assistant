@@ -119,13 +119,13 @@ _FALLBACK_CHAIN: list[tuple[str, str]] = []
 def _build_fallback_chain() -> list[tuple[str, str]]:
     """Build the ordered list of (provider, model) to try, based on available keys.
 
-    Priority: claude (best tool calling) → gemini → openai → groq → sambanova → ollama.
+    Priority: gemini (fast) → claude → openai → groq → sambanova → ollama.
     """
     chain: list[tuple[str, str]] = []
-    if settings.anthropic_api_key:
-        chain.append(("claude", settings.claude_model))
     if settings.google_api_key:
         chain.append(("gemini", settings.gemini_model))
+    if settings.anthropic_api_key:
+        chain.append(("claude", settings.claude_model))
     if settings.openai_api_key:
         chain.append(("openai", settings.openai_model))
     if settings.groq_api_key:
