@@ -9,15 +9,30 @@ import { vaultAPI } from '../services/api'
 import { extractWikilinkTargets } from '../utils/wikilinkDetector'
 
 /**
- * Convert [[WikiLink]] and [[Target|Display]] to markdown links
- * that ReactMarkdown can render, using a wikilink: URI scheme.
+ * Convert [[WikiLink]] and [[Target|Display]] to placeholder HTML spans.
+ * Uses a zero-width-joiner trick so ReactMarkdown passes them through as text,
+ * then we render them as styled pills in a custom text component.
  */
-function processWikilinks(md) {
-  if (!md) return md
-  return md.replace(
-    /(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g,
-    (_match, target, display) => `[${display || target}](wikilink:${target})`
-  )
+const WIKILINK_SPLIT_RE = /(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g
+
+function renderContentWithWikilinks(md) {
+  if (!md) return null
+  // Split markdown at wikilinks, render parts as markdown + wikilinks as pills
+  const parts = []
+  let lastIndex = 0
+  WIKILINK_SPLIT_RE.lastIndex = 0
+  let match
+  while ((match = WIKILINK_SPLIT_RE.exec(md)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'md', text: md.slice(lastIndex, match.index) })
+    }
+    parts.push({ type: 'wikilink', target: match[1].trim(), display: (match[2] || match[1]).trim() })
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < md.length) {
+    parts.push({ type: 'md', text: md.slice(lastIndex) })
+  }
+  return parts
 }
 
 /**
@@ -35,18 +50,6 @@ function highlightWikilinks(text) {
     /(?:!?)(\[\[[^\]]+?\]\])/g,
     '<span class="md-wikilink-edit">$1</span>'
   ) + '\n' // trailing newline keeps overlay height in sync
-}
-
-/** Custom link renderer — styles wikilink: URIs as Obsidian-style pills. */
-function WikilinkAnchor({ href, children, ...props }) {
-  if (href && href.startsWith('wikilink:')) {
-    return (
-      <span className="md-wikilink" title={href.slice(9)}>
-        {children}
-      </span>
-    )
-  }
-  return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
 }
 
 /**
@@ -240,12 +243,17 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onW
         {!loading && !error && mode === 'view' && (
           <div className="md-editor-preview" onDoubleClick={() => setMode('edit')}>
             {content ? (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{ a: WikilinkAnchor }}
-              >
-                {processWikilinks(content)}
-              </ReactMarkdown>
+              renderContentWithWikilinks(content).map((part, i) =>
+                part.type === 'wikilink' ? (
+                  <span key={i} className="md-wikilink" title={part.target}>
+                    {part.display}
+                  </span>
+                ) : (
+                  <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
+                    {part.text}
+                  </ReactMarkdown>
+                )
+              )
             ) : (
               <p className="md-editor-no-content">
                 {t('graph.editorNoContent', 'No content available.')}
