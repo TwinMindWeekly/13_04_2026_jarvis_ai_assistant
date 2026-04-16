@@ -188,8 +188,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   }, [isListening, startListening, stopListening])
 
   // --- TTS: Speak text ---
-  // When language is Vietnamese, splits text into Vi/En segments so English
-  // terms (FastAPI, Docker, etc.) are pronounced correctly with an English voice.
+  // Uses a single voice matching the user's language setting.
   // speakingCharIndex tracks reading position for UI paragraph highlighting.
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
@@ -203,27 +202,16 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         fullSpeechTextRef.current += text
       }
 
-      const baseOffset = fullSpeechTextRef.current.length - text.length
+      const utteranceOffset = fullSpeechTextRef.current.length - text.length
       const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
 
-      // Split into language segments when primary language is Vietnamese
-      const isVietnamese = language.startsWith('vi')
-      const segments = isVietnamese ? _splitByLanguage(text) : [{ text, lang: language.slice(0, 2) }]
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = language
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
 
-      let localOffset = 0
-      segments.forEach((seg) => {
-        const utteranceOffset = baseOffset + localOffset
-        const segText = seg.text
-        const segLang = seg.lang === 'vi' ? 'vi-VN' : 'en-US'
-
-        const utterance = new SpeechSynthesisUtterance(segText)
-        utterance.lang = segLang
-        utterance.rate = 1.0
-        utterance.pitch = 1.0
-
-        // Pick voice for this segment's language
-        const segVoice = _findVoiceForLang(segLang, voices)
-        if (segVoice) utterance.voice = segVoice
+      const selectedVoice = _findVoiceForLang(language, voices)
+      if (selectedVoice) utterance.voice = selectedVoice
 
       utterance.onstart = () => {
         setIsSpeaking(true)
@@ -237,7 +225,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
 
       utterance.onend = () => {
-        setSpeakingCharIndex(utteranceOffset + segText.length)
+        setSpeakingCharIndex(utteranceOffset + text.length)
         if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
           setIsSpeaking(false)
           setSpeakingCharIndex(-1)
@@ -252,8 +240,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
 
       window.speechSynthesis.speak(utterance)
-      localOffset += segText.length
-      })
     },
     [ttsSupported, enabled, language, availableVoices]
   )
