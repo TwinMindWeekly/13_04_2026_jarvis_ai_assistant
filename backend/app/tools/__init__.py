@@ -23,6 +23,8 @@ from app.tools.shell_exec import ShellExecTool
 from app.tools.clipboard import ClipboardTool
 from app.tools.system_notification import SystemNotificationTool
 from app.tools.email_tool import EmailTool
+from app.tools.image_generator import ImageGeneratorTool
+from app.tools.code_runner import CodeRunnerTool
 from app.tools.skill_manager import SkillManagerTool
 from app.tools.web_search import WebSearchTool
 
@@ -55,6 +57,8 @@ def create_default_registry() -> ToolRegistry:
     registry.register(ClipboardTool())
     registry.register(SystemNotificationTool())
     registry.register(EmailTool())
+    registry.register(ImageGeneratorTool())
+    registry.register(CodeRunnerTool())
     return registry
 
 
@@ -75,6 +79,8 @@ __all__ = [
     "ClipboardTool",
     "SystemNotificationTool",
     "EmailTool",
+    "ImageGeneratorTool",
+    "CodeRunnerTool",
     "SafetyGuard",
     "SafetyLevel",
     "SafetyResult",

@@ -305,6 +305,7 @@ def test_create_default_registry():
         "rag_search", "skill_manager",
         "shell_exec", "clipboard", "system_notification",
         "email",
+        "image_generator", "code_runner",
     }
     assert names == expected
 
@@ -313,7 +314,7 @@ def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert len(schemas) == 13
+    assert len(schemas) == 15
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema

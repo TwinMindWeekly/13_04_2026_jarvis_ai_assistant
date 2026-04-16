@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     wikilink_provider: str = "ollama"
     wikilink_model: str = "huihui_ai/llama3.2-abliterate:3b"
 
+    # Image generation
+    stability_api_key: str = ""
+
+    # Code runner
+    godot_path: str = ""  # Path to Godot executable for GDScript execution
+
     # Email (IMAP/SMTP)
     imap_host: str = ""
     imap_port: int = 993

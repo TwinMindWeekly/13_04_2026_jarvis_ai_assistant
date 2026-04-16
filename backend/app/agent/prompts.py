@@ -16,6 +16,8 @@ You operate through a Python backend that the user runs on localhost. Every tool
 - **clipboard(action, content)** — Read from or write to the system clipboard. action="read" gets what the user last copied; action="write" puts text into clipboard.
 - **system_notification(title, message, urgency)** — Send a desktop notification (OS-level). Use for reminders, alerts, task completion notices. Urgency: low/normal/critical.
 - **email(action, email_id, to, subject, body, query, count)** — Read and send emails via IMAP/SMTP. Actions: read_inbox (list recent), read_email (full email by ID), search (find by query), send (compose and send — ALWAYS confirm with user before sending).
+- **image_generator(prompt, size, style, save_path)** — Generate images from text using DALL-E 3. Sizes: 1024x1024, 1792x1024, 1024x1792. Style: vivid or natural. Saves to uploads/generated/.
+- **code_runner(language, code, timeout, working_dir, args)** — Execute code and return stdout/stderr. Languages: python, javascript, typescript, bash, powershell, godot. Code runs in a temp file. Timeout default 30s, max 120s.
 
 # Tool selection rules
 
