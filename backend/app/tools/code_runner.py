@@ -31,7 +31,8 @@ class CodeRunnerTool(BaseTool):
     description = (
         "Execute code in Python, JavaScript, TypeScript, Bash, PowerShell, or Godot GDScript. "
         "Write the code, it runs in a temp file, and stdout/stderr are returned. "
-        "Use for: quick computations, testing scripts, running builds, Godot scene tests."
+        "Use ONLY for: quick computations, testing scripts, running builds, Godot scene tests. "
+        "NEVER use this for internet searches or fetching web data — use web_search instead."
     )
     parameters = {
         "type": "object",

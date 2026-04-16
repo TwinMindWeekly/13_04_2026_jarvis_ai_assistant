@@ -19,6 +19,7 @@ class ShellExecTool(BaseTool):
     description = (
         "Run a shell command on the user's computer and return stdout/stderr. "
         "Use for: git, npm, pip, docker, build, test, file listing, system info. "
+        "NEVER use this for internet searches or fetching web data — use web_search instead. "
         "Dangerous commands (rm -rf /, format, shutdown) are blocked."
     )
     parameters = {
