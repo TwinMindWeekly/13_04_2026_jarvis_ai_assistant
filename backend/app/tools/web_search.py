@@ -12,9 +12,10 @@ class WebSearchTool(BaseTool):
 
     name = "web_search"
     description = (
-        "Search the internet for current information. "
-        "Use this when you need to find facts, news, or answers to questions "
-        "about current events."
+        "PRIMARY tool for ALL internet searches. Use this FIRST for any question about "
+        "weather, news, facts, people, events, or any information lookup. "
+        "Returns search results with titles, snippets, and URLs. "
+        "Do NOT use web_browser or browser_control for searching — use this tool instead."
     )
     parameters = {
         "type": "object",
