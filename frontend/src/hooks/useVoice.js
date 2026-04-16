@@ -25,6 +25,8 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const [revealedText, setRevealedText] = useState('')
   const fullSpeechTextRef = useRef('')
   const revealOffsetRef = useRef(0)
+  const fallbackTimerRef = useRef(null)
+  const boundaryFiredRef = useRef(false)
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
@@ -57,6 +59,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
       if (ttsSupported) {
         window.speechSynthesis.cancel()
+      }
+      if (fallbackTimerRef.current) {
+        clearInterval(fallbackTimerRef.current)
       }
     }
   }, [ttsSupported])
@@ -138,20 +143,27 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   // --- TTS: Speak text with word-level reveal ---
   // append=true: queue utterance without cancelling (streaming TTS)
   // append=false: cancel current speech, start fresh (REST TTS)
+  // Includes timer-based fallback for browsers that don't fire onboundary events.
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
       if (!ttsSupported || !enabled || !text) return
 
       if (!append) {
         window.speechSynthesis.cancel()
+        if (fallbackTimerRef.current) {
+          clearInterval(fallbackTimerRef.current)
+          fallbackTimerRef.current = null
+        }
         fullSpeechTextRef.current = text
         revealOffsetRef.current = 0
         setRevealedText('\u200b') // truthy placeholder — prevents full text flash
+        boundaryFiredRef.current = false
       } else {
         fullSpeechTextRef.current += text
       }
 
-      const currentOffset = revealOffsetRef.current
+      // Correct offset: where this utterance starts within the full concatenated text
+      const utteranceOffset = fullSpeechTextRef.current.length - text.length
 
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = language
@@ -163,19 +175,60 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         if (v) utterance.voice = v
       }
 
-      utterance.onstart = () => setIsSpeaking(true)
+      // Pre-compute word-end positions for timer-based fallback
+      const wordEnds = []
+      const wordRegex = /\S+/g
+      let wm
+      while ((wm = wordRegex.exec(text)) !== null) {
+        wordEnds.push(wm.index + wm[0].length)
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        // Timer fallback: reveal words on a schedule when onboundary is unsupported
+        if (!boundaryFiredRef.current && wordEnds.length > 0) {
+          const msPerWord = 60000 / (150 * (utterance.rate || 1))
+          let wIdx = 0
+          if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current)
+          fallbackTimerRef.current = setInterval(() => {
+            if (boundaryFiredRef.current) {
+              clearInterval(fallbackTimerRef.current)
+              fallbackTimerRef.current = null
+              return
+            }
+            if (wIdx < wordEnds.length) {
+              setRevealedText(fullSpeechTextRef.current.slice(0, utteranceOffset + wordEnds[wIdx]))
+              wIdx++
+            } else {
+              clearInterval(fallbackTimerRef.current)
+              fallbackTimerRef.current = null
+            }
+          }, msPerWord)
+        }
+      }
 
       // Word boundary event — reveal text up to the word being spoken
       utterance.onboundary = (event) => {
         if (event.name === 'word') {
-          const revealEnd = currentOffset + event.charIndex + event.charLength
+          if (!boundaryFiredRef.current) {
+            boundaryFiredRef.current = true
+            if (fallbackTimerRef.current) {
+              clearInterval(fallbackTimerRef.current)
+              fallbackTimerRef.current = null
+            }
+          }
+          const revealEnd = utteranceOffset + event.charIndex + event.charLength
           setRevealedText(fullSpeechTextRef.current.slice(0, revealEnd))
         }
       }
 
       utterance.onend = () => {
+        if (fallbackTimerRef.current) {
+          clearInterval(fallbackTimerRef.current)
+          fallbackTimerRef.current = null
+        }
         // Reveal all text for this utterance
-        revealOffsetRef.current = currentOffset + text.length
+        revealOffsetRef.current = utteranceOffset + text.length
         setRevealedText(fullSpeechTextRef.current.slice(0, revealOffsetRef.current))
         if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
           setIsSpeaking(false)
@@ -183,6 +236,10 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         }
       }
       utterance.onerror = () => {
+        if (fallbackTimerRef.current) {
+          clearInterval(fallbackTimerRef.current)
+          fallbackTimerRef.current = null
+        }
         setIsSpeaking(false)
         setRevealedText('')
       }
@@ -203,10 +260,15 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const stopSpeaking = useCallback(() => {
     if (ttsSupported) {
       window.speechSynthesis.cancel()
+      if (fallbackTimerRef.current) {
+        clearInterval(fallbackTimerRef.current)
+        fallbackTimerRef.current = null
+      }
       setIsSpeaking(false)
       setRevealedText('')
       fullSpeechTextRef.current = ''
       revealOffsetRef.current = 0
+      boundaryFiredRef.current = false
     }
   }, [ttsSupported])
 

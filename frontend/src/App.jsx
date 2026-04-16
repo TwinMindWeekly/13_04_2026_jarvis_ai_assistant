@@ -159,6 +159,12 @@ export default function App() {
     })
   }, [])
 
+  // Voice reveal: only for non-streaming (fallback) path.
+  // voiceRevealing is set synchronously in useLayoutEffect (no flash);
+  // voice.isSpeaking covers the active speech phase.
+  // !streamingText ensures the streaming path shows text as-is (SSE is already progressive).
+  const voiceRevealActive = settings.voiceEnabled !== false && !streamingText && (voiceRevealing || voice.isSpeaking)
+
   return (
     <div className="d-flex" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
       <Sidebar
@@ -241,10 +247,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={settings.voiceEnabled !== false && voice.isSpeaking ? messages.slice(0, -1) : messages}
+              messages={voiceRevealActive ? messages.slice(0, -1) : messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={settings.voiceEnabled !== false && voice.isSpeaking ? (voice.revealedText || '') : streamingText}
+              streamingText={voiceRevealActive ? (voice.revealedText || '') : streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}
