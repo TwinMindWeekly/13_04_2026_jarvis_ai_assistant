@@ -1,0 +1,324 @@
+<mxfile host="app.diagrams.net" modified="2026-04-16T12:00:00.000Z" agent="JARVIS" version="24.0.0">
+  <diagram id="agent-flow" name="JARVIS Agent Flow">
+    <mxGraphModel dx="2000" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ============================================ -->
+        <!-- TITLE -->
+        <!-- ============================================ -->
+        <mxCell id="title" value="&lt;b&gt;JARVIS AI Assistant — Agent Flow Diagram&lt;/b&gt;&lt;br&gt;Tu luc nhap prompt den khi tra ket qua" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=18;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="600" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 1: FRONTEND (User) -->
+        <!-- ============================================ -->
+        <mxCell id="frontend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="50" y="60" width="1300" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="frontend-label" value="&lt;b&gt;FRONTEND&lt;/b&gt; (React 19 + Vite)" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#1a56db;" vertex="1" parent="1">
+          <mxGeometry x="60" y="65" width="200" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- User -->
+        <mxCell id="user" value="&lt;b&gt;Nguoi dung&lt;/b&gt;&lt;br&gt;Go tin nhan&lt;br&gt;hoac noi (Voice)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="110" width="80" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- ChatArea -->
+        <mxCell id="chatarea" value="&lt;b&gt;ChatArea.jsx&lt;/b&gt;&lt;br&gt;- Input textarea&lt;br&gt;- Nut + (attach file)&lt;br&gt;- Nut Send / Cancel&lt;br&gt;- Drag-and-drop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="210" y="100" width="160" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- useAgent hook -->
+        <mxCell id="useagent" value="&lt;b&gt;useAgent.js&lt;/b&gt;&lt;br&gt;- WebSocket (uu tien)&lt;br&gt;- REST fallback&lt;br&gt;- Retry 3 lan&lt;br&gt;- Cancel (AbortController)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="100" width="160" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Attachments -->
+        <mxCell id="attachments" value="&lt;b&gt;useAttachments.js&lt;/b&gt;&lt;br&gt;Upload file → parse&lt;br&gt;server-side → inject&lt;br&gt;text vao prompt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="210" y="215" width="160" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- Render -->
+        <mxCell id="render" value="&lt;b&gt;Hien thi ket qua&lt;/b&gt;&lt;br&gt;- MessageBubble (text)&lt;br&gt;- ActionViewer (tool calls)&lt;br&gt;- Streaming text (real-time)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="100" width="180" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Frontend arrows -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#333;" edge="1" source="user" target="chatarea" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a1-label" value="&lt;font style=&quot;font-size:9px&quot;&gt;Go tin nhan&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a1">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#333;" edge="1" source="chatarea" target="useagent" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a2-label" value="&lt;font style=&quot;font-size:9px&quot;&gt;sendMessage(text)&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a2">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 2: TRANSPORT -->
+        <!-- ============================================ -->
+        <mxCell id="transport-ws" value="&lt;b&gt;WebSocket&lt;/b&gt;&lt;br&gt;/ws/agent&lt;br&gt;&lt;font style=&quot;font-size:8px;color:green&quot;&gt;Streaming events&lt;/font&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="620" y="95" width="130" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="transport-rest" value="&lt;b&gt;REST API&lt;/b&gt;&lt;br&gt;POST /api/agent/execute&lt;br&gt;&lt;font style=&quot;font-size:8px;color:orange&quot;&gt;Dong bo (fallback)&lt;/font&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="620" y="165" width="130" height="55" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;" edge="1" source="useagent" target="transport-ws" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;dashed=1;" edge="1" source="useagent" target="transport-rest" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 3: BACKEND -->
+        <!-- ============================================ -->
+        <mxCell id="backend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="50" y="290" width="1300" height="540" as="geometry"/>
+        </mxCell>
+        <mxCell id="backend-label" value="&lt;b&gt;BACKEND&lt;/b&gt; (Python FastAPI + LangGraph)" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="60" y="295" width="300" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Router -->
+        <mxCell id="router" value="&lt;b&gt;routers/agent.py&lt;/b&gt;&lt;br&gt;&lt;br&gt;1. Tao tool registry&lt;br&gt;2. Chon provider chain&lt;br&gt;3. Auto-fallback khi&lt;br&gt;   quota error (429/503)&lt;br&gt;4. Track usage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="80" y="330" width="180" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- Provider chain -->
+        <mxCell id="providers" value="&lt;b&gt;Auto-Fallback Chain&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;Groq → Gemini → SambaNova&lt;br&gt;→ OpenAI → Claude → Ollama&lt;/font&gt;" style="shape=process;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="480" width="180" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Brain -->
+        <mxCell id="brain" value="&lt;b&gt;agent/brain.py&lt;/b&gt;&lt;br&gt;&lt;br&gt;create_agent_brain()&lt;br&gt;- build_llm(provider)&lt;br&gt;- Format system prompt&lt;br&gt;- Inject skills (matched)&lt;br&gt;- create_react_agent()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="310" y="330" width="180" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- Transport to router -->
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;" edge="1" source="transport-ws" target="router" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;dashed=1;" edge="1" source="transport-rest" target="router" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#333;" edge="1" source="router" target="brain" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a7-label" value="&lt;font style=&quot;font-size:9px&quot;&gt;create_agent_brain()&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a7">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="a7b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;dashed=1;" edge="1" source="router" target="providers" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- REACT LOOP (Core) -->
+        <!-- ============================================ -->
+        <mxCell id="react-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#4a86c8;dashed=1;arcSize=8;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="540" y="310" width="780" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="react-label" value="&lt;b&gt;VONG LAP ReAct (LangGraph)&lt;/b&gt;  —  Toi da 10 vong" style="text;html=1;align=left;verticalAlign=top;fontSize=11;fontColor=#1a56db;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="550" y="315" width="400" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- THINK -->
+        <mxCell id="think" value="&lt;b&gt;1. THINK&lt;/b&gt;&lt;br&gt;(Suy nghi)&lt;br&gt;&lt;br&gt;LLM doc:&lt;br&gt;- System prompt&lt;br&gt;- Tin nhan user&lt;br&gt;- Ket qua tool truoc&lt;br&gt;- Danh sach 15 tools&lt;br&gt;&lt;br&gt;&lt;font color=&quot;blue&quot;&gt;Quyet dinh:&lt;br&gt;Goi tool nao?&lt;br&gt;Hay tra loi luon?&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="560" y="345" width="150" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- ACT -->
+        <mxCell id="act" value="&lt;b&gt;2. ACT&lt;/b&gt;&lt;br&gt;(Hanh dong)&lt;br&gt;&lt;br&gt;&lt;font color=&quot;#b85450&quot;&gt;Truong hop A:&lt;/font&gt;&lt;br&gt;Goi tool, vd:&lt;br&gt;web_search(&lt;br&gt;  query=&quot;thoi tiet&quot;&lt;br&gt;)&lt;br&gt;&lt;br&gt;&lt;font color=&quot;green&quot;&gt;Truong hop B:&lt;/font&gt;&lt;br&gt;Tra loi text&lt;br&gt;(khong can tool)&lt;br&gt;→ KET THUC" style="shape=diamond;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="740" y="345" width="160" height="230" as="geometry"/>
+        </mxCell>
+
+        <!-- OBSERVE -->
+        <mxCell id="observe" value="&lt;b&gt;3. OBSERVE&lt;/b&gt;&lt;br&gt;(Quan sat ket qua)&lt;br&gt;&lt;br&gt;Tool tra ve:&lt;br&gt;ToolResult {&lt;br&gt;  success: true&lt;br&gt;  data: [...]&lt;br&gt;}&lt;br&gt;&lt;br&gt;→ Them vao&lt;br&gt;  message history&lt;br&gt;→ Quay lai THINK" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="940" y="345" width="150" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- React arrows -->
+        <mxCell id="r1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#333;strokeWidth=2;" edge="1" source="think" target="act" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;" edge="1" source="act" target="observe" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r2-label" value="&lt;font style=&quot;font-size:8px;color:#b85450&quot;&gt;Goi tool&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="r2">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- Loop back arrow -->
+        <mxCell id="r3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1a56db;strokeWidth=2;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="observe" target="think" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1015" y="335"/>
+              <mxPoint x="635" y="335"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r3-label" value="&lt;font style=&quot;font-size:9px;color:#1a56db&quot;&gt;&lt;b&gt;Lap lai (toi da 10 vong)&lt;/b&gt;&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="r3">
+          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- Brain to ReAct -->
+        <mxCell id="a8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#333;strokeWidth=2;" edge="1" source="brain" target="think" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="a8-label" value="&lt;font style=&quot;font-size:9px&quot;&gt;run_agent() / stream_agent()&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a8">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- LAYER 4: TOOLS -->
+        <!-- ============================================ -->
+        <mxCell id="tools-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="50" y="620" width="1300" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="tools-label" value="&lt;b&gt;15 TOOLS&lt;/b&gt; (BaseTool → ToolResult)" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="60" y="625" width="250" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Tool cards -->
+        <mxCell id="t-websearch" value="&lt;b&gt;web_search&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;DuckDuckGo&lt;br&gt;query → results[]&lt;br&gt;&lt;font color=&quot;green&quot;&gt;AUTO&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-browser" value="&lt;b&gt;browser_control&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;Playwright DOM&lt;br&gt;goto/click/fill&lt;br&gt;&lt;font color=&quot;orange&quot;&gt;NOTIFY&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="180" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-desktop" value="&lt;b&gt;desktop_control&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;PyAutoGUI&lt;br&gt;click/type/hotkey&lt;br&gt;&lt;font color=&quot;orange&quot;&gt;NOTIFY&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="290" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-app" value="&lt;b&gt;app_launcher&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;subprocess&lt;br&gt;whitelist apps&lt;br&gt;&lt;font color=&quot;orange&quot;&gt;NOTIFY&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-rag" value="&lt;b&gt;rag_search&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;ChromaDB&lt;br&gt;semantic search&lt;br&gt;&lt;font color=&quot;green&quot;&gt;AUTO&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="510" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-shell" value="&lt;b&gt;shell_exec&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;Terminal command&lt;br&gt;git/npm/docker&lt;br&gt;&lt;font color=&quot;red&quot;&gt;CONFIRM&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-email" value="&lt;b&gt;email&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;IMAP/SMTP&lt;br&gt;inbox/send&lt;br&gt;&lt;font color=&quot;red&quot;&gt;CONFIRM (send)&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="730" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-img" value="&lt;b&gt;image_generator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;DALL-E 3 API&lt;br&gt;prompt → PNG&lt;br&gt;&lt;font color=&quot;orange&quot;&gt;NOTIFY&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-code" value="&lt;b&gt;code_runner&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;Python/JS/Godot&lt;br&gt;temp file + exec&lt;br&gt;&lt;font color=&quot;red&quot;&gt;CONFIRM&lt;/font&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="950" y="650" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="t-other" value="&lt;b&gt;+ 6 tools khac&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:7px&quot;&gt;screenshot, file_mgr&lt;br&gt;clipboard, notify&lt;br&gt;skill_mgr, web_browser&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="650" width="110" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Safety -->
+        <mxCell id="safety" value="&lt;b&gt;SafetyGuard&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;&lt;font color=&quot;green&quot;&gt;AUTO&lt;/font&gt; → Tu dong chay&lt;br&gt;&lt;font color=&quot;orange&quot;&gt;NOTIFY&lt;/font&gt; → Thong bao user&lt;br&gt;&lt;font color=&quot;red&quot;&gt;CONFIRM&lt;/font&gt; → Can xac nhan&lt;br&gt;&lt;font color=&quot;darkred&quot;&gt;BLOCK&lt;/font&gt; → Tu choi (rm -rf /)&lt;/font&gt;" style="shape=shield;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="70" y="720" width="200" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Observe to tools -->
+        <mxCell id="a9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;strokeWidth=2;" edge="1" source="observe" target="t-websearch" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1015" y="600"/>
+              <mxPoint x="120" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a9-label" value="&lt;font style=&quot;font-size:9px;color:#b85450&quot;&gt;&lt;b&gt;Tool duoc goi → Execute → Tra ve ToolResult&lt;/b&gt;&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a9">
+          <mxGeometry x="-0.5" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- RETURN FLOW -->
+        <!-- ============================================ -->
+        <!-- Final response back -->
+        <mxCell id="a10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="act" target="render" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="460"/>
+              <mxPoint x="1190" y="270"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a10-label" value="&lt;font style=&quot;font-size:9px;color:green&quot;&gt;&lt;b&gt;Tra loi cuoi cung&lt;br&gt;(text, khong goi tool)&lt;/b&gt;&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a10">
+          <mxGeometry x="0.3" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- Streaming events back -->
+        <mxCell id="a11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#1a56db;strokeWidth=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="observe" target="render" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="930" y="455"/>
+              <mxPoint x="930" y="275"/>
+              <mxPoint x="1190" y="275"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a11-label" value="&lt;font style=&quot;font-size:8px;color:#1a56db&quot;&gt;Stream events:&lt;br&gt;action / action_result / text / done&lt;/font&gt;" style="edgeLabel;html=1;" vertex="1" connectable="0" parent="a11">
+          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- ============================================ -->
+        <!-- EXAMPLE SCENARIO -->
+        <!-- ============================================ -->
+        <mxCell id="example-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#999;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="50" y="840" width="1300" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="example-label" value="&lt;b&gt;VI DU: &quot;Tim thoi tiet Ha Noi roi gui notification cho toi&quot;&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#333;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="845" width="500" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ex1" value="&lt;b&gt;Vong 1: THINK&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;LLM doc tin nhan&lt;br&gt;→ Can tim thoi tiet&lt;br&gt;→ Chon web_search&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="70" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex2" value="&lt;b&gt;Vong 1: ACT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;web_search(&lt;br&gt;  query=&quot;thoi tiet&lt;br&gt;  Ha Noi hom nay&quot;&lt;br&gt;)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="230" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex3" value="&lt;b&gt;Vong 1: OBSERVE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;Ket qua:&lt;br&gt;[{title: &quot;Ha Noi&lt;br&gt;32°C nang&quot;, ...}]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="390" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex4" value="&lt;b&gt;Vong 2: THINK&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;Da co thoi tiet&lt;br&gt;→ Can gui notification&lt;br&gt;→ Chon notification&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="550" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex5" value="&lt;b&gt;Vong 2: ACT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;system_notification(&lt;br&gt;  title=&quot;Thoi tiet&quot;&lt;br&gt;  message=&quot;32°C&quot;&lt;br&gt;)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="710" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex6" value="&lt;b&gt;Vong 2: OBSERVE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;Notification da gui&lt;br&gt;{success: true}&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="870" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="ex7" value="&lt;b&gt;Vong 3: KET THUC&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;LLM tra loi:&lt;br&gt;&quot;Thoi tiet Ha Noi&lt;br&gt;hom nay 32°C, da&lt;br&gt;gui notification&quot;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#006600;fontSize=9;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="875" width="140" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Example arrows -->
+        <mxCell id="ea1" style="strokeColor=#666;rounded=1;" edge="1" source="ex1" target="ex2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea2" style="strokeColor=#666;rounded=1;" edge="1" source="ex2" target="ex3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea3" style="strokeColor=#1a56db;rounded=1;dashed=1;" edge="1" source="ex3" target="ex4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea4" style="strokeColor=#666;rounded=1;" edge="1" source="ex4" target="ex5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea5" style="strokeColor=#666;rounded=1;" edge="1" source="ex5" target="ex6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea6" style="strokeColor=#006600;rounded=1;strokeWidth=2;" edge="1" source="ex6" target="ex7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="70" y="965" width="500" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend" value="&lt;font style=&quot;font-size:9px&quot;&gt;&lt;b&gt;Chu thich:&lt;/b&gt;  &lt;font color=&quot;#fff2cc&quot;&gt;■&lt;/font&gt; THINK (suy nghi)   &lt;font color=&quot;#d5e8d4&quot;&gt;■&lt;/font&gt; ACT (hanh dong)   &lt;font color=&quot;#e1d5e7&quot;&gt;■&lt;/font&gt; OBSERVE (quan sat)   &lt;font color=&quot;#1a56db&quot;&gt;- - -&lt;/font&gt; Lap lai   &lt;font color=&quot;#006600&quot;&gt;━━&lt;/font&gt; Ket thuc&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="70" y="965" width="500" height="35" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
