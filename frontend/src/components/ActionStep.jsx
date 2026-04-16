@@ -36,39 +36,44 @@ const TOOL_ICONS = {
   image_generator: Image,
   skill_manager: BookOpen,
   rag_search: Search,
+  local_search: Search,
 }
 
 function getActionSummary(action) {
   const input = action.input || {}
   switch (action.tool) {
     case 'web_search':
-      return `Searching: "${input.query || ''}"`
+      return `Tìm kiếm: "${input.query || ''}"`
     case 'web_browser':
-      return `Opening: ${input.url || ''}`
+      return `Mở: ${input.url || ''}`
     case 'browser_control':
-      return `Browser: ${input.action || ''} ${input.url || input.text || ''}`
+      return `Trình duyệt: ${input.action || ''} ${input.url || input.text || ''}`
     case 'screenshot':
-      return 'Taking screenshot'
+      return 'Chụp màn hình'
     case 'desktop_control':
-      return `Desktop: ${input.action || ''} ${input.text || ''}`
+      return `Thao tác: ${input.action || ''} ${input.text || ''}`
     case 'file_manager':
       return `File: ${input.action || ''} ${input.path || ''}`
     case 'app_launcher':
-      return `Launch: ${input.app || ''}`
+      return `Mở: ${input.app || ''}`
     case 'shell_exec':
-      return `Shell: ${(input.command || '').substring(0, 60)}`
+      return `Lệnh: ${(input.command || '').substring(0, 60)}`
     case 'code_runner':
-      return `Run ${input.language || 'code'}`
+      return `Chạy ${input.language || 'code'}`
     case 'email':
       return `Email: ${input.action || ''}`
     case 'clipboard':
       return `Clipboard: ${input.action || ''}`
     case 'system_notification':
-      return `Notify: ${input.title || ''}`
+      return `Thông báo: ${input.title || ''}`
     case 'image_generator':
-      return `Generate image: "${(input.prompt || '').substring(0, 40)}"`
+      return `Tạo ảnh: "${(input.prompt || '').substring(0, 40)}"`
     case 'skill_manager':
-      return `Skills: ${input.action || ''}`
+      return `Kỹ năng: ${input.action || ''}`
+    case 'rag_search':
+      return `Tìm tài liệu: "${input.query || ''}"`
+    case 'local_search':
+      return `Tìm file: "${input.query || ''}" ${input.mode === 'content' ? '(nội dung)' : ''}`
     default:
       return action.tool
   }
@@ -78,23 +83,50 @@ function formatOutput(output) {
   if (!output) return null
   try {
     const parsed = JSON.parse(output)
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map(
-          (item, i) =>
-            `${i + 1}. ${item.title || item.name || ''}\n   ${item.snippet || item.body || item.url || ''}`
-        )
-        .join('\n')
-    }
-    if (typeof parsed === 'object') {
-      return Object.entries(parsed)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join('\n')
-    }
-    return String(parsed)
+    return _formatParsed(parsed)
   } catch {
-    return output
+    return output.length > 500 ? output.substring(0, 500) + '…' : output
   }
+}
+
+function _formatParsed(obj) {
+  if (!obj) return ''
+
+  // ToolResult: { success, data, error, metadata }
+  if ('success' in obj && 'data' in obj) {
+    if (!obj.success) return `❌ ${obj.error || 'Lỗi'}`
+    return _formatParsed(obj.data)
+  }
+
+  // Local search / RAG results: { results: [...], summary }
+  if (obj.summary && Array.isArray(obj.results)) {
+    if (obj.results.length === 0) return obj.summary
+    const items = obj.results.slice(0, 5).map((r, i) => {
+      const name = r.name || r.filename || r.path || ''
+      const matches = r.matches?.map((m) => `  L${m.line}: ${m.text}`).join('\n') || ''
+      return `${i + 1}. ${name}${matches ? '\n' + matches : ''}`
+    }).join('\n')
+    return `${obj.summary}\n\n${items}`
+  }
+
+  // Web search results: array of {title, snippet, url}
+  if (Array.isArray(obj)) {
+    return obj.slice(0, 5).map((item, i) => {
+      const title = item.title || item.name || item.label || ''
+      const detail = item.snippet || item.body || item.content?.substring(0, 100) || item.url || ''
+      return `${i + 1}. ${title}${detail ? '\n   ' + detail : ''}`
+    }).join('\n')
+  }
+
+  // Simple string
+  if (typeof obj === 'string') return obj
+
+  // Generic object — show key: value
+  const entries = Object.entries(obj).filter(([, v]) => v != null && v !== '')
+  return entries.map(([k, v]) => {
+    const val = typeof v === 'object' ? JSON.stringify(v).substring(0, 100) : String(v)
+    return `${k}: ${val}`
+  }).join('\n')
 }
 
 function ShimmerLine({ width = '100%' }) {

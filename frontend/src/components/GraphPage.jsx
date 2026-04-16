@@ -36,7 +36,7 @@ export default function GraphPage({ onBack, settings, externalSelectedDoc, onExt
   const splitContainerRef = useRef(null)
 
   // Dedicated agent instance for the graph chat (independent conversation).
-  const graphAgent = useAgent(settings.provider, settings.model)
+  const graphAgent = useAgent(settings.provider, settings.model, settings.language)
 
   const [graphVoiceEnabled, setGraphVoiceEnabled] = useState(settings.voiceEnabled !== false)
   const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
