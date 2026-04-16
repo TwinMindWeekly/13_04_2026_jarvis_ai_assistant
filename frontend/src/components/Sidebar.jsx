@@ -175,15 +175,27 @@ export default function Sidebar({
   // ── Move file to folder ──
   const handleMoveFile = async (docId, folderPath) => {
     try {
+      // Check if old folder will become empty after this move
+      const doc = documents.find((d) => d.id === docId)
+      const oldFolder = doc?.folder_path || ''
+
       await documentsAPI.update(docId, { folder_path: folderPath })
-      setDocuments((prev) =>
-        prev.map((d) => (d.id === docId ? { ...d, folder_path: folderPath } : d))
-      )
-      // once moved into a folder, that folder becomes "real" — remove from extraFolders
-      if (folderPath) {
-        const topLevel = folderPath.split('/')[0]
-        setExtraFolders((prev) => prev.filter((f) => f !== topLevel))
-      }
+      setDocuments((prev) => {
+        const updated = prev.map((d) => (d.id === docId ? { ...d, folder_path: folderPath } : d))
+        // If old folder is now empty, preserve it as extraFolder
+        if (oldFolder) {
+          const stillHasFiles = updated.some((d) => d.id !== docId && (d.folder_path || '') === oldFolder)
+          if (!stillHasFiles) {
+            setExtraFolders((ef) => ef.includes(oldFolder) ? ef : [...ef, oldFolder])
+          }
+        }
+        // New folder becomes "real" — remove from extraFolders
+        if (folderPath) {
+          const topLevel = folderPath.split('/')[0]
+          setExtraFolders((ef) => ef.filter((f) => f !== topLevel))
+        }
+        return updated
+      })
     } catch (err) {
       console.error('[Sidebar] Move failed:', err)
     }

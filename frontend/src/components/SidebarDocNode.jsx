@@ -130,28 +130,23 @@ function FolderNode({
 
   const fileCount = node.children.filter((c) => c.type === 'file').length
 
+  const mergedRef = useMergedRef(setDropRef, setDragRef)
+
   return (
     <div>
-      <div style={{ position: 'relative' }}>
-        {/* Drop target overlay */}
-        <div
-          ref={setDropRef}
-          style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: isDragging ? 'none' : 'auto' }}
-        />
-        {/* Drag source — the visible row */}
-        <div
-          ref={setDragRef}
-          {...attributes}
-          {...listeners}
-          className={`sidebar-tree-row folder ${isOver ? 'drop-active' : ''} ${isDragging ? 'dragging' : ''}`}
-          style={{ paddingLeft: depth * 12 + 8, position: 'relative', zIndex: 2 }}
-          onClick={() => onToggleExpand(node.path)}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            if (!node.path) return
-            setRenamingId(renamingKey)
-          }}
-        >
+      <div
+        ref={mergedRef}
+        {...attributes}
+        {...listeners}
+        className={`sidebar-tree-row folder ${isOver ? 'drop-active' : ''} ${isDragging ? 'dragging' : ''}`}
+        style={{ paddingLeft: depth * 12 + 8 }}
+        onClick={() => onToggleExpand(node.path)}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          if (!node.path) return
+          setRenamingId(renamingKey)
+        }}
+      >
         <span className="sidebar-tree-chevron">
           {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
@@ -187,7 +182,6 @@ function FolderNode({
             )}
           </>
         )}
-        </div>
       </div>
 
       {isOpen && node.children.length > 0 && (
@@ -242,28 +236,22 @@ function FileNode({
     data: { type: 'file', docId: node.id, folderPath: node.folder_path || '' },
   })
 
+  const mergedRef = useMergedRef(setDragRef, setDropRef)
   const isActive = selectedDocId === node.id
 
   return (
-    <div style={{ position: 'relative' }}>
-      {/* Drop target overlay — always present, receives drops */}
-      <div
-        ref={setDropRef}
-        style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: isDragging ? 'none' : 'auto' }}
-      />
-      {/* Drag source — the visible row */}
-      <div
-        ref={setDragRef}
-        {...attributes}
-        {...listeners}
-        className={`sidebar-tree-row file ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isOver ? 'drop-active' : ''}`}
-        style={{ paddingLeft: depth * 12 + 28, position: 'relative', zIndex: 2 }}
-        onClick={() => onSelectFile(node)}
-        onDoubleClick={(e) => {
-          e.stopPropagation()
-          setRenamingId(renamingKey)
-        }}
-      >
+    <div
+      ref={mergedRef}
+      {...attributes}
+      {...listeners}
+      className={`sidebar-tree-row file ${isActive ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${isOver ? 'drop-active' : ''}`}
+      style={{ paddingLeft: depth * 12 + 28 }}
+      onClick={() => onSelectFile(node)}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        setRenamingId(renamingKey)
+      }}
+    >
       <FileText size={13} style={{ color: '#888', flexShrink: 0 }} />
       {isRenaming ? (
         <InlineRename
@@ -291,7 +279,6 @@ function FileNode({
           </button>
         </>
       )}
-      </div>
     </div>
   )
 }
