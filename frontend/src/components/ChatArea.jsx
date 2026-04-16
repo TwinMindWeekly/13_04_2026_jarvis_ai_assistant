@@ -61,7 +61,13 @@ export default function ChatArea({
     if (selectedDoc && docContextOn) {
       try {
         const { data } = await vaultAPI.get(selectedDoc.id)
-        docContext = { filename: selectedDoc.label || selectedDoc.filename, content: data.content }
+        let content = data.content || ''
+        // Truncate large documents to avoid exceeding context window
+        const MAX_DOC_CHARS = 8000
+        if (content.length > MAX_DOC_CHARS) {
+          content = content.slice(0, MAX_DOC_CHARS) + '\n\n...(truncated, original: ' + data.content.length + ' chars)'
+        }
+        docContext = { filename: selectedDoc.label || selectedDoc.filename, content }
       } catch {
         // Send without context if vault fetch fails.
       }
@@ -116,12 +122,13 @@ export default function ChatArea({
 
   const handleApply = useCallback(async (content, msgIdx) => {
     if (!selectedDoc) return
+    if (!window.confirm(t('chat.applyConfirm', 'This will overwrite the document content. Continue?'))) return
     try {
       await vaultAPI.save(selectedDoc.id, content)
       setAppliedIdx(msgIdx)
       onDocApplied?.()
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[ChatArea] Apply failed:', err)
     }
   }, [selectedDoc, onDocApplied])
 

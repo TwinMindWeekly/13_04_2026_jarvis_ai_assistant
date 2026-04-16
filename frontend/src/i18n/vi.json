@@ -11,7 +11,8 @@
     "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
     "placeholderDoc": "Nhờ AI cải thiện tài liệu này...",
     "applyToDoc": "Áp dụng vào tài liệu",
-    "applied": "Đã áp dụng"
+    "applied": "Đã áp dụng",
+    "applyConfirm": "Thao tác này sẽ ghi đè nội dung tài liệu. Tiếp tục?"
   },
   "actions": {
     "title": "Hành động",

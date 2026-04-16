@@ -11,7 +11,8 @@
     "error": "Something went wrong. Please try again.",
     "placeholderDoc": "Ask AI to improve this document...",
     "applyToDoc": "Apply to document",
-    "applied": "Applied"
+    "applied": "Applied",
+    "applyConfirm": "This will overwrite the document content. Continue?"
   },
   "actions": {
     "title": "Actions",

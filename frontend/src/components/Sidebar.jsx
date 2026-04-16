@@ -32,7 +32,12 @@ export default function Sidebar({
 }) {
   const { t } = useTranslation()
   const [documents, setDocuments] = useState([])
-  const [extraFolders, setExtraFolders] = useState([])  // client-only empty folders
+  const [extraFolders, setExtraFolders] = useState(() => {
+    try {
+      const stored = localStorage.getItem('jarvis-extra-folders')
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const fileInputRef = useRef(null)
@@ -41,10 +46,15 @@ export default function Sidebar({
     try {
       const { data } = await documentsAPI.list()
       setDocuments(data?.documents || [])
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[Sidebar] Failed to load documents:', err)
     }
   }, [])
+
+  // Persist extraFolders to localStorage
+  useEffect(() => {
+    localStorage.setItem('jarvis-extra-folders', JSON.stringify(extraFolders))
+  }, [extraFolders])
 
   useEffect(() => {
     if (isOpen) loadDocuments()
@@ -58,7 +68,8 @@ export default function Sidebar({
     try {
       await documentsAPI.upload(file)
       await loadDocuments()
-    } catch {
+    } catch (err) {
+      console.error('[Sidebar] Upload failed:', err)
       // silent
     } finally {
       setUploading(false)
@@ -88,8 +99,8 @@ export default function Sidebar({
       if (data?.id) {
         onSelectDocument({ id: data.id, filename: name, folder_path: '' })
       }
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[Sidebar] Failed to create file:', err)
     } finally {
       setBusy(false)
     }
@@ -121,8 +132,28 @@ export default function Sidebar({
       await documentsAPI.delete(docId)
       setDocuments((prev) => prev.filter((d) => d.id !== docId))
       if (selectedDocId === docId) onSelectDocument(null)
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[Sidebar] Failed to delete file:', err)
+    }
+  }
+
+  // ── Delete folder (all files inside + remove from extraFolders) ──
+  const handleDeleteFolder = async (folderPath) => {
+    const filesInFolder = documents.filter(
+      (d) => d.folder_path === folderPath || d.folder_path.startsWith(folderPath + '/')
+    )
+    setBusy(true)
+    try {
+      await Promise.all(filesInFolder.map((d) => documentsAPI.delete(d.id)))
+      setDocuments((prev) => prev.filter(
+        (d) => d.folder_path !== folderPath && !d.folder_path.startsWith(folderPath + '/')
+      ))
+      setExtraFolders((prev) => prev.filter((f) => f !== folderPath && !f.startsWith(folderPath + '/')))
+      if (filesInFolder.some((d) => d.id === selectedDocId)) onSelectDocument(null)
+    } catch (err) {
+      console.error('[Sidebar] Failed to delete folder:', err)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -136,8 +167,8 @@ export default function Sidebar({
       setDocuments((prev) =>
         prev.map((d) => (d.id === docId ? { ...d, filename: finalName } : d))
       )
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[Sidebar] Rename failed:', err)
     }
   }
 
@@ -153,8 +184,8 @@ export default function Sidebar({
         const topLevel = folderPath.split('/')[0]
         setExtraFolders((prev) => prev.filter((f) => f !== topLevel))
       }
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[Sidebar] Move failed:', err)
     }
   }
 
@@ -321,6 +352,7 @@ export default function Sidebar({
                   selectedDocId={selectedDocId}
                   onSelectFile={onSelectDocument}
                   onDeleteFile={handleDeleteFile}
+                  onDeleteFolder={handleDeleteFolder}
                   onRenameFile={handleRenameFile}
                   onMoveFile={handleMoveFile}
                   onRenameFolder={handleRenameFolder}

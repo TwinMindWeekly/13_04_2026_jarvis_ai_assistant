@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import { DndContext, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
+import { FileText, Folder } from 'lucide-react'
 import { useDocTree } from '../hooks/useDocTree'
 import SidebarDocNode from './SidebarDocNode'
 
@@ -23,6 +24,7 @@ export default function SidebarDocTree({
   selectedDocId,
   onSelectFile,
   onDeleteFile,
+  onDeleteFolder,
   onRenameFile,
   onMoveFile,
   onRenameFolder,
@@ -31,6 +33,7 @@ export default function SidebarDocTree({
   const tree = useDocTree(documents, extraFolders)
   const [expanded, setExpanded] = useState({})
   const [renamingId, setRenamingId] = useState(null)
+  const [activeDrag, setActiveDrag] = useState(null)
 
   // pointer drag requires 5px movement before activating so clicks still work
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -39,7 +42,12 @@ export default function SidebarDocTree({
     setExpanded((prev) => ({ ...prev, [path]: prev[path] === false ? true : false }))
   }, [])
 
+  const handleDragStart = useCallback((event) => {
+    setActiveDrag(event.active.data.current)
+  }, [])
+
   const handleDragEnd = useCallback((event) => {
+    setActiveDrag(null)
     const { active, over } = event
     if (!over) return
     const activeData = active.data.current
@@ -61,7 +69,7 @@ export default function SidebarDocTree({
   }, [onMoveFile, onMoveFolder])
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <RootDropZone />
       <SidebarDocNode
         node={tree}
@@ -70,11 +78,22 @@ export default function SidebarDocTree({
         selectedDocId={selectedDocId}
         onSelectFile={onSelectFile}
         onDeleteFile={onDeleteFile}
+        onDeleteFolder={onDeleteFolder}
         onRenameFile={onRenameFile}
         onRenameFolder={onRenameFolder}
         renamingId={renamingId}
         setRenamingId={setRenamingId}
       />
+      <DragOverlay dropAnimation={null}>
+        {activeDrag && (
+          <div className="sidebar-tree-row drag-overlay">
+            {activeDrag.type === 'folder' ? <Folder size={14} /> : <FileText size={13} />}
+            <span className="sidebar-tree-name">
+              {activeDrag.type === 'folder' ? activeDrag.path?.split('/').pop() : activeDrag.filename}
+            </span>
+          </div>
+        )}
+      </DragOverlay>
     </DndContext>
   )
 }

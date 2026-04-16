@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import {
   FileText, Folder, FolderOpen, ChevronRight, ChevronDown, Trash2,
 } from 'lucide-react'
+
+/** Merge two refs (from useDraggable + useDroppable) into one callback ref. */
+function useMergedRef(ref1, ref2) {
+  return useCallback((node) => {
+    ref1(node)
+    ref2(node)
+  }, [ref1, ref2])
+}
 
 /**
  * SidebarDocNode — recursive tree node renderer.
@@ -19,6 +27,7 @@ export default function SidebarDocNode({
   selectedDocId,
   onSelectFile,
   onDeleteFile,
+  onDeleteFolder,
   onRenameFile,
   onRenameFolder,
   renamingId,
@@ -38,6 +47,7 @@ export default function SidebarDocNode({
             selectedDocId={selectedDocId}
             onSelectFile={onSelectFile}
             onDeleteFile={onDeleteFile}
+            onDeleteFolder={onDeleteFolder}
             onRenameFile={onRenameFile}
             onRenameFolder={onRenameFolder}
             renamingId={renamingId}
@@ -58,6 +68,7 @@ export default function SidebarDocNode({
         selectedDocId={selectedDocId}
         onSelectFile={onSelectFile}
         onDeleteFile={onDeleteFile}
+        onDeleteFolder={onDeleteFolder}
         onRenameFile={onRenameFile}
         onRenameFolder={onRenameFolder}
         renamingId={renamingId}
@@ -97,6 +108,7 @@ function FolderNode({
   selectedDocId,
   onSelectFile,
   onDeleteFile,
+  onDeleteFolder,
   onRenameFile,
   onRenameFolder,
   renamingId,
@@ -111,11 +123,22 @@ function FolderNode({
     data: { type: 'folder', path: node.path },
   })
 
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+    id: `drag-folder-${node.path}`,
+    data: { type: 'folder', path: node.path },
+  })
+
+  const mergedRef = useMergedRef(setDropRef, setDragRef)
+
+  const fileCount = node.children.filter((c) => c.type === 'file').length
+
   return (
     <div>
       <div
-        ref={setDropRef}
-        className={`sidebar-tree-row folder ${isOver ? 'drop-active' : ''}`}
+        ref={mergedRef}
+        {...attributes}
+        {...listeners}
+        className={`sidebar-tree-row folder ${isOver ? 'drop-active' : ''} ${isDragging ? 'dragging' : ''}`}
         style={{ paddingLeft: depth * 12 + 8 }}
         onClick={() => onToggleExpand(node.path)}
         onDoubleClick={(e) => {
@@ -138,9 +161,26 @@ function FolderNode({
             onCancel={() => setRenamingId(null)}
           />
         ) : (
-          <span className="sidebar-tree-name" title={node.name}>
-            {node.name}
-          </span>
+          <>
+            <span className="sidebar-tree-name" title={node.name}>
+              {node.name}
+            </span>
+            {onDeleteFolder && (
+              <button
+                className="sidebar-tree-delete"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (fileCount > 0) {
+                    if (!window.confirm(`Delete folder "${node.name}" and ${fileCount} file(s) inside?`)) return
+                  }
+                  onDeleteFolder(node.path)
+                }}
+                title="Delete folder"
+              >
+                <Trash2 size={11} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -156,6 +196,7 @@ function FolderNode({
               selectedDocId={selectedDocId}
               onSelectFile={onSelectFile}
               onDeleteFile={onDeleteFile}
+              onDeleteFolder={onDeleteFolder}
               onRenameFile={onRenameFile}
               onRenameFolder={onRenameFolder}
               renamingId={renamingId}

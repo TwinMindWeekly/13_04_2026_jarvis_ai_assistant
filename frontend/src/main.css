@@ -597,6 +597,19 @@ select option {
   opacity: 0.4;
 }
 
+.sidebar-tree-row.drag-overlay {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  width: max-content;
+  max-width: 200px;
+  pointer-events: none;
+}
+
 .sidebar-tree-chevron {
   display: flex;
   align-items: center;
