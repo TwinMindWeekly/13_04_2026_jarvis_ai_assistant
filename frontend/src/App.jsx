@@ -241,10 +241,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={voiceRevealing ? messages.slice(0, -1) : messages}
+              messages={settings.voiceEnabled !== false && voice.isSpeaking ? messages.slice(0, -1) : messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={voiceRevealing ? (voice.revealedText || '') : streamingText}
+              streamingText={settings.voiceEnabled !== false && voice.isSpeaking ? (voice.revealedText || '') : streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}
