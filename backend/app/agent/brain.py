@@ -357,10 +357,17 @@ async def stream_agent(
 
             elif kind == "on_tool_end":
                 raw_output = data.get("output")
+                # Extract .content from ToolMessage; fall back to str() for plain values
+                if hasattr(raw_output, "content"):
+                    output_str = raw_output.content
+                elif raw_output is not None:
+                    output_str = str(raw_output)
+                else:
+                    output_str = ""
                 yield {
                     "type": "action_result",
                     "tool": event.get("name", "unknown"),
-                    "output": str(raw_output) if raw_output is not None else "",
+                    "output": output_str,
                     "status": "completed",
                 }
 
