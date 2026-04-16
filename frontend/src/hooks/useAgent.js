@@ -21,6 +21,7 @@ export function useAgent(provider, model, language) {
   const [streamingText, setStreamingText] = useState('')
   const conversationIdRef = useRef(null)
   const streamingTextRef = useRef('')
+  const actionsRef = useRef([])
   const abortRef = useRef(null)
 
   const handleWsMessage = useCallback((event) => {
@@ -30,29 +31,34 @@ export function useAgent(provider, model, language) {
     }
 
     if (event.type === 'action') {
-      setActions((prev) => [...prev, { ...event, status: 'running' }])
+      setActions((prev) => {
+        const next = [...prev, { ...event, status: 'running' }]
+        actionsRef.current = next
+        return next
+      })
     }
 
     if (event.type === 'action_result') {
-      setActions((prev) =>
-        prev.map((a) =>
+      setActions((prev) => {
+        const next = prev.map((a) =>
           a.tool === event.tool && a.status === 'running'
             ? { ...a, ...event, status: 'completed' }
             : a
         )
-      )
+        actionsRef.current = next
+        return next
+      })
     }
 
     if (event.type === 'done') {
       const finalText = streamingTextRef.current
-      // Capture current actions before clearing, then persist them in the message
-      setActions((currentActions) => {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: finalText, actions: currentActions },
-        ])
-        return [] // Clear live actions after persisting
-      })
+      const finalActions = actionsRef.current
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: finalText, actions: finalActions },
+      ])
+      actionsRef.current = []
+      setActions([])
       streamingTextRef.current = ''
       setStreamingText('')
       setIsLoading(false)
