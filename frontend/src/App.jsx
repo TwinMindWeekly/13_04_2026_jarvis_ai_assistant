@@ -50,8 +50,9 @@ export default function App() {
     enabled: settings.voiceEnabled !== false,
   })
 
-  // Streaming TTS: speak sentence-by-sentence as text arrives
+  // Streaming TTS: speak sentence-by-sentence as text arrives (WS path)
   const spokenIndexRef = useRef(0)
+  const lastSpokenMsgCount = useRef(0)
 
   useEffect(() => {
     if (settings.voiceEnabled === false) return
@@ -61,7 +62,6 @@ export default function App() {
     }
 
     const unspoken = streamingText.slice(spokenIndexRef.current)
-    // Match complete sentences ending with . ! ? or newline
     const sentenceRegex = /[^.!?\n]+[.!?\n]+/g
     let match
     while ((match = sentenceRegex.exec(unspoken)) !== null) {
@@ -72,6 +72,18 @@ export default function App() {
       spokenIndexRef.current += match.index + match[0].length
     }
   }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback TTS: for REST responses (no streaming), speak full response
+  useEffect(() => {
+    if (settings.voiceEnabled === false) return
+    if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
+    const last = messages[messages.length - 1]
+    if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
+      // spokenIndexRef===0 means streaming TTS didn't run → REST path
+      voice.speak(last.content, settings.ttsVoice)
+    }
+    lastSpokenMsgCount.current = messages.length
+  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
