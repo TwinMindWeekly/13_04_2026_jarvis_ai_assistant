@@ -188,9 +188,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   }, [isListening, startListening, stopListening])
 
   // --- TTS: Speak text ---
-  // Uses the hook's `language` prop to select voice (matches user's language setting).
-  // Text is shown in full immediately; TTS speaks in the background.
-  // speakingCharIndex tracks the approximate reading position for UI highlighting.
+  // When language is Vietnamese, splits text into Vi/En segments so English
+  // terms (FastAPI, Docker, etc.) are pronounced correctly with an English voice.
+  // speakingCharIndex tracks reading position for UI paragraph highlighting.
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
       if (!ttsSupported || !enabled || !text) return
@@ -203,28 +203,27 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         fullSpeechTextRef.current += text
       }
 
-      const utteranceOffset = fullSpeechTextRef.current.length - text.length
-
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = language
-      utterance.rate = 1.0
-      utterance.pitch = 1.0
-
-      // Pick voice: always get fresh list (cached list may be empty on first call)
+      const baseOffset = fullSpeechTextRef.current.length - text.length
       const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
-      const langPrefix = language.slice(0, 2).toLowerCase()
-      let selectedVoice = null
-      if (voiceName) {
-        const v = voices.find((av) => av.name === voiceName)
-        if (v && v.lang.toLowerCase().startsWith(langPrefix)) selectedVoice = v
-      }
-      if (!selectedVoice) selectedVoice = _findVoiceForLang(language, voices)
-      if (selectedVoice) {
-        utterance.voice = selectedVoice
-      } else {
-        // Debug: log available voices so we can diagnose
-        console.warn('[TTS] No voice found for', language, '— available:', voices.map((v) => `${v.name} (${v.lang})`))
-      }
+
+      // Split into language segments when primary language is Vietnamese
+      const isVietnamese = language.startsWith('vi')
+      const segments = isVietnamese ? _splitByLanguage(text) : [{ text, lang: language.slice(0, 2) }]
+
+      let localOffset = 0
+      segments.forEach((seg) => {
+        const utteranceOffset = baseOffset + localOffset
+        const segText = seg.text
+        const segLang = seg.lang === 'vi' ? 'vi-VN' : 'en-US'
+
+        const utterance = new SpeechSynthesisUtterance(segText)
+        utterance.lang = segLang
+        utterance.rate = 1.0
+        utterance.pitch = 1.0
+
+        // Pick voice for this segment's language
+        const segVoice = _findVoiceForLang(segLang, voices)
+        if (segVoice) utterance.voice = segVoice
 
       utterance.onstart = () => {
         setIsSpeaking(true)
@@ -238,7 +237,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
 
       utterance.onend = () => {
-        setSpeakingCharIndex(utteranceOffset + text.length)
+        setSpeakingCharIndex(utteranceOffset + segText.length)
         if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
           setIsSpeaking(false)
           setSpeakingCharIndex(-1)
@@ -253,6 +252,8 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
 
       window.speechSynthesis.speak(utterance)
+      localOffset += segText.length
+      })
     },
     [ttsSupported, enabled, language, availableVoices]
   )
