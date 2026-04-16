@@ -257,7 +257,7 @@ export default function Sidebar({
     }
   }
 
-  // ── Reorder: drag file onto another file → insert before target ──
+  // ── Reorder: drag file onto another file → swap position ──
   const handleReorderFiles = async (draggedId, targetId) => {
     const dragged = documents.find((d) => d.id === draggedId)
     const target = documents.find((d) => d.id === targetId)
@@ -269,7 +269,11 @@ export default function Sidebar({
       .sort((a, b) => (a.sort_order ?? 999999) - (b.sort_order ?? 999999))
 
     const targetIdx = siblings.findIndex((d) => d.id === targetId)
-    siblings.splice(targetIdx, 0, { ...dragged, folder_path: targetFolder })
+    // Dragging down → insert AFTER target; dragging up → insert BEFORE target
+    const draggedOrder = dragged.sort_order ?? 999999
+    const targetOrder = target.sort_order ?? 999999
+    const insertIdx = draggedOrder < targetOrder ? targetIdx + 1 : targetIdx
+    siblings.splice(insertIdx, 0, { ...dragged, folder_path: targetFolder })
 
     const updates = siblings.map((d, i) => ({
       id: d.id,
