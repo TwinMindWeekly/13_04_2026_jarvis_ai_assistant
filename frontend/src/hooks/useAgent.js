@@ -57,7 +57,7 @@ export function useAgent(provider, model, language) {
   }, [])
 
   const { status: wsStatus, connect, sendMessage: wsSend, disconnect } =
-    useWebSocket('/ws/agent', { onMessage: handleWsMessage })
+    useWebSocket('/ws/agent', { onMessage: handleWsMessage, autoConnect: true })
 
   const sendMessage = useCallback(
     async (text, docContext) => {
