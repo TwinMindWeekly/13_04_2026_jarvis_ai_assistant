@@ -186,7 +186,7 @@ class LocalSearchTool(BaseTool):
         if not safety.allowed:
             return ToolResult(success=False, error=safety.reason)
 
-        max_results = min(max_results, _MAX_RESULTS)
+        max_results = min(max_results or _MAX_RESULTS, _MAX_RESULTS)
 
         try:
             if mode == "content":
