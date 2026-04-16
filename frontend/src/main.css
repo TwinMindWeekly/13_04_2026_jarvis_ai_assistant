@@ -1123,6 +1123,40 @@ select option {
   font-size: 0.875rem;
 }
 
+/* File path link — clickable badge that opens Explorer */
+.file-path-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  margin: 1px 2px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--accent-hover);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  vertical-align: baseline;
+  line-height: 1.5;
+}
+
+.file-path-link:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: var(--accent);
+  color: #c7d2fe;
+}
+
+.file-path-link svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.file-path-link:hover svg {
+  opacity: 1;
+}
+
 /* Tool badge */
 .tool-used-badge {
   display: inline-flex;

@@ -1,9 +1,10 @@
-import { useState, memo } from 'react'
+import { useState, memo, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Zap, ChevronDown } from 'lucide-react'
 import ActionStep from './ActionStep'
+import FilePathLink from './FilePathLink'
 
 const messageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -96,6 +97,29 @@ function splitParagraphs(content, speakingCharIndex) {
   })
 }
 
+// Custom ReactMarkdown components that linkify file paths in text nodes
+const mdComponents = {
+  p: ({ children }) => <p>{renderWithFilePaths(children)}</p>,
+  li: ({ children }) => <li>{renderWithFilePaths(children)}</li>,
+  td: ({ children }) => <td>{renderWithFilePaths(children)}</td>,
+  code: ({ children, className }) => {
+    // Only linkify inline code (no language className), not code blocks
+    if (className) return <code className={className}>{children}</code>
+    return <code>{renderWithFilePaths(children)}</code>
+  },
+}
+
+function renderWithFilePaths(children) {
+  if (!children) return children
+  if (typeof children === 'string') return <FilePathLink>{children}</FilePathLink>
+  if (Array.isArray(children)) {
+    return children.map((child, i) =>
+      typeof child === 'string' ? <FilePathLink key={i}>{child}</FilePathLink> : child
+    )
+  }
+  return children
+}
+
 function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
@@ -143,7 +167,7 @@ function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 })
             >
               {splitParagraphs(message.content, speakingCharIndex).map((para, i) => (
                 <div key={i} className={para.active ? 'speaking-paragraph' : ''}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{para.text}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{para.text}</ReactMarkdown>
                 </div>
               ))}
               {isStreaming && <StreamingCursor />}
@@ -153,7 +177,7 @@ function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 })
               className="markdown-content"
               style={{ fontSize: '1rem', lineHeight: 1.75, color: 'var(--text-primary)' }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {message.content}
               </ReactMarkdown>
               {isStreaming && <StreamingCursor />}

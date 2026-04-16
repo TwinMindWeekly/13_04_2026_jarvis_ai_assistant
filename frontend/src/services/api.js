@@ -71,4 +71,8 @@ export const ttsAPI = {
     api.post('/tts/speak', { text, language, rate }, { responseType: 'blob' }),
 }
 
+export const filesAPI = {
+  reveal: (path) => api.post('/files/reveal', { path }),
+}
+
 export default api
