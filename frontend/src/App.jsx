@@ -224,10 +224,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={messages}
+              messages={voice.revealedText ? messages.slice(0, -1) : messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={streamingText}
+              streamingText={voice.revealedText || streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}

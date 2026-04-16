@@ -21,6 +21,10 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const [sttSupported] = useState(() => !!SpeechRecognition)
   const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
   const [availableVoices, setAvailableVoices] = useState([])
+  // Voice-synced text reveal: how many chars of the current speech have been spoken
+  const [revealedText, setRevealedText] = useState('')
+  const fullSpeechTextRef = useRef('')
+  const revealOffsetRef = useRef(0)
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
@@ -131,39 +135,57 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
   }, [isListening, startListening, stopListening])
 
-  // --- TTS: Speak text ---
-  // append=true: queue utterance without cancelling current speech (used for streaming TTS)
-  // append=false (default): cancel current speech before speaking
+  // --- TTS: Speak text with word-level reveal ---
+  // append=true: queue utterance without cancelling (streaming TTS)
+  // append=false: cancel current speech, start fresh (REST TTS)
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
       if (!ttsSupported || !enabled || !text) return
 
-      // Only cancel previous speech if not appending to queue
       if (!append) {
         window.speechSynthesis.cancel()
+        fullSpeechTextRef.current = text
+        revealOffsetRef.current = 0
+        setRevealedText('')
+      } else {
+        fullSpeechTextRef.current += text
       }
+
+      const currentOffset = revealOffsetRef.current
 
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = language
       utterance.rate = 1.0
       utterance.pitch = 1.0
 
-      // Find selected voice
       if (voiceName) {
-        const voice = availableVoices.find((v) => v.name === voiceName)
-        if (voice) {
-          utterance.voice = voice
-        }
+        const v = availableVoices.find((voice) => voice.name === voiceName)
+        if (v) utterance.voice = v
       }
 
       utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => {
-        // Check if queue is empty before marking as not speaking
-        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-          setIsSpeaking(false)
+
+      // Word boundary event — reveal text up to the word being spoken
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          const revealEnd = currentOffset + event.charIndex + event.charLength
+          setRevealedText(fullSpeechTextRef.current.slice(0, revealEnd))
         }
       }
-      utterance.onerror = () => setIsSpeaking(false)
+
+      utterance.onend = () => {
+        // Reveal all text for this utterance
+        revealOffsetRef.current = currentOffset + text.length
+        setRevealedText(fullSpeechTextRef.current.slice(0, revealOffsetRef.current))
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          setIsSpeaking(false)
+          setRevealedText('') // Clear — full text is in messages now
+        }
+      }
+      utterance.onerror = () => {
+        setIsSpeaking(false)
+        setRevealedText('')
+      }
 
       window.speechSynthesis.speak(utterance)
     },
@@ -175,6 +197,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     if (ttsSupported) {
       window.speechSynthesis.cancel()
       setIsSpeaking(false)
+      setRevealedText('')
+      fullSpeechTextRef.current = ''
+      revealOffsetRef.current = 0
     }
   }, [ttsSupported])
 
@@ -193,5 +218,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     stopSpeaking,
     ttsSupported,
     availableVoices,
+    revealedText,
   }
 }
