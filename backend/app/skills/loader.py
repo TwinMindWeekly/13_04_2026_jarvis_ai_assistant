@@ -26,6 +26,15 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
     return meta, body
 
 
+_COMMON_TRIGGERS: dict[str, list[str]] = {
+    "docx": ["word", "word doc", "word document", ".docx", "docx"],
+    "pdf": ["pdf", ".pdf"],
+    "pptx": ["powerpoint", "pptx", ".pptx", "slide", "slides", "presentation", "deck"],
+    "pptxgenjs": ["pptxgenjs", "pptxgen"],
+    "xlsx": ["excel", "xlsx", ".xlsx", "spreadsheet", "xls"],
+}
+
+
 def _extract_triggers(description: str) -> list[str]:
     """Extract trigger keywords from the description field."""
     desc_lower = description.lower()
@@ -78,6 +87,10 @@ class SkillLoader:
                 # Also add the skill name and filename as triggers
                 triggers.append(name.lower())
                 triggers.append(path.stem.lower())
+                # Add common triggers for known skill types
+                for key, common in _COMMON_TRIGGERS.items():
+                    if key == path.stem.lower() or key == name.lower():
+                        triggers.extend(common)
                 self._skills.append(SkillInfo(
                     name=name, description=desc, triggers=triggers, body=body, path=path,
                 ))

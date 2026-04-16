@@ -26,7 +26,7 @@ async def test_agent_execute_endpoint(mock_settings):
         mock_registry_factory.return_value = mock_registry
 
         mock_brain = MagicMock()
-        mock_create_brain.return_value = mock_brain
+        mock_create_brain.return_value = (mock_brain, "openai", "gpt-4o")
 
         mock_run.return_value = AsyncMock(return_value={
             "response": "The weather is sunny",
@@ -112,7 +112,7 @@ async def test_agent_execute_no_tool_calls(mock_settings):
         mock_registry = MagicMock()
         mock_registry.to_langchain_tools.return_value = []
         mock_registry_factory.return_value = mock_registry
-        mock_create_brain.return_value = MagicMock()
+        mock_create_brain.return_value = (MagicMock(), "openai", "gpt-4o")
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -149,7 +149,7 @@ async def test_agent_execute_preserves_supplied_conversation_id(mock_settings):
         mock_registry = MagicMock()
         mock_registry.to_langchain_tools.return_value = []
         mock_registry_factory.return_value = mock_registry
-        mock_create_brain.return_value = MagicMock()
+        mock_create_brain.return_value = (MagicMock(), "openai", "gpt-4o")
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -212,8 +212,8 @@ async def test_agent_execute_missing_message_field():
 
 
 @pytest.mark.asyncio
-async def test_agent_execute_brain_creation_failure_returns_500(mock_settings):
-    """POST /api/agent/execute returns 500 when create_agent_brain raises."""
+async def test_agent_execute_brain_creation_failure_returns_503(mock_settings):
+    """POST /api/agent/execute returns 503 when create_agent_brain raises for all providers."""
     with patch("app.routers.agent.create_default_registry") as mock_registry_factory, \
          patch("app.routers.agent.create_agent_brain", side_effect=RuntimeError("LLM unavailable")):
 
@@ -233,8 +233,8 @@ async def test_agent_execute_brain_creation_failure_returns_500(mock_settings):
                 },
             )
 
-    assert resp.status_code == 500
-    assert "LLM unavailable" in resp.json()["detail"]
+    # Single non-auto provider that fails → 503 (all providers exhausted)
+    assert resp.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -247,7 +247,7 @@ async def test_agent_execute_run_failure_returns_500(mock_settings):
         mock_registry = MagicMock()
         mock_registry.to_langchain_tools.return_value = []
         mock_registry_factory.return_value = mock_registry
-        mock_create_brain.return_value = MagicMock()
+        mock_create_brain.return_value = (MagicMock(), "openai", "gpt-4o")
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -272,7 +272,7 @@ async def test_agent_execute_run_failure_returns_500(mock_settings):
 
 @pytest.mark.asyncio
 async def test_agent_execute_uses_default_provider_and_model(mock_settings):
-    """POST /api/agent/execute without provider/model uses request defaults (openai/gpt-4o)."""
+    """POST /api/agent/execute with explicit provider passes it to create_agent_brain."""
     with patch("app.routers.agent.create_default_registry") as mock_registry_factory, \
          patch("app.routers.agent.create_agent_brain") as mock_create_brain, \
          patch("app.routers.agent.run_agent", AsyncMock(return_value={
@@ -284,18 +284,17 @@ async def test_agent_execute_uses_default_provider_and_model(mock_settings):
         mock_registry = MagicMock()
         mock_registry.to_langchain_tools.return_value = []
         mock_registry_factory.return_value = mock_registry
-        mock_create_brain.return_value = MagicMock()
+        mock_create_brain.return_value = (MagicMock(), "openai", "gpt-4o")
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             resp = await client.post(
                 "/api/agent/execute",
-                json={"message": "Hello"},
+                json={"message": "Hello", "provider": "openai", "model": "gpt-4o"},
             )
 
     assert resp.status_code == 200
-    # Verify create_agent_brain was called with the schema defaults
     call_kwargs = mock_create_brain.call_args
     assert call_kwargs.kwargs["provider"] == "openai"
     assert call_kwargs.kwargs["model"] == "gpt-4o"

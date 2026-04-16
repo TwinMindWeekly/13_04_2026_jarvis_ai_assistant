@@ -302,7 +302,7 @@ def test_create_default_registry():
     expected = {
         "web_search", "web_browser", "screenshot",
         "desktop_control", "browser_control", "file_manager", "app_launcher",
-        "rag_search",
+        "rag_search", "skill_manager",
     }
     assert names == expected
 
@@ -311,7 +311,7 @@ def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert len(schemas) == 8
+    assert len(schemas) == 9
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema
