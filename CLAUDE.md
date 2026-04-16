@@ -4,42 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, and an Obsidian-style knowledge graph of the user's document corpus.
+JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, and an Obsidian-style knowledge graph with wikilink-based document relationships.
 
-Status: 8 phases complete. See `task.md` and `implementation_plan.md` for scope, `PHASE_8_SUMMARY.md` for the latest (Knowledge Graph).
+Status: Phases 1–10 complete, Phase 11 (Provider Usage Dashboard) in progress. See `task.md` for scope.
 
 ## Architecture (big picture)
 
-The agent is built around three layers that must be understood together:
-
 **1. LangGraph ReAct brain (`backend/app/agent/brain.py`)**
 
-- `_build_llm(provider, model)` is the real "factory" — a function that returns the right `ChatOpenAI` / `ChatGoogleGenerativeAI` / `ChatAnthropic` / Ollama-via-OpenAI client. There is no `LLMFactory` class; extend the provider set by editing this function.
-- `create_agent_brain()` wraps the LLM with `langgraph.prebuilt.create_react_agent`, binding a `JARVIS_SYSTEM_PROMPT` (templated with today's date) and a list of LangChain-compatible tools.
-- `run_agent()` returns `{response, actions, messages}`. Content can arrive as plain string **or as a list of content blocks (Gemini 2.5)** — the extractor in `brain.py` must iterate `content` lists and pull only `{"type": "text", "text": ...}` blocks. Any new provider added must preserve this handling.
-- `stream_agent()` yields typed events (`action` / `action_result` / `text` / `done`) for `/ws/agent` and the SSE routes.
+- `_build_llm(provider, model)` — returns the right LangChain chat model for 6 providers: `openai`, `gemini`, `claude`, `groq`, `sambanova`, `ollama`. No `LLMFactory` class; extend the provider set by editing this function.
+- `build_llm_with_fallback(provider, model)` — when `provider="auto"`, tries a chain in order: groq → gemini → sambanova → openai → claude → ollama. Skips any provider missing an API key. Runtime quota errors (429, 503) also trigger fallback in `routers/agent.py`.
+- `create_agent_brain()` wraps the LLM with `langgraph.prebuilt.create_react_agent`, binding `JARVIS_SYSTEM_PROMPT` (from `agent/prompts.py`, templated with today's date) and a list of LangChain-compatible tools. Returns `(brain, actual_provider, actual_model)`.
+- `run_agent()` returns `{response, actions, messages}`. Content can arrive as plain string **or as a list of content blocks (Gemini 2.5)** — the extractor iterates `content` lists and pulls only `{"type": "text", "text": ...}` blocks. Any new provider must preserve this.
+- `stream_agent()` yields typed events (`action` / `action_result` / `text` / `done`) for `/ws/agent` and SSE routes.
 - Default `recursion_limit=10` — both a safety bound and a soft UX contract (ActionViewer assumes at most ~10 steps).
 
 **2. Tool Registry + Safety Guard (`backend/app/tools/`)**
 
-- Every tool subclasses `BaseTool` (`tools/base.py`) with class attributes `name`, `description`, `parameters` (JSON Schema) and an async `execute(**kwargs) -> ToolResult`. Tools **must not raise** — failures return `ToolResult(success=False, error=...)` so the ReAct loop keeps going.
-- `ToolRegistry.to_langchain_tools()` (`tools/registry.py`) dynamically builds a Pydantic `args_schema` from each tool's JSON Schema and wraps it in a `StructuredTool`. Both async (`coroutine=_arun`) and sync (`func=_run` via `asyncio.run`) paths exist; LangGraph uses the async path.
-- `create_default_registry()` (`tools/__init__.py`) is the single source of truth for the 8 shipped tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`.
-- `SafetyGuard` (`tools/safety.py`) classifies actions into 4 levels — `AUTO` (read/search/screenshot), `NOTIFY` (open app / navigate), `CONFIRM` (writes), `BLOCK` (delete, system paths, non-whitelisted apps). New tools that touch the FS, OS, or user's session MUST route through `SafetyGuard` before executing.
+- Every tool subclasses `BaseTool` (`tools/base.py`) with `name`, `description`, `parameters` (JSON Schema) and async `execute(**kwargs) -> ToolResult`. Tools **must not raise** — failures return `ToolResult(success=False, error=...)`.
+- `ToolRegistry.to_langchain_tools()` (`tools/registry.py`) dynamically builds a Pydantic `args_schema` from JSON Schema and wraps each in `StructuredTool`. LangGraph uses the async path.
+- `create_default_registry()` (`tools/__init__.py`) — the 8 shipped tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`.
+- `SafetyGuard` (`tools/safety.py`) — 4 levels: `AUTO` (read/search/screenshot), `NOTIFY` (open app/navigate), `CONFIRM` (writes), `BLOCK` (delete, system paths, non-whitelisted apps). New tools touching FS/OS/session MUST route through SafetyGuard.
 
-**3. RAG + Knowledge Graph pipeline (`backend/app/rag/` + `backend/app/graph/`)**
+**3. RAG + Wikilink pipeline (`backend/app/rag/` + `backend/app/graph/`)**
 
-- RAG: `unstructured.partition` → chunking → `sentence-transformers/all-MiniLM-L6-v2` embeddings → ChromaDB `PersistentClient` under `./chroma_data`. One ChromaDB collection stores all docs; `metadata.doc_id` tags each chunk.
-- Knowledge Graph (Phase 8, `graph/builder.py`): loads `uploads/documents_metadata.json`, aggregates per-doc chunk embeddings into a document-level mean vector, and emits an edge for every pair whose cosine similarity exceeds the threshold. O(n²) — designed for ≤1 000 docs; above that, switch to ChromaDB HNSW top-K.
-- `graph/cache.py` memoises the last built graph so repeated `/api/graph` calls stay cheap; invalidate whenever documents change.
-- Frontend renders the graph with `react-force-graph-2d` (pan/zoom/drag, node click → `GraphDetailPanel`).
+- RAG: `unstructured.partition` → chunking → `sentence-transformers/all-MiniLM-L6-v2` embeddings → ChromaDB `PersistentClient` under `./chroma_data`.
+- **Upload pipeline** (Phase 10): upload → `rag/md_converter.py` (MarkItDown) converts PDF/DOCX/PPTX/XLSX to Markdown → `rag/wikilink_generator.py` injects `[[wikilinks]]` via LLM (uses `WIKILINK_PROVIDER`, not the agent provider) → saved as `uploads/vault/{doc_id}.md` → chunks indexed in ChromaDB.
+- **Knowledge Graph** (`graph/builder.py`): now **wikilink-only** — `graph/link_extractor.py` parses `[[Target]]` and `[[Target|Display]]` from vault Markdown, fuzzy-matches filenames, and emits edges. No more cosine similarity. O(n·k) where k = avg wikilinks/doc.
+- `graph/cache.py` — JSON file cache keyed by MD5 of `(sorted_doc_ids, wikilink_count)`. Invalidates on document upload/delete.
+- Vault API: `routers/vault.py` — `GET /api/vault/{doc_id}` (read), `PUT /api/vault/{doc_id}` (edit).
 
-**Frontend (`frontend/src/`)**
+**4. Frontend (`frontend/src/`)**
 
-- React 19 + Vite 8 + **Bootstrap 5 / react-bootstrap** (not Tailwind). ChatGPT-style layout: full-width message rows, sticky input capped at `max-w-768px`.
-- State lives in hooks: `useAgent` (REST + SSE), `useWebSocket` (`/ws/agent`), `useGraph`, `useSettings`, `useVoice`.
-- Voice I/O is **browser-native** — `SpeechRecognition` for STT and `SpeechSynthesis` for TTS. There is no server-side TTS route.
-- i18n via `react-i18next` with `en.json` / `vi.json`; language toggled in the Settings panel.
+- React 19 + Vite 8 + **Bootstrap 5 / react-bootstrap** (not Tailwind).
+- Two view modes toggled via `viewMode` state in `App.jsx`:
+  - **Chat view** — ChatGPT-style layout: `ChatArea`, `Sidebar` with doc tree (`SidebarDocTree` / `SidebarDocNode`), `ActionViewer`, `SettingsPanel`, `DocumentsPanel`.
+  - **Graph view** (`GraphPage.jsx`) — Obsidian-style 3-panel layout: left panel (`GraphLeftPanel` — doc list + detail on node click), center (`GraphCanvas` — `react-force-graph-2d` with folder-based coloring, hover highlight, search/filter), right floating chat overlay using `ChatArea` with suggestion chips. A `MarkdownEditorPanel` opens on node select for inline vault editing with wikilink syntax highlighting.
+- `ResizeHandle.jsx` — draggable panel resize for the split layout.
+- State hooks: `useAgent` (REST + SSE, independent instance per page), `useWebSocket` (`/ws/agent`), `useGraph`, `useSettings`, `useVoice`, `useDocTree`.
+- Voice I/O is **browser-native** — `SpeechRecognition` for STT, `SpeechSynthesis` for TTS. No server-side TTS.
+- i18n via `react-i18next` with `en.json` / `vi.json`; language toggled in Settings panel.
 
 ## Development commands
 
@@ -66,12 +70,12 @@ npm run test:e2e    # Playwright — BACKEND must already be running on :8000
 npm run test:e2e:ui # Playwright UI mode
 ```
 
-Playwright auto-starts the Vite dev server but **does not** start the backend — the E2E tests assume `http://localhost:8000` is live (see `frontend/playwright.config.js` comment for the rationale).
+Playwright auto-starts the Vite dev server but **does not** start the backend — E2E tests assume `http://localhost:8000` is live.
 
 ### Tests (backend, `backend/` cwd)
 
 ```bash
-pytest -v                                     # full suite (async mode auto-enabled)
+pytest -v                                     # full suite (asyncio_mode = "auto")
 pytest tests/test_agent.py -v                 # single file
 pytest tests/test_graph.py::TestGraphBuilder -v     # single class
 pytest -k "safety and block" -v               # filter by name
@@ -91,25 +95,49 @@ restart_backend.bat :: restart uvicorn only
 ## Configuration (`backend/.env`)
 
 ```env
+# At least one cloud key OR a running Ollama is required
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AIza...
 ANTHROPIC_API_KEY=sk-ant-...
-# OLLAMA_BASE_URL=http://localhost:11434     # optional, default
+GROQ_API_KEY=gsk_...
+SAMBANOVA_API_KEY=...
 
-DEFAULT_PROVIDER=openai
-DEFAULT_MODEL=gpt-4o
-# CHROMA_PERSIST_DIR=./chroma_data           # optional, default
-# UPLOAD_DIR=./uploads                       # optional, default
+# "auto" enables fallback chain: groq → gemini → sambanova → openai → claude → ollama
+DEFAULT_PROVIDER=auto
+DEFAULT_MODEL=                              # empty = auto-detect per provider
+
+# Wikilink generation uses a separate provider (Ollama local recommended)
+WIKILINK_PROVIDER=ollama
+WIKILINK_MODEL=huihui_ai/llama3.2-abliterate:3b
+
+# OLLAMA_BASE_URL=http://localhost:11434    # optional, default
+# SAMBANOVA_BASE_URL=https://api.sambanova.ai/v1  # optional, default
+# CHROMA_PERSIST_DIR=./chroma_data          # optional, default
+# UPLOAD_DIR=./uploads                      # optional, default
 ```
 
-At least one cloud key **or** a running Ollama is required. The provider is switchable at runtime from the frontend Settings panel — `/api/agent/execute` takes `provider` + `model` in the request body.
+Provider is switchable at runtime from the frontend Settings panel — `/api/agent/execute` takes `provider` + `model` in the request body.
 
-## Provider caveats (stable gotchas, not derivable from code)
+## Provider caveats
 
-- **Gemini** (Google safety filters) rejects `desktop_control`, `browser_control`, `file_manager`, `app_launcher` in practice — tests assume only `web_search` and `rag_search` work reliably with Gemini. Do not add Gemini-specific tool tests for the blocked set.
-- **Gemini 2.5** returns assistant content as `list[{"type": "text", "text": ...}, ...]` instead of a plain string. Both `run_agent` and `stream_agent` handle this; keep it that way when touching the message-extraction loop.
-- **Ollama** is wired through `ChatOpenAI` against Ollama's OpenAI-compatible endpoint (`base_url + "/v1"`, api_key `"ollama"`). Do not add a separate `ChatOllama` path.
-- **Playwright** browser binary is not installed by `pip install` — the `_check_playwright()` health check only verifies the import. First run of `web_browser` / `browser_control` will fail until `playwright install chromium` has been executed.
+- **Auto-fallback** — `DEFAULT_PROVIDER=auto` tries providers in order by key availability. Runtime quota errors (429/503/"rate_limit"/"quota"/"token pool is empty") trigger retry with the next provider in `routers/agent.py`.
+- **Groq / SambaNova** — wired through `ChatOpenAI` with custom `base_url`, same as Ollama. Free tier limits: Groq 1000 req/day, SambaNova 200 req/day.
+- **Gemini** safety filters reject `desktop_control`, `browser_control`, `file_manager`, `app_launcher` in practice — tests assume only `web_search` and `rag_search` work reliably with Gemini.
+- **Gemini 2.5** returns assistant content as `list[{"type": "text", "text": ...}]` instead of a plain string. Both `run_agent` and `stream_agent` handle this; keep it that way.
+- **Ollama** — wired through `ChatOpenAI` against `base_url + "/v1"`, api_key `"ollama"`. Do not add a separate `ChatOllama` path.
+- **Split LLM config** — agent chat uses `DEFAULT_PROVIDER`; wikilink generation uses `WIKILINK_PROVIDER`/`WIKILINK_MODEL` (separate so wikilinks can use a cheap local model while chat uses a cloud model).
+- **Playwright** browser binary is not installed by `pip install` — first run of `web_browser` / `browser_control` will fail until `playwright install chromium`.
+
+## API routes (`backend/app/routers/`)
+
+| Router | Key endpoints |
+|--------|--------------|
+| `agent.py` | `POST /api/agent/execute`, `WS /ws/agent`, `GET /api/providers` |
+| `chat.py` | `POST /api/chat` (simple text-in/text-out, no tools) |
+| `documents.py` | `POST /api/documents/upload`, `GET /api/documents`, `DELETE /api/documents/{id}` |
+| `graph.py` | `GET /api/graph/data`, `GET /api/graph/stats`, `POST /api/graph/rebuild` |
+| `vault.py` | `GET /api/vault/{doc_id}`, `PUT /api/vault/{doc_id}` |
+| `usage.py` | `GET /api/usage/` (provider usage stats) |
 
 ## Project-specific rules (override generic defaults)
 
@@ -130,4 +158,6 @@ Branching: `main` ← `develop` ← `feature/*`. PR required for every merge int
 - **CORS** — backend allows `http://localhost:5173` and `http://localhost:3000` by default (`settings.cors_origins`). Add any new origin here, not in per-router middleware.
 - **WebSocket drops** — frontend `useWebSocket` must reconnect with exponential backoff; the backend does not retry for you.
 - **Tool timeout** — tools have an implicit ~30 s budget. Long-running browser flows should chunk work across multiple tool calls rather than hold the coroutine.
-- **Graph staleness** — after upload/delete in the documents panel, invalidate the graph cache (`graph/cache.py`) or the Knowledge Graph panel will show the previous build.
+- **Graph staleness** — after upload/delete in the documents panel, the graph cache (`graph/cache.py`) should auto-invalidate. If it doesn't, `POST /api/graph/rebuild` forces a rebuild.
+- **Wikilink pipeline requires LLM** — if no LLM key is available for `WIKILINK_PROVIDER`, the wikilink step is skipped and the graph shows only orphan nodes (no edges).
+- **Vault files** — converted Markdown lives in `uploads/vault/{doc_id}.md`. Edits via `PUT /api/vault/{doc_id}` update this file; re-extracting wikilinks after edit is not yet automatic.

@@ -12,8 +12,11 @@ class Settings(BaseSettings):
 
     # LLM Provider API Keys
     openai_api_key: str = ""
+    openai_base_url: str = ""  # Custom base URL (e.g. Antigravity proxy)
     google_api_key: str = ""
+    gemini_base_url: str = ""  # Custom base URL (e.g. Antigravity proxy)
     anthropic_api_key: str = ""
+    anthropic_base_url: str = ""  # Custom base URL (e.g. Antigravity proxy)
     groq_api_key: str = ""
     sambanova_api_key: str = ""
 
@@ -21,6 +24,11 @@ class Settings(BaseSettings):
     # Set to "auto" to enable fallback chain: groq → gemini → sambanova → openai
     default_provider: str = "auto"
     default_model: str = ""
+
+    # Per-provider default models
+    openai_model: str = "gpt-4o-mini"
+    gemini_model: str = "gemini-2.5-flash"
+    claude_model: str = "claude-sonnet-4-6"
 
     # Groq (free tier: 1000 req/day, Llama 3.3 70B with tool calling)
     groq_model: str = "llama-3.3-70b-versatile"

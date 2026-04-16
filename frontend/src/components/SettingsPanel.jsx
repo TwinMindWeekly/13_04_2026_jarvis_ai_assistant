@@ -15,9 +15,9 @@ const PROVIDER_MODELS = {
   auto: [],
   groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+  gemini: ['gemini-3.1-pro-high', 'gemini-3-pro-high', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash', 'gemini-3.1-flash-lite'],
   sambanova: ['Meta-Llama-3.3-70B-Instruct'],
-  claude: ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'],
+  claude: ['claude-opus-4-6-thinking', 'claude-sonnet-4-6', 'claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'],
   ollama: ['huihui_ai/llama3.2-abliterate:3b'],
 }
 

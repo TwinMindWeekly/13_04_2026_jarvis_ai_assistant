@@ -71,7 +71,7 @@ async def execute_agent(request: AgentExecuteRequest) -> AgentExecuteResponse:
     for prov, mod in chain:
         try:
             brain, actual_provider, actual_model = create_agent_brain(
-                provider=prov, model=mod, tools=lc_tools,
+                provider=prov, model=mod, tools=lc_tools, language=request.language,
             )
         except Exception as exc:
             errors.append(f"{prov}: build failed — {exc}")
@@ -160,6 +160,7 @@ async def agent_websocket(websocket: WebSocket) -> None:
 
         provider: str = payload.get("provider", settings.default_provider)
         model: str = payload.get("model", settings.default_model)
+        language: str = payload.get("language", "en")
 
         registry = create_default_registry()
         lc_tools = registry.to_langchain_tools()
@@ -174,7 +175,7 @@ async def agent_websocket(websocket: WebSocket) -> None:
         for prov, mod in chain:
             try:
                 brain, actual_prov, actual_mod = create_agent_brain(
-                    provider=prov, model=mod, tools=lc_tools,
+                    provider=prov, model=mod, tools=lc_tools, language=language,
                 )
             except Exception as exc:
                 logger.warning("WS: %s build failed: %s, trying next...", prov, exc)

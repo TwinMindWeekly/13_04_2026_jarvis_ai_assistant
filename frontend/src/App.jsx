@@ -37,7 +37,7 @@ export default function App() {
     sendMessage,
     clearMessages,
     dismissError,
-  } = useAgent(settings.provider, settings.model)
+  } = useAgent(settings.provider, settings.model, settings.language)
 
   const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
   const voice = useVoice({
@@ -163,7 +163,27 @@ export default function App() {
                 </button>
               </div>
 
-              <div style={{ width: 40 }} />
+              <div className="d-flex align-items-center gap-1">
+                {['en', 'vi'].map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => updateSettings({ language: code })}
+                    className="lang-toggle-btn"
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: settings.language === code ? 700 : 400,
+                      background: settings.language === code ? 'var(--accent)' : 'transparent',
+                      color: settings.language === code ? '#fff' : 'var(--text-muted)',
+                      border: settings.language === code ? 'none' : '1px solid var(--border)',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {code.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </header>
 
             <ChatArea

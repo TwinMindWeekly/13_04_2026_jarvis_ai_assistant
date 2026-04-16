@@ -13,7 +13,7 @@ const isRetryableError = (err) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export function useAgent(provider, model) {
+export function useAgent(provider, model, language) {
   const [messages, setMessages] = useState([])
   const [actions, setActions] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -77,7 +77,7 @@ export function useAgent(provider, model) {
       // 2. WebSocket path — single send, server pushes events back.
       if (wsStatus === 'connected') {
         try {
-          wsSend({ message: apiMessage, provider, model })
+          wsSend({ message: apiMessage, provider, model, language })
           return
         } catch (err) {
           // Fall through to REST fallback
@@ -92,7 +92,8 @@ export function useAgent(provider, model) {
             apiMessage,
             provider,
             model,
-            conversationIdRef.current
+            conversationIdRef.current,
+            language
           )
           conversationIdRef.current = data.conversation_id
           setMessages((prev) => [
@@ -123,7 +124,7 @@ export function useAgent(provider, model) {
       setError(message)
       setIsLoading(false)
     },
-    [provider, model, wsStatus, wsSend]
+    [provider, model, language, wsStatus, wsSend]
   )
 
   const clearMessages = useCallback(() => {

@@ -27,18 +27,26 @@ def _build_llm(provider: str, model: str = ""):
         if not settings.openai_api_key:
             raise ProviderAuthError("openai")
         from langchain_openai import ChatOpenAI  # noqa: PLC0415
-        return ChatOpenAI(
-            model=model or "gpt-4o-mini",
-            api_key=settings.openai_api_key,
-            temperature=0,
-        )
+        kwargs = {"model": model or settings.openai_model, "api_key": settings.openai_api_key, "temperature": 0}
+        if settings.openai_base_url:
+            kwargs["base_url"] = settings.openai_base_url
+        return ChatOpenAI(**kwargs)
 
     if provider == "gemini":
         if not settings.google_api_key:
             raise ProviderAuthError("gemini")
+        if settings.gemini_base_url:
+            # Proxy mode: route through OpenAI-compatible endpoint
+            from langchain_openai import ChatOpenAI  # noqa: PLC0415
+            return ChatOpenAI(
+                model=model or settings.gemini_model,
+                base_url=settings.gemini_base_url,
+                api_key=settings.google_api_key,
+                temperature=0,
+            )
         from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
         return ChatGoogleGenerativeAI(
-            model=model or "gemini-2.5-flash",
+            model=model or settings.gemini_model,
             google_api_key=settings.google_api_key,
             temperature=0,
         )
@@ -46,9 +54,18 @@ def _build_llm(provider: str, model: str = ""):
     if provider == "claude":
         if not settings.anthropic_api_key:
             raise ProviderAuthError("claude")
+        if settings.anthropic_base_url:
+            # Proxy mode: route through Anthropic-compatible endpoint
+            from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
+            return ChatAnthropic(
+                model=model or settings.claude_model,
+                api_key=settings.anthropic_api_key,
+                anthropic_api_url=settings.anthropic_base_url,
+                temperature=0,
+            )
         from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
         return ChatAnthropic(
-            model=model or "claude-sonnet-4-5",
+            model=model or settings.claude_model,
             api_key=settings.anthropic_api_key,
             temperature=0,
         )
@@ -101,13 +118,13 @@ def _build_fallback_chain() -> list[tuple[str, str]]:
     if settings.groq_api_key:
         chain.append(("groq", settings.groq_model))
     if settings.google_api_key:
-        chain.append(("gemini", "gemini-2.5-flash"))
+        chain.append(("gemini", settings.gemini_model))
     if settings.sambanova_api_key:
         chain.append(("sambanova", settings.sambanova_model))
     if settings.openai_api_key:
-        chain.append(("openai", "gpt-4o-mini"))
+        chain.append(("openai", settings.openai_model))
     if settings.anthropic_api_key:
-        chain.append(("claude", "claude-sonnet-4-5"))
+        chain.append(("claude", settings.claude_model))
     # Ollama as last resort (local, always available if server is running)
     chain.append(("ollama", "huihui_ai/llama3.2-abliterate:3b"))
     return chain
@@ -138,10 +155,14 @@ def build_llm_with_fallback(provider: str, model: str):
     )
 
 
+_LANGUAGE_LABELS = {"vi": "Vietnamese", "en": "English"}
+
+
 def create_agent_brain(
     provider: str,
     model: str,
     tools: list,
+    language: str = "en",
 ) -> tuple[CompiledStateGraph, str, str]:
     """Build and return a compiled LangGraph ReAct agent.
 
@@ -151,13 +172,15 @@ def create_agent_brain(
         model: Model name understood by the chosen provider. Empty string
                for auto-detection.
         tools: List of LangChain-compatible tool objects to bind.
+        language: User's chosen response language code (e.g. "en", "vi").
 
     Returns:
         Tuple of (compiled StateGraph, actual_provider, actual_model).
     """
     llm, actual_provider, actual_model = build_llm_with_fallback(provider, model)
 
-    system_prompt = JARVIS_SYSTEM_PROMPT.format(date=date.today().isoformat())
+    lang_label = _LANGUAGE_LABELS.get(language, language)
+    system_prompt = JARVIS_SYSTEM_PROMPT.format(date=date.today().isoformat(), language=lang_label)
 
     brain = create_react_agent(
         model=llm,
