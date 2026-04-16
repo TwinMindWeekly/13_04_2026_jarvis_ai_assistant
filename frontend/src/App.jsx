@@ -232,10 +232,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={voice.revealedText ? messages.slice(0, -1) : messages}
+              messages={voice.isSpeaking ? messages.slice(0, -1) : messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={voice.revealedText || streamingText}
+              streamingText={voice.isSpeaking ? (voice.revealedText || '') : streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}
