@@ -11,28 +11,28 @@ import { extractWikilinkTargets } from '../utils/wikilinkDetector'
 /**
  * Convert [[WikiLink]] and [[Target|Display]] to placeholder HTML spans.
  * Uses a zero-width-joiner trick so ReactMarkdown passes them through as text,
- * then we render them as styled pills in a custom text component.
+ * Convert [[WikiLink]] to inline markdown links with wikilink: scheme.
+ * ReactMarkdown renders these via the custom `a` component below.
  */
-const WIKILINK_SPLIT_RE = /(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g
+function processWikilinks(md) {
+  if (!md) return md
+  return md.replace(
+    /(?<!!)\[\[([^|\]]+?)(?:\|([^\]]+?))?\]\]/g,
+    (_match, target, display) => `[${display || target}](wikilink:${encodeURIComponent(target)})`
+  )
+}
 
-function renderContentWithWikilinks(md) {
-  if (!md) return null
-  // Split markdown at wikilinks, render parts as markdown + wikilinks as pills
-  const parts = []
-  let lastIndex = 0
-  WIKILINK_SPLIT_RE.lastIndex = 0
-  let match
-  while ((match = WIKILINK_SPLIT_RE.exec(md)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: 'md', text: md.slice(lastIndex, match.index) })
-    }
-    parts.push({ type: 'wikilink', target: match[1].trim(), display: (match[2] || match[1]).trim() })
-    lastIndex = match.index + match[0].length
+/** Custom link renderer — wikilink: URIs become Obsidian-style pills, others open in new tab. */
+function WikilinkAnchor({ href, children }) {
+  if (href && href.startsWith('wikilink:')) {
+    const target = decodeURIComponent(href.slice(9))
+    return (
+      <span className="md-wikilink" title={target}>
+        {children}
+      </span>
+    )
   }
-  if (lastIndex < md.length) {
-    parts.push({ type: 'md', text: md.slice(lastIndex) })
-  }
-  return parts
+  return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
 }
 
 /**
@@ -243,17 +243,12 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onW
         {!loading && !error && mode === 'view' && (
           <div className="md-editor-preview" onDoubleClick={() => setMode('edit')}>
             {content ? (
-              renderContentWithWikilinks(content).map((part, i) =>
-                part.type === 'wikilink' ? (
-                  <span key={i} className="md-wikilink" title={part.target}>
-                    {part.display}
-                  </span>
-                ) : (
-                  <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
-                    {part.text}
-                  </ReactMarkdown>
-                )
-              )
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{ a: WikilinkAnchor }}
+              >
+                {processWikilinks(content)}
+              </ReactMarkdown>
             ) : (
               <p className="md-editor-no-content">
                 {t('graph.editorNoContent', 'No content available.')}
