@@ -5,6 +5,15 @@ import ForceGraph2D from 'react-force-graph-2d'
 import { Maximize2 } from 'lucide-react'
 import GraphLegend from './GraphLegend'
 
+/** Brighten a hex color by a factor (1.0 = no change, 1.4 = 40% brighter). */
+function _brighten(hex, factor) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const clamp = (v) => Math.min(255, Math.round(v * factor))
+  return `rgb(${clamp(r)}, ${clamp(g)}, ${clamp(b)})`
+}
+
 /**
  * GraphCanvas — the central force-directed graph visualization.
  *
@@ -66,18 +75,21 @@ export default function GraphCanvas({
     return map
   }, [data.nodes])
 
-  // Build adjacency map for hover highlighting.
-  const neighborsMap = useMemo(() => {
-    const map = {}
+  // Build adjacency map + degree count for hover highlighting and node sizing.
+  const { neighborsMap, degreeMap } = useMemo(() => {
+    const nMap = {}
+    const dMap = {}
     for (const link of data.links) {
       const s = typeof link.source === 'object' ? link.source.id : link.source
       const tgt = typeof link.target === 'object' ? link.target.id : link.target
-      map[s] = map[s] || new Set()
-      map[tgt] = map[tgt] || new Set()
-      map[s].add(tgt)
-      map[tgt].add(s)
+      nMap[s] = nMap[s] || new Set()
+      nMap[tgt] = nMap[tgt] || new Set()
+      nMap[s].add(tgt)
+      nMap[tgt].add(s)
+      dMap[s] = (dMap[s] || 0) + 1
+      dMap[tgt] = (dMap[tgt] || 0) + 1
     }
-    return map
+    return { neighborsMap: nMap, degreeMap: dMap }
   }, [data.links])
 
   const highlightedSet = useMemo(
@@ -100,8 +112,13 @@ export default function GraphCanvas({
       const isHighlighted = highlightedSet.has(node.id)
       const dimmed = searchLower && !matchesSearch(node)
 
-      const radius = Math.max(3, Math.sqrt(node.chunks_count || 1) * 2)
-      const color = folderColors[node.folder || '(root)'] || '#888'
+      // Size scales with connection count (degree) — more links = bigger node
+      const degree = degreeMap[node.id] || 0
+      const radius = Math.max(3, 3 + degree * 1.8)
+      // Base color from folder, brighten for high-degree nodes
+      const baseColor = folderColors[node.folder || '(root)'] || '#888'
+      const brightness = Math.min(1.4, 1 + degree * 0.08)
+      const color = _brighten(baseColor, brightness)
 
       ctx.globalAlpha = dimmed ? 0.15 : 1.0
 
@@ -150,16 +167,17 @@ export default function GraphCanvas({
 
       ctx.globalAlpha = 1.0
     },
-    [hovered, selected, folderColors, neighborsMap, highlightedSet, searchLower, matchesSearch]
+    [hovered, selected, folderColors, neighborsMap, degreeMap, highlightedSet, searchLower, matchesSearch]
   )
 
   const nodePointerAreaPaint = useCallback((node, color, ctx) => {
-    const radius = Math.max(6, Math.sqrt(node.chunks_count || 1) * 2 + 4)
+    const degree = degreeMap[node.id] || 0
+    const radius = Math.max(6, 3 + degree * 1.8 + 4)
     ctx.fillStyle = color
     ctx.beginPath()
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
     ctx.fill()
-  }, [])
+  }, [degreeMap])
 
   const linkColor = useCallback(
     (link) => {
