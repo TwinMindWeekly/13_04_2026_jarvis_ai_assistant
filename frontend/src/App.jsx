@@ -50,15 +50,28 @@ export default function App() {
     enabled: settings.voiceEnabled !== false,
   })
 
-  // Auto TTS for assistant responses when voice mode is on
+  // Streaming TTS: speak sentence-by-sentence as text arrives
+  const spokenIndexRef = useRef(0)
+
   useEffect(() => {
     if (settings.voiceEnabled === false) return
-    if (messages.length === 0) return
-    const last = messages[messages.length - 1]
-    if (last.role === 'assistant' && last.content) {
-      voice.speak(last.content, settings.ttsVoice)
+    if (!streamingText) {
+      spokenIndexRef.current = 0
+      return
     }
-  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const unspoken = streamingText.slice(spokenIndexRef.current)
+    // Match complete sentences ending with . ! ? or newline
+    const sentenceRegex = /[^.!?\n]+[.!?\n]+/g
+    let match
+    while ((match = sentenceRegex.exec(unspoken)) !== null) {
+      const sentence = match[0].trim()
+      if (sentence.length > 2) {
+        voice.speak(sentence, settings.ttsVoice, { append: true })
+      }
+      spokenIndexRef.current += match.index + match[0].length
+    }
+  }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
@@ -78,6 +91,14 @@ export default function App() {
       })
       .catch(() => {})
   }, [])
+
+  const handleToggleVoice = useCallback(() => {
+    const currentlyEnabled = settings.voiceEnabled !== false
+    updateSettings({ voiceEnabled: !currentlyEnabled })
+    if (currentlyEnabled) {
+      voice.stopSpeaking()
+    }
+  }, [settings.voiceEnabled, updateSettings, voice])
 
   const handleNewChat = () => {
     clearMessages()
@@ -203,6 +224,8 @@ export default function App() {
               attachments={chatAttachments}
               selectedDoc={selectedDoc}
               onDocApplied={() => setEditorRefreshKey((k) => k + 1)}
+              voiceEnabled={settings.voiceEnabled !== false}
+              onToggleVoice={handleToggleVoice}
             />
           </main>
         </div>

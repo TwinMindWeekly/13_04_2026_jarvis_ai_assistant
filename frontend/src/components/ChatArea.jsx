@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check, X, Square } from 'lucide-react'
+import { ArrowUp, Plus, AlertCircle, Mic, FileText, Check, X, Square, Volume2, VolumeX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessageBubble from './MessageBubble'
 import ActionViewer from './ActionViewer'
@@ -23,6 +23,8 @@ export default function ChatArea({
   attachments = {},
   suggestionChips = null,
   emptyTitle = null,
+  voiceEnabled = false,
+  onToggleVoice,
 }) {
   const { t } = useTranslation()
   const [input, setInput] = useState('')
@@ -193,6 +195,29 @@ export default function ChatArea({
           disabled={isLoading}
           className="chat-textarea"
         />
+
+        {/* TTS toggle — inline on chat bar */}
+        {onToggleVoice && (
+          <button
+            className="voice-toggle-btn"
+            onClick={onToggleVoice}
+            aria-label={voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
+            title={voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '6px',
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              color: voiceEnabled ? 'var(--accent)' : 'var(--text-muted)',
+              transition: 'color 0.2s',
+            }}
+          >
+            {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+        )}
 
         <VoiceButton
           isListening={voice.isListening}

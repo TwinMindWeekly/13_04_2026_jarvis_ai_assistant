@@ -132,12 +132,16 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   }, [isListening, startListening, stopListening])
 
   // --- TTS: Speak text ---
+  // append=true: queue utterance without cancelling current speech (used for streaming TTS)
+  // append=false (default): cancel current speech before speaking
   const speak = useCallback(
-    (text, voiceName) => {
+    (text, voiceName, { append = false } = {}) => {
       if (!ttsSupported || !enabled || !text) return
 
-      // Stop any current speech
-      window.speechSynthesis.cancel()
+      // Only cancel previous speech if not appending to queue
+      if (!append) {
+        window.speechSynthesis.cancel()
+      }
 
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = language
@@ -153,7 +157,12 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
 
       utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => setIsSpeaking(false)
+      utterance.onend = () => {
+        // Check if queue is empty before marking as not speaking
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          setIsSpeaking(false)
+        }
+      }
       utterance.onerror = () => setIsSpeaking(false)
 
       window.speechSynthesis.speak(utterance)
