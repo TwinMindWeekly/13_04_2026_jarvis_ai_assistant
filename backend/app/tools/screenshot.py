@@ -11,9 +11,10 @@ from app.tools.base import BaseTool, ToolResult
 logger = logging.getLogger(__name__)
 
 
-# Max dimension for screenshots sent to LLM. Larger images are scaled down
-# to avoid blowing up the context window (dual-monitor can exceed 1M tokens).
-_MAX_SCREENSHOT_WIDTH = 1920
+# Max dimension for screenshots sent to LLM. Smaller = fewer tokens.
+# 1280px is enough for the LLM to understand UI layout and text.
+_MAX_SCREENSHOT_WIDTH = 1280
+_JPEG_QUALITY = 40  # Low quality is fine — LLM only needs to read text and see layout
 
 
 def _capture_sync(region: dict[str, int] | None) -> bytes:
@@ -60,7 +61,7 @@ def _capture_sync(region: dict[str, int] | None) -> bytes:
             logger.info("Screenshot resized from %dx%d to %dx%d", screenshot.size.width, screenshot.size.height, *new_size)
 
         buffer = io.BytesIO()
-        img.save(buffer, format="JPEG", quality=75)
+        img.save(buffer, format="JPEG", quality=_JPEG_QUALITY)
         return buffer.getvalue()
 
 

@@ -40,6 +40,9 @@
     "documents": "Documents",
     "graph": "Knowledge Graph"
   },
+  "voice": {
+    "missing": "No voice found for this language. Install it in Windows Settings → Time & Language → Speech → Add voices."
+  },
   "toast": {
     "errorTitle": "Error"
   },

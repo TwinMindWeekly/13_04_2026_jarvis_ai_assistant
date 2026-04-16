@@ -40,6 +40,9 @@
     "documents": "Tài liệu",
     "graph": "Đồ thị tri thức"
   },
+  "voice": {
+    "missing": "Không tìm thấy giọng đọc cho ngôn ngữ này. Cài đặt tại: Windows Settings → Time & Language → Speech → Add voices."
+  },
   "toast": {
     "errorTitle": "Lỗi"
   },

@@ -76,10 +76,31 @@ function InlineActions({ actions }) {
   )
 }
 
-export default function MessageBubble({ message, isStreaming = false }) {
+/**
+ * Split content into paragraphs and determine which one is being spoken.
+ * Returns array of { text, active } where active means TTS is reading this paragraph.
+ */
+function splitParagraphs(content, speakingCharIndex) {
+  const paragraphs = content.split(/\n\n+/)
+  if (speakingCharIndex < 0) {
+    return paragraphs.map((text) => ({ text, active: false }))
+  }
+
+  let charPos = 0
+  return paragraphs.map((text) => {
+    const start = charPos
+    const end = charPos + text.length
+    charPos = end + 2 // +2 for the \n\n separator
+    const active = speakingCharIndex >= start && speakingCharIndex < end + 2
+    return { text, active }
+  })
+}
+
+export default function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
   const label = isUser ? 'You' : 'JARVIS'
+  const hasSpeaking = !isUser && speakingCharIndex >= 0
 
   return (
     <motion.div
@@ -115,6 +136,18 @@ export default function MessageBubble({ message, isStreaming = false }) {
             >
               {message.content}
             </p>
+          ) : hasSpeaking ? (
+            <div
+              className="markdown-content"
+              style={{ fontSize: '1rem', lineHeight: 1.75, color: 'var(--text-primary)' }}
+            >
+              {splitParagraphs(message.content, speakingCharIndex).map((para, i) => (
+                <div key={i} className={para.active ? 'speaking-paragraph' : ''}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{para.text}</ReactMarkdown>
+                </div>
+              ))}
+              {isStreaming && <StreamingCursor />}
+            </div>
           ) : (
             <div
               className="markdown-content"

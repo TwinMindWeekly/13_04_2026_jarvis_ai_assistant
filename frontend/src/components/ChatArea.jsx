@@ -25,6 +25,7 @@ export default function ChatArea({
   emptyTitle = null,
   voiceEnabled = false,
   onToggleVoice,
+  speakingCharIndex = -1,
 }) {
   const { t } = useTranslation()
   const [input, setInput] = useState('')
@@ -144,6 +145,16 @@ export default function ChatArea({
           <span>{selectedDoc.label || selectedDoc.filename}</span>
           {docContextOn && <X size={12} className="chat-doc-context-x" />}
         </button>
+      )}
+
+      {/* Voice missing warning */}
+      {voiceEnabled && voice.voiceMissing && (
+        <div className="voice-missing-warning">
+          <AlertCircle size={13} style={{ flexShrink: 0 }} />
+          <span>
+            {t('voice.missing', 'No voice found for this language. Install it in Windows Settings → Time & Language → Speech → Add voices.')}
+          </span>
+        </div>
       )}
 
       {/* Voice transcript preview */}
@@ -341,9 +352,13 @@ export default function ChatArea({
       {/* Messages — full width scroll */}
       <div className="messages-scroll">
         <AnimatePresence initial={false}>
-          {messages.map((msg, idx) => (
+          {messages.map((msg, idx) => {
+            // Pass speakingCharIndex only to the last assistant message
+            const isLastAssistant = msg.role === 'assistant' && idx === messages.length - 1
+            const charIdx = isLastAssistant ? speakingCharIndex : -1
+            return (
             <div key={idx}>
-              <MessageBubble message={msg} isStreaming={false} />
+              <MessageBubble message={msg} isStreaming={false} speakingCharIndex={charIdx} />
               {/* Apply button for assistant messages when a doc is open */}
               {msg.role === 'assistant' && selectedDoc && (
                 <div style={{ maxWidth: 768, margin: '0 auto', padding: '0 24px' }}>
@@ -367,7 +382,8 @@ export default function ChatArea({
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </AnimatePresence>
 
         <AnimatePresence>

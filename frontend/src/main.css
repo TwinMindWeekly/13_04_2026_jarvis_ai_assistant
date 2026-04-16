@@ -1217,6 +1217,21 @@ select option {
   background: rgba(99, 102, 241, 0.12);
 }
 
+/* Voice missing warning */
+.voice-missing-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+}
+
 /* Pulse animation rings */
 .voice-pulse-ring {
   position: absolute;
@@ -1241,6 +1256,22 @@ select option {
     opacity: 0;
     transform: scale(1.4);
   }
+}
+
+/* Speaking paragraph highlight — shows which paragraph TTS is currently reading */
+.speaking-paragraph {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  border-radius: 4px;
+  margin-left: -13px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+  animation: speakingPulse 2s ease-in-out infinite;
+}
+
+@keyframes speakingPulse {
+  0%, 100% { background: rgba(99, 102, 241, 0.06); }
+  50% { background: rgba(99, 102, 241, 0.14); }
 }
 
 /* =============================================

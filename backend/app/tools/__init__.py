@@ -26,6 +26,7 @@ from app.tools.email_tool import EmailTool
 from app.tools.image_generator import ImageGeneratorTool
 from app.tools.code_runner import CodeRunnerTool
 from app.tools.skill_manager import SkillManagerTool
+from app.tools.local_search import LocalSearchTool
 from app.tools.web_search import WebSearchTool
 
 
@@ -56,6 +57,7 @@ def create_default_registry() -> ToolRegistry:
     if settings.image_api_key:
         registry.register(ImageGeneratorTool())
     registry.register(CodeRunnerTool())
+    registry.register(LocalSearchTool())
     return registry
 
 
@@ -80,6 +82,7 @@ __all__ = [
     "CodeRunnerTool",
     "SafetyGuard",
     "SafetyLevel",
+    "LocalSearchTool",
     "SafetyResult",
     "create_default_registry",
 ]

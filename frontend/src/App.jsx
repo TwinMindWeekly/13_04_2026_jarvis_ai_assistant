@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PanelLeft } from 'lucide-react'
 import JarvisOrb from './components/JarvisOrb'
@@ -54,8 +54,6 @@ export default function App() {
   // Streaming TTS: speak sentence-by-sentence as text arrives (WS path)
   const spokenIndexRef = useRef(0)
   const lastSpokenMsgCount = useRef(0)
-  // Sync flag — set immediately when TTS starts, before React re-renders
-  const [voiceRevealing, setVoiceRevealing] = useState(false)
 
   useEffect(() => {
     if (settings.voiceEnabled === false) return
@@ -76,32 +74,16 @@ export default function App() {
     }
   }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fallback TTS: useLayoutEffect runs BEFORE browser paint — no full text flash
-  useLayoutEffect(() => {
+  // REST fallback TTS: speak full message as a single utterance
+  useEffect(() => {
     if (settings.voiceEnabled === false) return
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
     if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
-      // Set revealing flag SYNCHRONOUSLY — same batch as this render
-      setVoiceRevealing(true)
-      voice.prepareReveal(last.content)
-      const sentences = last.content.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [last.content]
-      sentences.forEach((sentence, i) => {
-        const trimmed = sentence.trim()
-        if (trimmed.length > 1) {
-          voice.speak(trimmed, settings.ttsVoice, { append: i > 0 })
-        }
-      })
+      voice.speak(last.content, settings.ttsVoice)
     }
     lastSpokenMsgCount.current = messages.length
   }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Clear voiceRevealing when TTS finishes
-  useEffect(() => {
-    if (voiceRevealing && !voice.isSpeaking) {
-      setVoiceRevealing(false)
-    }
-  }, [voice.isSpeaking, voiceRevealing])
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
@@ -159,11 +141,8 @@ export default function App() {
     })
   }, [])
 
-  // Voice reveal: only for non-streaming (fallback) path.
-  // voiceRevealing is set synchronously in useLayoutEffect (no flash);
-  // voice.isSpeaking covers the active speech phase.
-  // !streamingText ensures the streaming path shows text as-is (SSE is already progressive).
-  const voiceRevealActive = settings.voiceEnabled !== false && !streamingText && (voiceRevealing || voice.isSpeaking)
+  // Speaking char index for paragraph highlighting in MessageBubble
+  const speakingCharIndex = (settings.voiceEnabled !== false && voice.isSpeaking) ? voice.speakingCharIndex : -1
 
   return (
     <div className="d-flex" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
@@ -247,10 +226,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={voiceRevealActive ? messages.slice(0, -1) : messages}
+              messages={messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={voiceRevealActive ? (voice.revealedText || '') : streamingText}
+              streamingText={streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}
@@ -261,6 +240,7 @@ export default function App() {
               onDocApplied={() => setEditorRefreshKey((k) => k + 1)}
               voiceEnabled={settings.voiceEnabled !== false}
               onToggleVoice={handleToggleVoice}
+              speakingCharIndex={speakingCharIndex}
             />
           </main>
         </div>

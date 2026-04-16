@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
  * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (SpeechSynthesis)
  *
  * STT: Listens via microphone, returns transcript, auto-sends on silence.
- * TTS: Reads text aloud using browser SpeechSynthesis.
+ * TTS: Reads text aloud using browser SpeechSynthesis with multilingual
+ *       voice switching (Vietnamese / English) and paragraph-level tracking.
  *
  * Browser support: Chrome, Edge (full), Safari (partial), Firefox (no STT).
  */
@@ -14,6 +15,58 @@ const SpeechRecognition =
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null
 
+// Vietnamese diacritical characters for language detection
+const _VI_CHARS = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/
+
+/**
+ * Split text into language segments (Vietnamese / English).
+ * Short segments (< 3 words) merge into neighbors to reduce choppiness.
+ * Concatenation of all segment texts equals the original text.
+ */
+function _splitByLanguage(text) {
+  const parts = text.match(/\S+\s*/g)
+  if (!parts) return [{ text, lang: 'en' }]
+
+  const raw = []
+  let curLang = null, curText = '', curWords = 0
+  for (const part of parts) {
+    const lang = _VI_CHARS.test(part) ? 'vi' : 'en'
+    if (curLang === null || lang === curLang) {
+      curLang = lang; curText += part; curWords++
+    } else {
+      raw.push({ text: curText, lang: curLang, words: curWords })
+      curLang = lang; curText = part; curWords = 1
+    }
+  }
+  if (curText) raw.push({ text: curText, lang: curLang || 'en', words: curWords })
+  if (raw.length <= 1) return raw
+
+  // Merge short segments (< 3 words) into previous to reduce voice-switching choppiness
+  const merged = [raw[0]]
+  for (let i = 1; i < raw.length; i++) {
+    if (raw[i].words < 3) {
+      const prev = merged[merged.length - 1]
+      prev.text += raw[i].text
+      prev.words += raw[i].words
+    } else {
+      merged.push(raw[i])
+    }
+  }
+  if (merged.length > 1 && merged[0].words < 3) {
+    merged[1].text = merged[0].text + merged[1].text
+    merged[1].words += merged[0].words
+    merged.shift()
+  }
+  return merged
+}
+
+/** Find the best available voice for a language code. */
+function _findVoiceForLang(langCode, voices) {
+  const prefix = langCode.slice(0, 2).toLowerCase()
+  const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(prefix))
+  return matching.find((v) => v.localService) || matching[0] || null
+}
+
 export function useVoice({ language = 'en-US', onTranscript, enabled = true } = {}) {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -21,18 +74,17 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const [sttSupported] = useState(() => !!SpeechRecognition)
   const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
   const [availableVoices, setAvailableVoices] = useState([])
-  // Voice-synced text reveal: how many chars of the current speech have been spoken
-  const [revealedText, setRevealedText] = useState('')
+  // True when no voice matches the current language (e.g. Vietnamese voice not installed)
+  const [voiceMissing, setVoiceMissing] = useState(false)
+  // Speaking position: character index in the full queued text that TTS has reached
+  const [speakingCharIndex, setSpeakingCharIndex] = useState(-1)
   const fullSpeechTextRef = useRef('')
-  const revealOffsetRef = useRef(0)
-  const fallbackTimerRef = useRef(null)
-  const boundaryFiredRef = useRef(false)
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
 
-  // Load available TTS voices
+  // Load available TTS voices and check if current language is supported
   useEffect(() => {
     if (!ttsSupported) return
 
@@ -40,6 +92,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       const voices = window.speechSynthesis.getVoices()
       if (voices.length > 0) {
         setAvailableVoices(voices)
+        const prefix = language.slice(0, 2).toLowerCase()
+        const hasMatch = voices.some((v) => v.lang.toLowerCase().startsWith(prefix))
+        setVoiceMissing(!hasMatch)
       }
     }
 
@@ -48,7 +103,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     return () => {
       window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
     }
-  }, [ttsSupported])
+  }, [ttsSupported, language])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -60,9 +115,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       if (ttsSupported) {
         window.speechSynthesis.cancel()
       }
-      if (fallbackTimerRef.current) {
-        clearInterval(fallbackTimerRef.current)
-      }
     }
   }, [ttsSupported])
 
@@ -73,8 +125,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     const recognition = new SpeechRecognition()
     recognition.lang = language
     recognition.interimResults = true
-    // continuous=false: stop after one final result so we don't echo-loop
-    // when TTS plays the response back through the speakers
     recognition.continuous = false
     recognition.maxAlternatives = 1
 
@@ -98,7 +148,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
 
       setTranscript(finalText || interimText)
 
-      // Auto-send when we get a final result, then clear transcript
       if (finalText && onTranscriptRef.current) {
         onTranscriptRef.current(finalText.trim())
         setTranscript('')
@@ -111,8 +160,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
     }
 
-    // continuous=false: when recognition ends naturally, just stop.
-    // User must click mic again to record next message — prevents TTS echo loop.
     recognition.onend = () => {
       setIsListening(false)
       recognitionRef.current = null
@@ -126,7 +173,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       const ref = recognitionRef.current
-      recognitionRef.current = null  // signal onend: user stopped intentionally
+      recognitionRef.current = null
       ref.stop()
     }
   }, [])
@@ -140,29 +187,22 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
   }, [isListening, startListening, stopListening])
 
-  // --- TTS: Speak text with word-level reveal ---
-  // append=true: queue utterance without cancelling (streaming TTS)
-  // append=false: cancel current speech, start fresh (REST TTS)
-  // Includes timer-based fallback for browsers that don't fire onboundary events.
+  // --- TTS: Speak text ---
+  // Uses the hook's `language` prop to select voice (matches user's language setting).
+  // Text is shown in full immediately; TTS speaks in the background.
+  // speakingCharIndex tracks the approximate reading position for UI highlighting.
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
       if (!ttsSupported || !enabled || !text) return
 
       if (!append) {
         window.speechSynthesis.cancel()
-        if (fallbackTimerRef.current) {
-          clearInterval(fallbackTimerRef.current)
-          fallbackTimerRef.current = null
-        }
         fullSpeechTextRef.current = text
-        revealOffsetRef.current = 0
-        setRevealedText('\u200b') // truthy placeholder — prevents full text flash
-        boundaryFiredRef.current = false
+        setSpeakingCharIndex(0)
       } else {
         fullSpeechTextRef.current += text
       }
 
-      // Correct offset: where this utterance starts within the full concatenated text
       const utteranceOffset = fullSpeechTextRef.current.length - text.length
 
       const utterance = new SpeechSynthesisUtterance(text)
@@ -170,78 +210,46 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       utterance.rate = 1.0
       utterance.pitch = 1.0
 
+      // Pick voice: always get fresh list (cached list may be empty on first call)
+      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
+      const langPrefix = language.slice(0, 2).toLowerCase()
+      let selectedVoice = null
       if (voiceName) {
-        const v = availableVoices.find((voice) => voice.name === voiceName)
-        if (v) utterance.voice = v
+        const v = voices.find((av) => av.name === voiceName)
+        if (v && v.lang.toLowerCase().startsWith(langPrefix)) selectedVoice = v
       }
-
-      // Pre-compute word-end positions for timer-based fallback
-      const wordEnds = []
-      const wordRegex = /\S+/g
-      let wm
-      while ((wm = wordRegex.exec(text)) !== null) {
-        wordEnds.push(wm.index + wm[0].length)
+      if (!selectedVoice) selectedVoice = _findVoiceForLang(language, voices)
+      if (selectedVoice) {
+        utterance.voice = selectedVoice
+      } else {
+        // Debug: log available voices so we can diagnose
+        console.warn('[TTS] No voice found for', language, '— available:', voices.map((v) => `${v.name} (${v.lang})`))
       }
 
       utterance.onstart = () => {
         setIsSpeaking(true)
-        // Timer fallback: reveal words on a schedule when onboundary is unsupported
-        if (!boundaryFiredRef.current && wordEnds.length > 0) {
-          const msPerWord = 60000 / (150 * (utterance.rate || 1))
-          let wIdx = 0
-          if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current)
-          fallbackTimerRef.current = setInterval(() => {
-            if (boundaryFiredRef.current) {
-              clearInterval(fallbackTimerRef.current)
-              fallbackTimerRef.current = null
-              return
-            }
-            if (wIdx < wordEnds.length) {
-              setRevealedText(fullSpeechTextRef.current.slice(0, utteranceOffset + wordEnds[wIdx]))
-              wIdx++
-            } else {
-              clearInterval(fallbackTimerRef.current)
-              fallbackTimerRef.current = null
-            }
-          }, msPerWord)
-        }
+        setSpeakingCharIndex(utteranceOffset)
       }
 
-      // Word boundary event — reveal text up to the word being spoken
       utterance.onboundary = (event) => {
         if (event.name === 'word') {
-          if (!boundaryFiredRef.current) {
-            boundaryFiredRef.current = true
-            if (fallbackTimerRef.current) {
-              clearInterval(fallbackTimerRef.current)
-              fallbackTimerRef.current = null
-            }
-          }
-          const revealEnd = utteranceOffset + event.charIndex + event.charLength
-          setRevealedText(fullSpeechTextRef.current.slice(0, revealEnd))
+          setSpeakingCharIndex(utteranceOffset + event.charIndex + event.charLength)
         }
       }
 
       utterance.onend = () => {
-        if (fallbackTimerRef.current) {
-          clearInterval(fallbackTimerRef.current)
-          fallbackTimerRef.current = null
-        }
-        // Reveal all text for this utterance
-        revealOffsetRef.current = utteranceOffset + text.length
-        setRevealedText(fullSpeechTextRef.current.slice(0, revealOffsetRef.current))
+        setSpeakingCharIndex(utteranceOffset + text.length)
         if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
           setIsSpeaking(false)
-          setRevealedText('') // Clear — full text is in messages now
+          setSpeakingCharIndex(-1)
+          fullSpeechTextRef.current = ''
         }
       }
+
       utterance.onerror = () => {
-        if (fallbackTimerRef.current) {
-          clearInterval(fallbackTimerRef.current)
-          fallbackTimerRef.current = null
-        }
         setIsSpeaking(false)
-        setRevealedText('')
+        setSpeakingCharIndex(-1)
+        fullSpeechTextRef.current = ''
       }
 
       window.speechSynthesis.speak(utterance)
@@ -249,26 +257,13 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     [ttsSupported, enabled, language, availableVoices]
   )
 
-  // --- TTS: Prepare reveal before speaking (prevents full text flash) ---
-  const prepareReveal = useCallback((fullText) => {
-    fullSpeechTextRef.current = fullText
-    revealOffsetRef.current = 0
-    setRevealedText('\u200b')
-  }, [])
-
   // --- TTS: Stop speaking ---
   const stopSpeaking = useCallback(() => {
     if (ttsSupported) {
       window.speechSynthesis.cancel()
-      if (fallbackTimerRef.current) {
-        clearInterval(fallbackTimerRef.current)
-        fallbackTimerRef.current = null
-      }
       setIsSpeaking(false)
-      setRevealedText('')
+      setSpeakingCharIndex(-1)
       fullSpeechTextRef.current = ''
-      revealOffsetRef.current = 0
-      boundaryFiredRef.current = false
     }
   }, [ttsSupported])
 
@@ -287,7 +282,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     stopSpeaking,
     ttsSupported,
     availableVoices,
-    revealedText,
-    prepareReveal,
+    speakingCharIndex,
+    voiceMissing,
   }
 }

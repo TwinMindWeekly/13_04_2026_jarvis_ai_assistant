@@ -1,5 +1,12 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from pydantic import Field
+
+# Load .env with override=True so project .env always wins over system env vars
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(_env_path, override=True)
 
 
 class Settings(BaseSettings):
@@ -27,7 +34,7 @@ class Settings(BaseSettings):
 
     # Per-provider default models
     openai_model: str = "gpt-4o-mini"
-    gemini_model: str = "gemini-3.1-pro-high"
+    gemini_model: str = "gemini-3-flash"
     claude_model: str = "claude-sonnet-4-6"
 
     # Groq (free tier: 1000 req/day, Llama 3.3 70B with tool calling)
