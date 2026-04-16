@@ -37,8 +37,31 @@ export default function GraphPage({ onBack, settings }) {
   // Dedicated agent instance for the graph chat (independent conversation).
   const graphAgent = useAgent(settings.provider, settings.model)
 
-  // Voice disabled inside graph chat (keeps UI focused on document discovery).
-  const voice = useVoice({ language: 'en-US', enabled: false })
+  const [graphVoiceEnabled, setGraphVoiceEnabled] = useState(settings.voiceEnabled !== false)
+  const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
+  const voice = useVoice({ language: voiceLang, enabled: graphVoiceEnabled })
+
+  const handleToggleGraphVoice = useCallback(() => {
+    setGraphVoiceEnabled((prev) => {
+      if (prev) voice.stopSpeaking()
+      return !prev
+    })
+  }, [voice])
+
+  const speakingCharIndex = graphVoiceEnabled && voice.isSpeaking ? voice.speakingCharIndex : -1
+
+  // TTS: auto-speak new assistant messages
+  const lastSpokenCount = useRef(0)
+  useEffect(() => {
+    if (!graphVoiceEnabled) return
+    const msgs = graphAgent.messages
+    if (msgs.length === 0 || msgs.length <= lastSpokenCount.current) return
+    const last = msgs[msgs.length - 1]
+    if (last.role === 'assistant' && last.content) {
+      voice.speak(last.content, '')
+    }
+    lastSpokenCount.current = msgs.length
+  }, [graphAgent.messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectNode = useCallback((node) => {
     setSelected(node)
@@ -220,6 +243,9 @@ export default function GraphPage({ onBack, settings }) {
                 onSendMessage={graphAgent.sendMessage}
                 onClear={graphAgent.clearMessages}
                 voice={voice}
+                voiceEnabled={graphVoiceEnabled}
+                onToggleVoice={handleToggleGraphVoice}
+                speakingCharIndex={speakingCharIndex}
                 suggestionChips={suggestionChips}
                 emptyTitle={t('graph.chatEmptyTitle', 'Explore your knowledge')}
               />
