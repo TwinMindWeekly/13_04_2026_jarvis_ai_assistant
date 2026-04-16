@@ -56,12 +56,15 @@ def _build_llm(provider: str, model: str = ""):
         if not settings.anthropic_api_key:
             raise ProviderAuthError("claude")
         if settings.anthropic_base_url:
-            # Proxy mode: route through Anthropic-compatible endpoint
-            from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
-            return ChatAnthropic(
+            # Proxy mode: route through OpenAI-compatible endpoint.
+            # Antigravity and similar proxies use OpenAI protocol for all
+            # providers, so we must use ChatOpenAI (not ChatAnthropic) to
+            # get proper tool calling support.
+            from langchain_openai import ChatOpenAI  # noqa: PLC0415
+            return ChatOpenAI(
                 model=model or settings.claude_model,
+                base_url=settings.anthropic_base_url + "/v1",
                 api_key=settings.anthropic_api_key,
-                anthropic_api_url=settings.anthropic_base_url,
                 temperature=0,
             )
         from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
