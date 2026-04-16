@@ -54,6 +54,14 @@ export default function GraphCanvas({
     prevNodeIdsRef.current = currentIds
   }, [data.nodes])
 
+  // Configure force simulation — spread nodes out more (Obsidian-like)
+  useEffect(() => {
+    const fg = fgRef.current
+    if (!fg) return
+    fg.d3Force('link')?.distance(150)
+    fg.d3Force('charge')?.strength(-300).distanceMax(500)
+  }, [data])
+
   // Resize canvas to container using ResizeObserver (detects panel resizes too).
   useEffect(() => {
     const el = containerRef.current

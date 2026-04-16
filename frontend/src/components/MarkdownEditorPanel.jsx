@@ -127,6 +127,11 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onW
     try {
       await vaultAPI.save(selected.id, content)
       setSavedContent(content)
+      // Notify parent of wikilink changes + trigger graph refresh
+      if (onWikilinksChange) {
+        const targets = extractWikilinkTargets(content)
+        onWikilinksChange(selected.id, targets)
+      }
       window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       const detail = err.response?.data?.detail || err.message
@@ -148,15 +153,7 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onW
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
-  // Debounced wikilink detection — notify parent when links change during editing
-  useEffect(() => {
-    if (mode !== 'edit' || !content || !onWikilinksChange || !selected) return
-    const timer = setTimeout(() => {
-      const targets = extractWikilinkTargets(content)
-      onWikilinksChange(selected.id, targets)
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [content, mode, selected?.id, onWikilinksChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Wikilink detection on save only — avoids graph re-layout while typing
 
   // ── Empty state ──
   if (!selected) {
