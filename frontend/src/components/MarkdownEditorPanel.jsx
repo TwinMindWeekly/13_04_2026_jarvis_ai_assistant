@@ -121,25 +121,31 @@ export default function MarkdownEditorPanel({ selected, onClose, refreshKey, onW
     }
   }, [mode])
 
+  const prevWikilinksRef = useRef([])
+
   const handleSave = useCallback(async () => {
     if (!selected || !hasChanges || saving) return
     setSaving(true)
     try {
       await vaultAPI.save(selected.id, content)
       setSavedContent(content)
-      // Notify parent of wikilink changes + trigger graph refresh
-      if (onWikilinksChange) {
-        const targets = extractWikilinkTargets(content)
-        onWikilinksChange(selected.id, targets)
+      // Only update graph if wikilinks actually changed
+      const newTargets = extractWikilinkTargets(content)
+      const prevTargets = prevWikilinksRef.current
+      const changed = newTargets.length !== prevTargets.length ||
+        newTargets.some((t, i) => t !== prevTargets[i])
+      prevWikilinksRef.current = newTargets
+      if (changed) {
+        if (onWikilinksChange) onWikilinksChange(selected.id, newTargets)
+        window.dispatchEvent(new CustomEvent('graph:invalidate'))
       }
-      window.dispatchEvent(new CustomEvent('graph:invalidate'))
     } catch (err) {
       const detail = err.response?.data?.detail || err.message
       setError(detail)
     } finally {
       setSaving(false)
     }
-  }, [selected, content, hasChanges, saving])
+  }, [selected, content, hasChanges, saving, onWikilinksChange])
 
   // Ctrl+S / Cmd+S to save.
   useEffect(() => {

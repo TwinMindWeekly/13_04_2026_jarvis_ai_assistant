@@ -150,10 +150,15 @@ export default function GraphCanvas({
       const addedAt = newNodeTimestamps.current[node.id]
       let animAlpha = 1
       if (addedAt) {
-        const t = Math.min(1, (Date.now() - addedAt) / 1000)
-        animAlpha = t
-        radius *= 0.3 + 0.7 * t
-        if (t < 1) fgRef.current?.refresh?.() // keep animating
+        const elapsed = Date.now() - addedAt
+        if (elapsed < 1000) {
+          const t = elapsed / 1000
+          animAlpha = t
+          radius *= 0.3 + 0.7 * t
+        } else {
+          // Animation done — clean up
+          delete newNodeTimestamps.current[node.id]
+        }
       }
 
       ctx.globalAlpha = (dimmed ? 0.15 : 1.0) * animAlpha
