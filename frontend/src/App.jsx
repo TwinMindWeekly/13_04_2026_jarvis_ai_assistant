@@ -73,14 +73,20 @@ export default function App() {
     }
   }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fallback TTS: for REST responses (no streaming), speak full response
+  // Fallback TTS: for REST responses (no streaming), split into sentences and queue
   useEffect(() => {
     if (settings.voiceEnabled === false) return
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
     if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
-      // spokenIndexRef===0 means streaming TTS didn't run → REST path
-      voice.speak(last.content, settings.ttsVoice)
+      // Split into sentences — first sentence speaks immediately, rest queued
+      const sentences = last.content.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [last.content]
+      sentences.forEach((sentence, i) => {
+        const trimmed = sentence.trim()
+        if (trimmed.length > 1) {
+          voice.speak(trimmed, settings.ttsVoice, { append: i > 0 })
+        }
+      })
     }
     lastSpokenMsgCount.current = messages.length
   }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
