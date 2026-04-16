@@ -192,6 +192,13 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     [ttsSupported, enabled, language, availableVoices]
   )
 
+  // --- TTS: Prepare reveal before speaking (prevents full text flash) ---
+  const prepareReveal = useCallback((fullText) => {
+    fullSpeechTextRef.current = fullText
+    revealOffsetRef.current = 0
+    setRevealedText('\u200b')
+  }, [])
+
   // --- TTS: Stop speaking ---
   const stopSpeaking = useCallback(() => {
     if (ttsSupported) {
@@ -219,5 +226,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     ttsSupported,
     availableVoices,
     revealedText,
+    prepareReveal,
   }
 }

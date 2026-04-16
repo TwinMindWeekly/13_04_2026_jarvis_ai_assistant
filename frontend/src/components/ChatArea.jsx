@@ -199,23 +199,31 @@ export default function ChatArea({
         {/* TTS toggle — inline on chat bar */}
         {onToggleVoice && (
           <button
-            className="voice-toggle-btn"
-            onClick={onToggleVoice}
-            aria-label={voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
-            title={voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
+            className={`voice-toggle-btn${voice.isSpeaking ? ' speaking' : ''}`}
+            onClick={voice.isSpeaking ? voice.stopSpeaking : onToggleVoice}
+            aria-label={voice.isSpeaking ? 'Dừng nói' : voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
+            title={voice.isSpeaking ? 'Dừng nói' : voiceEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
             style={{
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               padding: '6px',
-              borderRadius: 8,
+              borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
-              color: voiceEnabled ? 'var(--accent)' : 'var(--text-muted)',
+              justifyContent: 'center',
+              position: 'relative',
+              color: voice.isSpeaking ? 'var(--accent)' : voiceEnabled ? 'var(--accent)' : 'var(--text-muted)',
               transition: 'color 0.2s',
             }}
           >
             {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {voice.isSpeaking && (
+              <>
+                <span className="voice-pulse-ring" />
+                <span className="voice-pulse-ring delay" />
+              </>
+            )}
           </button>
         )}
 

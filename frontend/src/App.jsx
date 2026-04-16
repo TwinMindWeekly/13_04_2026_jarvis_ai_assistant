@@ -79,6 +79,8 @@ export default function App() {
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
     if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
+      // Prepare reveal FIRST — makes revealedText truthy before React renders
+      voice.prepareReveal(last.content)
       // Split into sentences — first sentence speaks immediately, rest queued
       const sentences = last.content.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [last.content]
       sentences.forEach((sentence, i) => {
