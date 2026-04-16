@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     wikilink_provider: str = "ollama"
     wikilink_model: str = "huihui_ai/llama3.2-abliterate:3b"
 
+    # Email (IMAP/SMTP)
+    imap_host: str = ""
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_password: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    email_from_name: str = "JARVIS"
+
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
 

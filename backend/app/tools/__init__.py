@@ -22,6 +22,7 @@ from app.tools.web_browser import WebBrowserTool
 from app.tools.shell_exec import ShellExecTool
 from app.tools.clipboard import ClipboardTool
 from app.tools.system_notification import SystemNotificationTool
+from app.tools.email_tool import EmailTool
 from app.tools.skill_manager import SkillManagerTool
 from app.tools.web_search import WebSearchTool
 
@@ -53,6 +54,7 @@ def create_default_registry() -> ToolRegistry:
     registry.register(ShellExecTool())
     registry.register(ClipboardTool())
     registry.register(SystemNotificationTool())
+    registry.register(EmailTool())
     return registry
 
 
@@ -72,6 +74,7 @@ __all__ = [
     "ShellExecTool",
     "ClipboardTool",
     "SystemNotificationTool",
+    "EmailTool",
     "SafetyGuard",
     "SafetyLevel",
     "SafetyResult",
