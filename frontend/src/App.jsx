@@ -54,6 +54,8 @@ export default function App() {
   // Streaming TTS: speak sentence-by-sentence as text arrives (WS path)
   const spokenIndexRef = useRef(0)
   const lastSpokenMsgCount = useRef(0)
+  // Sync flag — set immediately when TTS starts, before React re-renders
+  const [voiceRevealing, setVoiceRevealing] = useState(false)
 
   useEffect(() => {
     if (settings.voiceEnabled === false) return
@@ -80,9 +82,9 @@ export default function App() {
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
     if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
-      // Prepare reveal FIRST — makes revealedText truthy before React renders
+      // Set revealing flag SYNCHRONOUSLY — same batch as this render
+      setVoiceRevealing(true)
       voice.prepareReveal(last.content)
-      // Split into sentences — first sentence speaks immediately, rest queued
       const sentences = last.content.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [last.content]
       sentences.forEach((sentence, i) => {
         const trimmed = sentence.trim()
@@ -93,6 +95,13 @@ export default function App() {
     }
     lastSpokenMsgCount.current = messages.length
   }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear voiceRevealing when TTS finishes
+  useEffect(() => {
+    if (voiceRevealing && !voice.isSpeaking) {
+      setVoiceRevealing(false)
+    }
+  }, [voice.isSpeaking, voiceRevealing])
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
@@ -232,10 +241,10 @@ export default function App() {
             </header>
 
             <ChatArea
-              messages={voice.isSpeaking ? messages.slice(0, -1) : messages}
+              messages={voiceRevealing ? messages.slice(0, -1) : messages}
               actions={actions}
               isLoading={isLoading}
-              streamingText={voice.isSpeaking ? (voice.revealedText || '') : streamingText}
+              streamingText={voiceRevealing ? (voice.revealedText || '') : streamingText}
               error={error}
               onSendMessage={sendMessage}
               onCancel={cancelRequest}
