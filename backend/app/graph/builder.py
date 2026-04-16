@@ -123,7 +123,7 @@ async def build_document_graph() -> GraphData:
         nodes.append(
             GraphNode(
                 id=doc.get("id", ""),
-                label=filename,
+                label=filename.removesuffix(".md") if filename.endswith(".md") else filename,
                 folder=_folder_of(doc),
                 chunks_count=int(doc.get("chunks_count", 0)),
                 size_bytes=int(doc.get("size_bytes", 0)),
