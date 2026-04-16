@@ -1,7 +1,7 @@
-"""App launcher tool — opens applications on the host OS.
+"""App launcher tool — opens applications or URLs on the host OS.
 
-Supports whitelisted names and auto-resolves executables via PATH / registry
-when the exact name isn't in the whitelist.
+Supports whitelisted app names, auto-resolves executables via PATH / registry,
+and opens URLs in the user's default browser.
 """
 
 import asyncio
@@ -9,6 +9,7 @@ import logging
 import os
 import platform
 import subprocess
+import webbrowser
 from typing import Any
 
 from app.tools.base import BaseTool, ToolResult
@@ -87,6 +88,19 @@ def _find_windows_app(name: str) -> str | None:
     return None
 
 
+def _is_url(text: str) -> bool:
+    """Check if text looks like a URL."""
+    return text.startswith(("http://", "https://", "www."))
+
+
+def _open_url(url: str) -> str:
+    """Open a URL in the user's default browser."""
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    webbrowser.open(url)
+    return f"Opened in default browser: {url}"
+
+
 def _launch_app(cmd: str) -> str:
     """Launch an application process synchronously.
 
@@ -112,10 +126,11 @@ class AppLauncherTool(BaseTool):
 
     name = "app_launcher"
     description = (
-        "Launch an application on the user's computer. "
-        "Pass the app name (e.g. 'notepad', 'edge', 'calc', 'firefox'). "
-        "The tool auto-resolves the executable path on the system. "
-        "For websites, use browser_control instead."
+        "Launch an application or open a URL on the user's computer. "
+        "Pass an app name (e.g. 'notepad', 'edge', 'calc') to launch it, "
+        "or pass a URL (e.g. 'https://youtube.com') to open it in the "
+        "user's DEFAULT browser. Always use this for opening websites "
+        "the user wants to SEE (not for scraping)."
     )
     parameters = {
         "type": "object",
@@ -123,8 +138,8 @@ class AppLauncherTool(BaseTool):
             "app": {
                 "type": "string",
                 "description": (
-                    "App name to launch, e.g. 'notepad', 'edge', 'calc'. "
-                    "Can be a whitelisted name or any executable on the system."
+                    "App name (e.g. 'notepad', 'edge', 'calc') OR a URL "
+                    "(e.g. 'https://youtube.com'). URLs open in the default browser."
                 ),
             },
         },
@@ -140,9 +155,21 @@ class AppLauncherTool(BaseTool):
         3. (Windows) Search common install locations
         """
         logger.info("AppLauncherTool executing — app=%s", app)
-        app_key = app.lower().strip()
+        app_key = app.strip()
 
         try:
+            # URL detection — open in default browser, no whitelist needed
+            if _is_url(app_key):
+                result_msg = await asyncio.to_thread(_open_url, app_key)
+                logger.info("AppLauncherTool opened URL — %s", app_key)
+                return ToolResult(
+                    success=True,
+                    data=result_msg,
+                    metadata={"type": "url", "url": app_key},
+                )
+
+            app_key = app_key.lower()
+
             # Safety guard — only whitelisted apps are allowed.
             safety = SafetyGuard.check_app_launch(app)
             if not safety.allowed:
