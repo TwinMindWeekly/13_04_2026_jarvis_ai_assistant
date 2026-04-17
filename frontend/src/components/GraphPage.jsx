@@ -49,7 +49,7 @@ export default function GraphPage({ onBack, settings, externalSelectedDoc, onExt
     })
   }, [voice])
 
-  const speakingCharIndex = graphVoiceEnabled && voice.isSpeaking ? voice.speakingCharIndex : -1
+  const speakingParagraphIndex = graphVoiceEnabled && voice.isSpeaking ? voice.speakingParagraphIndex : -1
 
   // TTS: auto-speak new assistant messages
   const lastSpokenCount = useRef(0)
@@ -282,7 +282,7 @@ export default function GraphPage({ onBack, settings, externalSelectedDoc, onExt
                 voice={voice}
                 voiceEnabled={graphVoiceEnabled}
                 onToggleVoice={handleToggleGraphVoice}
-                speakingCharIndex={speakingCharIndex}
+                speakingParagraphIndex={speakingParagraphIndex}
                 suggestionChips={suggestionChips}
                 emptyTitle={t('graph.chatEmptyTitle', 'Explore your knowledge')}
               />

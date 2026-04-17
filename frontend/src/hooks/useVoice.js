@@ -19,7 +19,9 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [sttSupported] = useState(() => !!SpeechRecognition)
-  const [speakingCharIndex, setSpeakingCharIndex] = useState(-1)
+  // Index of the markdown paragraph currently being spoken (-1 when idle).
+  // Indexing against markdown source — not stripped text — so highlight aligns with rendered paragraphs.
+  const [speakingParagraphIndex, setSpeakingParagraphIndex] = useState(-1)
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
@@ -27,8 +29,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
 
   // TTS playback state
   const audioRef = useRef(null)
-  const queueRef = useRef([])         // [{text, offset, blobPromise}]
-  const fullTextRef = useRef('')
+  const queueRef = useRef([])         // [{text, paragraphIndex, blobPromise}]
   const processingRef = useRef(false)
   const generationRef = useRef(0)     // cancel token
   const controllersRef = useRef([])   // AbortControllers for in-flight fetches
@@ -57,8 +58,8 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     const gen = generationRef.current
 
     while (queueRef.current.length > 0 && generationRef.current === gen) {
-      const { text, offset, blobPromise } = queueRef.current.shift()
-      setSpeakingCharIndex(offset)
+      const { paragraphIndex, blobPromise } = queueRef.current.shift()
+      setSpeakingParagraphIndex(paragraphIndex)
 
       try {
         // Wait for the pre-fired fetch to resolve
@@ -71,21 +72,11 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
 
         await new Promise((resolve) => {
           const done = () => { URL.revokeObjectURL(url); resolve() }
-          audio.ontimeupdate = () => {
-            if (audio.duration > 0 && generationRef.current === gen) {
-              const progress = audio.currentTime / audio.duration
-              setSpeakingCharIndex(offset + Math.floor(progress * text.length))
-            }
-          }
           audio.onended = done
           audio.onerror = done
           audio.onpause = done
           audio.play().catch(done)
         })
-
-        if (generationRef.current === gen) {
-          setSpeakingCharIndex(offset + text.length)
-        }
       } catch {
         // fetch aborted or failed — skip to next
       }
@@ -94,8 +85,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     if (generationRef.current === gen) {
       processingRef.current = false
       setIsSpeaking(false)
-      setSpeakingCharIndex(-1)
-      fullTextRef.current = ''
+      setSpeakingParagraphIndex(-1)
       controllersRef.current = []
     }
   }, [])
@@ -182,8 +172,10 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   }, [isListening, startListening, stopListening])
 
   // ── TTS: Speak — fires fetch immediately, queues for sequential playback ──
+  // `paragraphIndex`: index of the markdown paragraph this chunk represents,
+  // so UI can highlight the correct rendered paragraph regardless of markdown stripping.
   const speak = useCallback(
-    (text, voiceName, { append = false } = {}) => {
+    (text, voiceName, { append = false, paragraphIndex = 0 } = {}) => {
       if (!enabled || !text) return
 
       const voiceId = voiceName || ''
@@ -198,21 +190,17 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         controllersRef.current.forEach((c) => c.abort())
         controllersRef.current = []
         queueRef.current = []
-        fullTextRef.current = text
         processingRef.current = false
 
         const blobPromise = _startFetch(text, voiceId)
-        queueRef.current.push({ text, offset: 0, blobPromise })
-        setSpeakingCharIndex(0)
+        queueRef.current.push({ text, paragraphIndex, blobPromise })
+        setSpeakingParagraphIndex(paragraphIndex)
         setIsSpeaking(true)
         processQueue()
       } else {
-        fullTextRef.current += text
-        const offset = fullTextRef.current.length - text.length
-
         // Fire fetch immediately — don't wait for earlier items to finish
         const blobPromise = _startFetch(text, voiceId)
-        queueRef.current.push({ text, offset, blobPromise })
+        queueRef.current.push({ text, paragraphIndex, blobPromise })
 
         if (!processingRef.current) {
           setIsSpeaking(true)
@@ -234,8 +222,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     queueRef.current = []
     processingRef.current = false
     setIsSpeaking(false)
-    setSpeakingCharIndex(-1)
-    fullTextRef.current = ''
+    setSpeakingParagraphIndex(-1)
   }, [])
 
   return {
@@ -243,7 +230,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     isSpeaking, speak, stopSpeaking,
     ttsSupported: true,
     availableVoices: [],
-    speakingCharIndex,
+    speakingParagraphIndex,
     voiceMissing: false,
   }
 }

@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     default_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # VieNeu-TTS device: "cpu" (default), "cuda", "mps", "gpu"
+    # GPU requires CUDA-enabled llama-cpp-python wheel (the default Windows wheel is CPU-only)
+    vieneu_device: str = "cpu"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

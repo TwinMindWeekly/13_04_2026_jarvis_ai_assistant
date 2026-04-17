@@ -78,23 +78,15 @@ function InlineActions({ actions }) {
 }
 
 /**
- * Split content into paragraphs and determine which one is being spoken.
- * Returns array of { text, active } where active means TTS is reading this paragraph.
+ * Split content into paragraphs and mark the one currently being spoken.
+ * Indices align with the paragraphs produced by App.jsx before TTS dispatch.
  */
-function splitParagraphs(content, speakingCharIndex) {
+function splitParagraphs(content, speakingParagraphIndex) {
   const paragraphs = content.split(/\n\n+/)
-  if (speakingCharIndex < 0) {
-    return paragraphs.map((text) => ({ text, active: false }))
-  }
-
-  let charPos = 0
-  return paragraphs.map((text) => {
-    const start = charPos
-    const end = charPos + text.length
-    charPos = end + 2 // +2 for the \n\n separator
-    const active = speakingCharIndex >= start && speakingCharIndex < end + 2
-    return { text, active }
-  })
+  return paragraphs.map((text, i) => ({
+    text,
+    active: i === speakingParagraphIndex,
+  }))
 }
 
 // Custom ReactMarkdown components that linkify file paths in text nodes
@@ -120,11 +112,11 @@ function renderWithFilePaths(children) {
   return children
 }
 
-function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 }) {
+function MessageBubble({ message, isStreaming = false, speakingParagraphIndex = -1 }) {
   const isUser = message.role === 'user'
   const actionCount = message.actions?.length ?? 0
   const label = isUser ? 'You' : 'JARVIS'
-  const hasSpeaking = !isUser && speakingCharIndex >= 0
+  const hasSpeaking = !isUser && speakingParagraphIndex >= 0
 
   return (
     <motion.div
@@ -165,7 +157,7 @@ function MessageBubble({ message, isStreaming = false, speakingCharIndex = -1 })
               className="markdown-content"
               style={{ fontSize: '1rem', lineHeight: 1.75, color: 'var(--text-primary)' }}
             >
-              {splitParagraphs(message.content, speakingCharIndex).map((para, i) => (
+              {splitParagraphs(message.content, speakingParagraphIndex).map((para, i) => (
                 <div key={i} className={para.active ? 'speaking-paragraph' : ''}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{para.text}</ReactMarkdown>
                 </div>

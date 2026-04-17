@@ -74,9 +74,22 @@ def get_tts():
             return _tts_instance
 
         from vieneu import Vieneu
+        from app.core.config import settings
 
-        logger.info("Initializing VieNeu-TTS (turbo mode, CPU)…")
-        _tts_instance = Vieneu()
+        device = (settings.vieneu_device or "cpu").lower()
+        logger.info("Initializing VieNeu-TTS (turbo mode, device=%s)…", device)
+        try:
+            _tts_instance = Vieneu(mode="turbo", device=device)
+        except Exception as exc:
+            # GPU init can fail if the installed llama-cpp-python wheel lacks CUDA support.
+            if device != "cpu":
+                logger.warning(
+                    "VieNeu-TTS init failed on device=%s (%s) — falling back to CPU.",
+                    device, exc,
+                )
+                _tts_instance = Vieneu(mode="turbo", device="cpu")
+            else:
+                raise
         logger.info("VieNeu-TTS ready.")
         return _tts_instance
 

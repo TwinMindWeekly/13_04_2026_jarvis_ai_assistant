@@ -24,7 +24,7 @@ export default function ChatArea({
   emptyTitle = null,
   voiceEnabled = false,
   onToggleVoice,
-  speakingCharIndex = -1,
+  speakingParagraphIndex = -1,
 }) {
   const { t } = useTranslation()
   const [appliedIdx, setAppliedIdx] = useState(null)
@@ -101,10 +101,10 @@ export default function ChatArea({
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => {
             const isLastAssistant = msg.role === 'assistant' && idx === messages.length - 1
-            const charIdx = isLastAssistant ? speakingCharIndex : -1
+            const paraIdx = isLastAssistant ? speakingParagraphIndex : -1
             return (
             <div key={idx}>
-              <MessageBubble message={msg} isStreaming={false} speakingCharIndex={charIdx} />
+              <MessageBubble message={msg} isStreaming={false} speakingParagraphIndex={paraIdx} />
               {msg.role === 'assistant' && selectedDoc && (
                 <div style={{ maxWidth: 768, margin: '0 auto', padding: '0 24px' }}>
                   <button

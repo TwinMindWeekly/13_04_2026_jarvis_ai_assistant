@@ -72,47 +72,47 @@ export default function App() {
     enabled: settings.voiceEnabled !== false,
   })
 
-  // Streaming TTS: speak line-by-line as text arrives (WS path)
-  const spokenLineCountRef = useRef(0)
-  const streamDidSpeakRef = useRef(false)
+  // Streaming TTS: speak paragraph-by-paragraph as text arrives (WS path).
+  // Indexing in markdown coordinates so the highlight lines up with rendered paragraphs.
+  const spokenParagraphCountRef = useRef(0)
   const lastSpokenMsgCount = useRef(0)
+
+  const speakParagraphRange = useCallback((markdown, startIndex, endIndex) => {
+    const paragraphs = markdown.split(/\n\n+/)
+    const end = Math.min(endIndex, paragraphs.length)
+    for (let i = startIndex; i < end; i++) {
+      const stripped = stripMarkdown(paragraphs[i]).trim()
+      if (stripped.length > 2) {
+        voice.speak(stripped, settings.ttsVoice, { append: true, paragraphIndex: i })
+      }
+    }
+  }, [voice, settings.ttsVoice])
 
   useEffect(() => {
     if (settings.voiceEnabled === false) return
-    if (!streamingText) return  // DON'T reset counter — REST fallback needs it
+    if (!streamingText) return
 
-    const clean = stripMarkdown(streamingText)
-    const lines = clean.split('\n').filter((l) => l.trim().length > 2)
-
-    // Speak new complete lines (all except last which may still be streaming)
-    const completeLines = clean.endsWith('\n') ? lines : lines.slice(0, -1)
-    for (let i = spokenLineCountRef.current; i < completeLines.length; i++) {
-      voice.speak(completeLines[i].trim(), settings.ttsVoice, { append: true })
-      streamDidSpeakRef.current = true
+    const paragraphs = streamingText.split(/\n\n+/)
+    // Last paragraph may still be streaming — only speak it if message ends with \n\n.
+    const completeCount = /\n\n+\s*$/.test(streamingText) ? paragraphs.length : paragraphs.length - 1
+    if (completeCount > spokenParagraphCountRef.current) {
+      speakParagraphRange(streamingText, spokenParagraphCountRef.current, completeCount)
+      spokenParagraphCountRef.current = completeCount
     }
-    spokenLineCountRef.current = Math.max(spokenLineCountRef.current, completeLines.length)
-  }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [streamingText, settings.voiceEnabled, speakParagraphRange])
 
-  // When message completes: speak remaining lines streaming didn't cover
+  // When message completes: speak any paragraphs streaming didn't cover.
   useEffect(() => {
     if (settings.voiceEnabled === false) return
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
     if (last.role === 'assistant' && last.content) {
-      const clean = stripMarkdown(last.content)
-      const lines = clean.split('\n').filter((l) => l.trim().length > 2)
-
-      const start = spokenLineCountRef.current  // lines already spoken by streaming
-      const remaining = lines.slice(start)
-      remaining.forEach((line) => {
-        // Always append — never cancel ongoing playback from streaming
-        voice.speak(line.trim(), settings.ttsVoice, { append: true })
-      })
+      const total = last.content.split(/\n\n+/).length
+      speakParagraphRange(last.content, spokenParagraphCountRef.current, total)
     }
     lastSpokenMsgCount.current = messages.length
-    streamDidSpeakRef.current = false
-    spokenLineCountRef.current = 0  // reset for next message
-  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+    spokenParagraphCountRef.current = 0  // reset for next message
+  }, [messages.length, settings.voiceEnabled, speakParagraphRange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (settings.language && i18n.language !== settings.language) {
@@ -175,8 +175,8 @@ export default function App() {
     })
   }, [])
 
-  // Speaking char index for paragraph highlighting in MessageBubble
-  const speakingCharIndex = (settings.voiceEnabled !== false && voice.isSpeaking) ? voice.speakingCharIndex : -1
+  // Paragraph index for TTS highlight in MessageBubble (-1 when not speaking)
+  const speakingParagraphIndex = (settings.voiceEnabled !== false && voice.isSpeaking) ? voice.speakingParagraphIndex : -1
 
   return (
     <div className="d-flex" style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg-main)' }}>
@@ -276,7 +276,7 @@ export default function App() {
               onDocApplied={() => setEditorRefreshKey((k) => k + 1)}
               voiceEnabled={settings.voiceEnabled !== false}
               onToggleVoice={handleToggleVoice}
-              speakingCharIndex={speakingCharIndex}
+              speakingParagraphIndex={speakingParagraphIndex}
             />
           </main>
         </div>
