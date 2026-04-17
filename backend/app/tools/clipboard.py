@@ -167,7 +167,14 @@ def _set_clipboard_image(raw: bytes) -> None:
     the DIB payload, and set CF_DIB. This is the canonical Win32 way to put
     an image on the clipboard so any app (Word, Paint, Photos…) can paste it.
     """
-    import win32clipboard  # noqa: PLC0415
+    try:
+        import win32clipboard  # noqa: PLC0415
+    except ImportError as exc:
+        raise RuntimeError(
+            "pywin32 is required for clipboard image writes. "
+            "Run `pip install pywin32` inside backend/venv and restart the server "
+            "(uvicorn --reload does not re-scan installed packages, only source files)."
+        ) from exc
     from PIL import Image  # noqa: PLC0415
 
     img = Image.open(io.BytesIO(raw))
