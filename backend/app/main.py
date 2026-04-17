@@ -1,5 +1,15 @@
 """FastAPI application entry point for JARVIS AI Assistant."""
 
+# Force Windows to use ProactorEventLoop BEFORE any other import touches asyncio.
+# Default on Python 3.13 is Proactor, but chromadb/sentence-transformers and
+# uvicorn's reloader sometimes install a Selector policy during their own
+# imports — SelectorEventLoop on Windows does NOT support subprocess operations,
+# which caused shell_exec / code_runner to raise NotImplementedError at runtime.
+import sys as _sys
+if _sys.platform == "win32":
+    import asyncio as _asyncio
+    _asyncio.set_event_loop_policy(_asyncio.WindowsProactorEventLoopPolicy())
+
 import logging
 import logging.config
 from pathlib import Path

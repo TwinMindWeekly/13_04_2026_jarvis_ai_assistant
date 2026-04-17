@@ -20,12 +20,13 @@ reach (e.g. interacting with a dialog button that has no COM equivalent).
 | Create blank Word doc | `office_automation(action="word_new")` |
 | Insert text at cursor | `office_automation(action="word_insert_text", text="…")` |
 | Paste clipboard into doc | `office_automation(action="word_paste")` |
-| Save Word doc | `office_automation(action="word_save_as", path="C:\\…\\out.docx")` |
+| Save Word doc (user gave a path) | `office_automation(action="word_save_as", path="C:\\…\\out.docx")` |
+| Save Word doc (no path given) | `office_automation(action="word_save_as")` — omit path → Desktop/JARVIS-<timestamp>.docx |
 | New Excel workbook | `office_automation(action="excel_new")` |
 | Write a cell | `office_automation(action="excel_write_cell", cell="A1", value="…")` |
-| Save Excel | `office_automation(action="excel_save_as", path="C:\\…\\out.xlsx")` |
+| Save Excel (no path) | `office_automation(action="excel_save_as")` — omit path → Desktop default |
 | New PowerPoint | `office_automation(action="powerpoint_new")` |
-| Save PowerPoint | `office_automation(action="powerpoint_save_as", path="C:\\…\\out.pptx")` |
+| Save PowerPoint (no path) | `office_automation(action="powerpoint_save_as")` — omit path → Desktop default |
 | Take screenshot onto clipboard | `screenshot(to_clipboard=true)` |
 | Put existing image on clipboard | `clipboard(action="write_image", content="<base64>")` |
 | Read image from clipboard | `clipboard(action="read_image")` |
@@ -39,7 +40,7 @@ Four tool calls, no clicks:
 1. `office_automation(action="word_new")`
 2. `screenshot(to_clipboard=true)`
 3. `office_automation(action="word_paste")`
-4. `office_automation(action="word_save_as", path="D:\\screenshot.docx")`
+4. `office_automation(action="word_save_as")` — path omitted → Desktop/JARVIS-<timestamp>.docx
 
 Do NOT use `app_launcher("word")` first — `office_automation` starts Word
 automatically via COM if it's not running.
@@ -49,13 +50,21 @@ automatically via COM if it's not running.
 1. `office_automation(action="excel_new")`
 2. `office_automation(action="excel_write_cell", cell="A1", value="Note title")`
 3. `office_automation(action="excel_write_cell", cell="A2", value="…body…")`
-4. `office_automation(action="excel_save_as", path="D:\\note.xlsx")`
+4. `office_automation(action="excel_save_as")` — path omitted → Desktop default
 
 ### 3. "Screenshot and copy to clipboard for me"
 
 Just one call:
 
 1. `screenshot(to_clipboard=true)` — the user can now Ctrl+V anywhere.
+
+## Anti-patterns (don't do these)
+
+- **Don't** call `code_runner` or `shell_exec` to figure out where the
+  Desktop is, to find `%USERPROFILE%`, or to build a save path. Just omit
+  the `path` argument — `office_automation` defaults to the user's Desktop.
+- **Don't** call `app_launcher("word")` before `office_automation(action="word_new")`.
+  The COM automation starts Word itself.
 
 ## Pitfalls
 
