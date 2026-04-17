@@ -34,6 +34,8 @@ desktop.ini
 frontend/dist/
 frontend/.vite/
 backend/*.db
+backend/*.db-shm
+backend/*.db-wal
 
 # Test
 .coverage

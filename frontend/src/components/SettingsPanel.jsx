@@ -7,9 +7,10 @@ import Tab from 'react-bootstrap/Tab'
 import Nav from 'react-bootstrap/Nav'
 import ProgressBar from 'react-bootstrap/ProgressBar'
 import Badge from 'react-bootstrap/Badge'
-import { CheckCircle, XCircle, Loader2, Wifi, BarChart3, Settings } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Wifi, BarChart3, Settings, Mail } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { chatAPI, usageAPI, ttsAPI } from '../services/api'
+import EmailAccountsSection from './EmailAccountsSection'
 
 const PROVIDER_MODELS = {
   auto: [],
@@ -268,6 +269,11 @@ export default function SettingsPanel({
                 <BarChart3 size={14} /> {t('usage.title', 'Usage')}
               </Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="email" className="d-flex align-items-center gap-1" style={{ fontSize: '0.82rem' }}>
+                <Mail size={14} /> {t('settings.emailTab', 'Email')}
+              </Nav.Link>
+            </Nav.Item>
           </Nav>
 
           <Tab.Content>
@@ -403,6 +409,10 @@ export default function SettingsPanel({
 
             <Tab.Pane eventKey="usage">
               <UsageTab />
+            </Tab.Pane>
+
+            <Tab.Pane eventKey="email">
+              <EmailAccountsSection />
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>

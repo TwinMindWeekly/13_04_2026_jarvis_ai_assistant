@@ -650,3 +650,32 @@ pytest --cov=app --cov-report=term-missing        # coverage report
 cd frontend && npm run test:e2e
 cd frontend && npm run test:e2e:ui                # UI mode
 ```
+
+---
+
+## 12. SQLite persistence layer (Phase 16)
+
+Documents, wikilinks, email accounts, cached email messages, the user profile, and job listings all live in a single SQLite file (`./jarvis.db` by default).
+
+- **Engine** — `app.db.connection.engine` built with `sqlalchemy[asyncio] + aiosqlite`. Every new connection runs `PRAGMA foreign_keys=ON` and `PRAGMA journal_mode=WAL`.
+- **Schema** — `app.db.models.Base.metadata` holds 7 ORM tables (`documents`, `wikilinks`, `email_accounts`, `email_messages`, `user_profile`, `jobs`, `saved_job_searches`) plus an FTS5 virtual table `email_messages_fts` mirroring `subject/from_addr/body` through insert/delete/update triggers.
+- **Bootstrap** — `init_db()` runs `create_all` + the FTS5 DDL on startup. `migrate_json_if_needed()` imports any legacy `uploads/documents_metadata.json` exactly once (documents first, wikilinks resolved via filename matching), then renames the file to `.migrated`.
+- **Write path** — the documents router persists via `app.db.services.documents` (`create_document`, `update_document_fields`, `replace_outgoing_wikilinks`). The wikilink resolver lives here so the graph builder only has to JOIN.
+- **Agent access** — the `doc_query` tool (`app/tools/doc_query.py`) exposes `find_by_wikilink`, `find_backlinks`, `list_by_folder`, `list_all`, `get_metadata`, and `read_doc` so the agent can scan metadata without dumping the full JSON index into every prompt.
+
+## 13. Multi-Gmail + FTS5 search cache (Phase 17)
+
+- **Encrypted credentials** — `app.services.secrets` wraps `cryptography.Fernet`. `settings.jarvis_secret_key` is auto-generated on first boot and appended to `backend/.env` with a warning log. Passwords are stored in the `email_accounts` table as Fernet tokens and only decrypted inside `EmailClient`.
+- **Account CRUD** — `app.db.services.email_accounts` + `app.routers.email_accounts` expose `GET/POST/PATCH/DELETE /api/email-accounts` and `POST /api/email-accounts/{id}/test` (live IMAP login check). Exactly one row carries `is_default=True`; `update_account(is_default=True)` demotes the previous default.
+- **Per-account client** — `app.services.email_client.EmailClient(credentials)` replaces the old `settings.imap_*` singleton. The tool-facing layer (`email` tool) accepts an `account=<label|id>` parameter; omit it to use the default.
+- **New search actions** — `search_by_date` (IMAP `SINCE` / `BEFORE`, YYYY-MM-DD), `search_by_sender`, `search_important` (`FLAGGED`), and `search_cached` (FTS5 over the locally-synced `email_messages` table).
+- **Background sync** — `app.services.email_sync.start_scheduler()` runs an APScheduler job every `email_sync_interval_minutes` (default 5) that pulls the most recent UIDs from each enabled account and upserts rows into `email_messages`. FTS5 triggers keep the virtual table in sync automatically.
+
+## 14. User Profile + Job Search (Phase 18)
+
+- **Profile** — singleton row in `user_profile`. `POST /api/profile/upload` parses a CV via `DocumentParser` → `app.services.cv_extractor.extract_profile_fields` (LLM JSON) → upserts skills/titles/locations/remote preference. `GET/PUT /api/profile` lets the UI edit any field manually.
+- **Job sources** — 6 adapters under `app.services.job_sources/`: `duckduckgo` (via `ddgs`), `remoteok` (public JSON), `weworkremotely` (RSS), plus best-effort HTML scrapers for `topcv`, `itviec`, `vietnamworks`. Every adapter catches every exception and returns `[]` so one flaky site never breaks the pipeline.
+- **Matching** — `app.services.jobs_matcher.score_job(job, profile)` returns a 0..1 Jaccard overlap of profile skills/titles against job title+description, plus small bonuses when the job location or remote flag matches the user's preferences.
+- **Refresh flow** — `POST /api/jobs/refresh` runs every enabled `SavedJobSearch` against every source, dedupes by `(source, url)`, upserts into `jobs` with a fresh match_score, and purges the oldest non-saved rows when the table exceeds 500 entries. `refresh_from_profile_defaults` runs the same flow when no saved searches exist, using the profile's `preferred_titles` × `preferred_locations` grid.
+- **Agent access** — the `job_search` tool exposes `list_tracked`, `search` (one-off cross-source), `refresh`, and `save`/`unsave`.
+- **Scheduling** — APScheduler fires `jobs_refresh` every `jobs_refresh_interval_minutes` (default 1440 = daily).

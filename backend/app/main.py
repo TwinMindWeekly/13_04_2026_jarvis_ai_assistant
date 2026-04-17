@@ -35,6 +35,9 @@ try:
 except OSError:
     # File locked by another process — handler will append; non-fatal.
     pass
+from app.db.connection import init_db
+from app.db.migrate_json import migrate_json_if_needed
+from app.services.email_sync import start_scheduler, stop_scheduler
 from app.routers.agent import router as agent_router
 from app.routers.chat import router as chat_router
 from app.routers.documents import router as documents_router
@@ -42,7 +45,11 @@ from app.routers.graph import router as graph_router
 from app.routers.vault import router as vault_router
 from app.routers.usage import router as usage_router
 from app.routers.attachments import router as attachments_router
+from app.routers.cvs import router as cvs_router
+from app.routers.email_accounts import router as email_accounts_router
 from app.routers.files import router as files_router
+from app.routers.jobs import router as jobs_router
+from app.routers.profile import router as profile_router
 from app.routers.tts import router as tts_router
 
 # ---------------------------------------------------------------------------
@@ -244,6 +251,19 @@ async def lifespan(app: FastAPI):
     if _check_chromadb():
         logger.info("ChromaDB persist dir OK: %s", settings.chroma_persist_dir)
 
+    # Initialise SQLite schema + migrate the legacy documents_metadata.json if present.
+    try:
+        await init_db()
+        migration = await migrate_json_if_needed()
+        if migration.get("status") == "migrated":
+            logger.info(
+                "Migrated JSON metadata → SQLite: %d docs, %d wikilinks",
+                migration.get("docs", 0),
+                migration.get("links", 0),
+            )
+    except Exception as exc:  # DB is required — log clearly if it fails.
+        logger.error("SQLite init/migration failed: %s", exc)
+
     _check_playwright()
 
     # Preload Ollama wikilink model in background — app serves immediately.
@@ -251,11 +271,18 @@ async def lifespan(app: FastAPI):
 
     # Preload VieNeu-TTS model in background (downloads GGUF on first run).
     _preload_vieneu_tts_bg()
+
+    # Start APScheduler for email sync (Phase 2) + job refresh (Phase 3).
+    try:
+        start_scheduler()
+    except Exception as exc:
+        logger.warning("Scheduler start failed (non-fatal): %s", exc)
     # ─────────────────────────────────────────────────────────────
 
     yield
 
-    # ── Shutdown: unload Ollama model to free VRAM ──────────────
+    # ── Shutdown: stop scheduler + unload Ollama model to free VRAM ──
+    stop_scheduler()
     _unload_ollama_model()
 
 
@@ -287,6 +314,10 @@ app.include_router(graph_router)
 app.include_router(vault_router)
 app.include_router(usage_router)
 app.include_router(attachments_router)
+app.include_router(email_accounts_router)
+app.include_router(profile_router)
+app.include_router(jobs_router)
+app.include_router(cvs_router)
 app.include_router(files_router)
 app.include_router(tts_router)
 

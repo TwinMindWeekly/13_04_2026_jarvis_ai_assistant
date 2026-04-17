@@ -214,7 +214,7 @@ Chỉ cần ít nhất **1 API key** để chạy. Provider có thể đổi run
 
 ## Trạng thái dự án
 
-Cả 15 phase đã hoàn thành (Phase 15 — Image Generation + Code Runner, 16/04/2026). 15 tools, 6 LLM providers, auto-fallback chain. Xem [task.md](./task.md) cho chi tiết.
+Đã hoàn thành Phase 1–18. 17 agent tools, 6 LLM providers với auto-fallback chain. Metadata/wikilinks/email accounts/profile/jobs chuyển sang SQLite (`jarvis.db`) từ Phase 16. Phase 17 hỗ trợ nhiều tài khoản Gmail cùng lúc với password mã hoá Fernet + FTS5 cache. Phase 18 thêm trang Profile (upload CV → LLM trích skills) và Jobs (6 source, Jaccard match score, daily refresh). Xem [task.md](./task.md) cho chi tiết.
 
 ## Tài liệu
 

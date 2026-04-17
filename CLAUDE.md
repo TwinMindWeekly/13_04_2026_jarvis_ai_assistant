@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, Obsidian-style knowledge graph with wikilink-based document relationships, shell commands, clipboard, OS notifications, email (IMAP/SMTP), image generation (DALL-E 3), code execution (Python/JS/Godot), and a skill system with auto-loaded .md skills.
+JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, Obsidian-style knowledge graph with wikilink-based document relationships, SQLite-backed document metadata queries, shell commands, clipboard, OS notifications, multi-account email (IMAP/SMTP with FTS5 cache), image generation (DALL-E 3), code execution (Python/JS/Godot), job search across 6 sources, and a skill system with auto-loaded .md skills.
 
-Status: Phases 1–15 complete (15 tools, 6 LLM providers). Phase 11 (Provider Usage Dashboard) deferred. See `task.md` for scope.
+Status: Phases 1–18 complete (17 tools, 6 LLM providers). Phase 11 (Provider Usage Dashboard) deferred. See `task.md` for scope.
 
 ## Architecture (big picture)
 
@@ -31,6 +31,26 @@ Status: Phases 1–15 complete (15 tools, 6 LLM providers). Phase 11 (Provider U
 - Skill files are `.md` with YAML frontmatter (`name`, `description`, `triggers`) in `backend/skills/`.
 - `skills/loader.py` — `SkillLoader` singleton: parses all `.md` files on init, builds keyword triggers (from frontmatter `triggers` + common trigger dictionary), `match(user_message)` returns matching skills, `get_prompt_injection(user_message)` returns skill body text for system prompt injection.
 - `skill_manager` tool — lets the agent `list`/`search` (GitHub API)/`install` (download .md)/`remove` skills at runtime.
+
+**2c. SQLite persistence (`backend/app/db/`)** — Phase 16
+
+- SQLAlchemy 2 async engine against `sqlite+aiosqlite:///./jarvis.db`. WAL + `foreign_keys=ON` enabled via event listener. Tables: `documents`, `wikilinks`, `email_accounts`, `email_messages` (+ FTS5 virtual table `email_messages_fts` with insert/delete/update triggers), `user_profile`, `jobs`, `saved_job_searches`.
+- Bootstrap: `init_db()` (`Base.metadata.create_all` + FTS5 DDL) runs in lifespan; `migrate_json_if_needed()` imports legacy `uploads/documents_metadata.json` on first boot and renames it to `.migrated`.
+- Service helpers live in `app/db/services/`: `documents.py` (CRUD + wikilink resolver), `email_accounts.py` (encrypted-password CRUD), `user_profile.py` (singleton row), `jobs.py` (saved searches + `refresh_jobs` / `refresh_from_profile_defaults`).
+- Agent access to document metadata goes through the `doc_query` tool (`find_by_wikilink`, `find_backlinks`, `list_by_folder`, `list_all`, `get_metadata`, `read_doc`) — not through the prompt.
+
+**2d. Multi-Gmail + Fernet secrets (`backend/app/services/secrets.py`, `email_client.py`, `email_sync.py`)** — Phase 17
+
+- Passwords encrypted with `cryptography.Fernet`. Key lives in `settings.jarvis_secret_key`; if empty, `get_fernet()` auto-generates one and appends it to `backend/.env` with a loud warning. Losing the key = losing stored passwords.
+- `EmailClient(credentials)` is bound to one `EmailAccount`; `make_client(acct)` builds a fresh client per call. New IMAP actions: `search_by_date`, `search_by_sender`, `search_important`, plus `search_cached` (FTS5 over the `email_messages` cache).
+- `start_scheduler()` (APScheduler) runs `sync_all_accounts` every `email_sync_interval_minutes` (default 5) and a daily `jobs_refresh`. Started in the main lifespan.
+
+**2e. Profile + Jobs (`backend/app/routers/{profile,jobs}.py`, `app/services/{cv_extractor,jobs_matcher,job_sources}/`)** — Phase 18
+
+- `POST /api/profile/upload` parses the CV via `DocumentParser` → `cv_extractor.extract_profile_fields` (LLM JSON) → upserts `user_profile`. Frontend `ProfilePage` also lets the user edit skills/titles/locations/remote manually.
+- 6 job sources live in `app/services/job_sources/`: `duckduckgo`, `topcv`, `itviec`, `vietnamworks`, `remoteok`, `weworkremotely`. Each exports `async def fetch(query, location, limit)` and **must swallow every network/parsing exception** so one flaky site can't break the daily refresh.
+- `jobs_matcher.score_job(job, profile)` = Jaccard overlap of skills/titles tokens + small location/remote bonus → 0..1.
+- Agent access via the `job_search` tool: `list_tracked`, `search`, `refresh`, `save`, `unsave`.
 
 **3. RAG + Wikilink pipeline (`backend/app/rag/` + `backend/app/graph/`)**
 
@@ -150,6 +170,14 @@ WIKILINK_MODEL=huihui_ai/llama3.2-abliterate:3b
 # SAMBANOVA_BASE_URL=https://api.sambanova.ai/v1  # optional, default
 # CHROMA_PERSIST_DIR=./chroma_data          # optional, default
 # UPLOAD_DIR=./uploads                      # optional, default
+
+# SQLite + secrets (Phase 16/17)
+# SQLITE_PATH=./jarvis.db                   # optional, default
+# JARVIS_SECRET_KEY=                        # Fernet key for encrypting email passwords.
+#                                           # Auto-generated on first boot and written back to .env
+#                                           # with a loud warning — BACK THIS UP.
+# EMAIL_SYNC_INTERVAL_MINUTES=5             # IMAP → email_messages cache (APScheduler)
+# JOBS_REFRESH_INTERVAL_MINUTES=1440        # daily job source refresh
 ```
 
 Provider is switchable at runtime from the frontend Settings panel — `/api/agent/execute` takes `provider` + `model` in the request body.
@@ -178,6 +206,9 @@ Provider is switchable at runtime from the frontend Settings panel — `/api/age
 | `attachments.py` | `POST /api/agent/upload-attachment` (ephemeral file parse for chat, 5MB/43 ext) |
 | `files.py` | `GET /api/files/generated/{filename}` (serve DALL-E generated images) |
 | `usage.py` | `GET /api/usage/` (provider usage stats) |
+| `email_accounts.py` | `GET/POST/PATCH/DELETE /api/email-accounts`, `POST /api/email-accounts/{id}/test` |
+| `profile.py` | `GET/PUT /api/profile`, `POST /api/profile/upload` (CV parse + LLM extract) |
+| `jobs.py` | `GET /api/jobs`, `POST /api/jobs/refresh`, `POST/DELETE /api/jobs/{id}/save`, `GET/POST /api/jobs/saved-searches`, `DELETE /api/jobs/saved-searches/{id}` |
 
 ## Project-specific rules (override generic defaults)
 

@@ -4,6 +4,10 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
+from sqlalchemy import select
+
+from app.db.connection import session_scope
+from app.db.models import Document, Wikilink
 from app.graph import (
     build_document_graph,
     get_graph_stats,
@@ -12,7 +16,6 @@ from app.graph import (
     save_cache,
 )
 from app.graph.cache import cache_key
-from app.graph.builder import _load_documents_index
 from app.models.graph_schemas import GraphData, GraphStats
 
 logger = logging.getLogger(__name__)
@@ -27,10 +30,14 @@ async def get_graph(
     threshold: float = Query(0.5, include_in_schema=False),
 ) -> GraphData:
     """Return the document wikilink graph, using cache when possible."""
-    docs = _load_documents_index()
-    doc_ids = [d.get("id", "") for d in docs]
-    # Include wikilinks in cache key so cache invalidates when links change.
-    wikilink_count = sum(len(d.get("wikilinks", [])) for d in docs)
+    async with session_scope() as session:
+        doc_ids = [
+            row[0]
+            for row in (await session.execute(select(Document.id))).all()
+        ]
+        wikilink_count = len(
+            (await session.execute(select(Wikilink.id))).all()
+        )
     key = cache_key(doc_ids, float(wikilink_count))
 
     if not force:

@@ -12,6 +12,9 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import SettingsPanel from './components/SettingsPanel'
 import GraphPage from './components/GraphPage'
+import ProfilePage from './components/ProfilePage'
+import JobsPage from './components/JobsPage'
+import CVsPage from './components/CVsPage'
 import MarkdownEditorPanel from './components/MarkdownEditorPanel'
 import ResizeHandle from './components/ResizeHandle'
 
@@ -75,7 +78,7 @@ export default function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [viewMode, setViewMode] = useState('chat') // 'chat' | 'graph'
+  const [viewMode, setViewMode] = useState('chat') // 'chat' | 'graph' | 'profile' | 'jobs'
   const [providers, setProviders] = useState([])
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [splitRatio, setSplitRatio] = useState(0.4)
@@ -219,6 +222,9 @@ export default function App() {
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
         onOpenGraph={() => setViewMode('graph')}
+        onOpenProfile={() => setViewMode('profile')}
+        onOpenJobs={() => setViewMode('jobs')}
+        onOpenCVs={() => setViewMode('cvs')}
         onSelectDocument={handleSelectDocument}
         selectedDocId={selectedDoc?.id}
         currentProvider={settings.provider}
@@ -232,6 +238,12 @@ export default function App() {
           externalSelectedDoc={graphSelectedDoc}
           onExternalDocConsumed={() => setGraphSelectedDoc(null)}
         />
+      ) : viewMode === 'profile' ? (
+        <ProfilePage onBack={() => setViewMode('chat')} />
+      ) : viewMode === 'jobs' ? (
+        <JobsPage onBack={() => setViewMode('chat')} onOpenCVs={() => setViewMode('cvs')} />
+      ) : viewMode === 'cvs' ? (
+        <CVsPage onBack={() => setViewMode('chat')} />
       ) : (
         <div className="chat-split-wrapper" ref={splitRef}>
           {/* MD Editor on the left when a document is selected */}

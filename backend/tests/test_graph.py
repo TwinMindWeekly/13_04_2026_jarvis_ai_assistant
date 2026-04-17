@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 
 import pytest
@@ -57,7 +56,6 @@ def test_cache_key_changes_with_threshold():
 
 
 def test_cache_roundtrip(tmp_path, monkeypatch):
-    from app.graph import cache as cache_mod
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "chroma_persist_dir", str(tmp_path))
@@ -91,11 +89,10 @@ def test_cache_miss_wrong_key(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_build_graph_empty_metadata(tmp_path, monkeypatch):
-    """No metadata file → empty graph, no error."""
+def test_build_graph_empty_db(temp_db, tmp_path, monkeypatch):
+    """Empty DB → empty graph, no error."""
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
     monkeypatch.setattr(settings, "chroma_persist_dir", str(tmp_path / "chroma"))
 
     data = asyncio.run(build_document_graph())
@@ -103,19 +100,27 @@ def test_build_graph_empty_metadata(tmp_path, monkeypatch):
     assert len(data.links) == 0
 
 
-def test_build_graph_single_document(tmp_path, monkeypatch):
-    """1 document → 1 node, 0 links (no pairs to compare)."""
+def test_build_graph_single_document(temp_db, tmp_path, monkeypatch):
+    """1 document → 1 node, 0 links."""
     from app.core.config import settings
+    from app.db.connection import session_scope
+    from app.db.models import Document
 
-    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
     monkeypatch.setattr(settings, "chroma_persist_dir", str(tmp_path / "chroma"))
 
-    metadata = [{
-        "id": "doc1", "filename": "a.pdf",
-        "size_bytes": 100, "chunks_count": 3,
-        "uploaded_at": "2026-04-15T00:00:00",
-    }]
-    (tmp_path / "documents_metadata.json").write_text(json.dumps(metadata))
+    async def _seed() -> None:
+        async with session_scope() as session:
+            session.add(
+                Document(
+                    id="doc1",
+                    filename="a.pdf",
+                    size_bytes=100,
+                    chunks_count=3,
+                    uploaded_at="2026-04-15T00:00:00",
+                )
+            )
+
+    asyncio.run(_seed())
 
     data = asyncio.run(build_document_graph())
     assert len(data.nodes) == 1
@@ -124,19 +129,54 @@ def test_build_graph_single_document(tmp_path, monkeypatch):
     assert data.nodes[0].file_ext == ".pdf"
 
 
-def test_stats_counts_chunks(tmp_path, monkeypatch):
+def test_build_graph_resolves_wikilinks(temp_db, tmp_path, monkeypatch):
+    """Wikilink rows with target_doc_id populate the link list."""
     from app.core.config import settings
+    from app.db.connection import session_scope
+    from app.db.models import Document, Wikilink
 
-    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
     monkeypatch.setattr(settings, "chroma_persist_dir", str(tmp_path / "chroma"))
 
-    metadata = [
-        {"id": "d1", "filename": "a.pdf", "size_bytes": 100, "chunks_count": 3,
-         "uploaded_at": ""},
-        {"id": "d2", "filename": "b.pdf", "size_bytes": 200, "chunks_count": 7,
-         "uploaded_at": ""},
-    ]
-    (tmp_path / "documents_metadata.json").write_text(json.dumps(metadata))
+    async def _seed() -> None:
+        async with session_scope() as session:
+            session.add_all(
+                [
+                    Document(id="d1", filename="Python.md", size_bytes=1, chunks_count=1, uploaded_at=""),
+                    Document(id="d2", filename="Django.md", size_bytes=1, chunks_count=1, uploaded_at=""),
+                    Wikilink(
+                        source_doc_id="d2",
+                        target_doc_id="d1",
+                        target_name="Python",
+                        display="Python",
+                        context="Django uses [[Python]].",
+                    ),
+                ]
+            )
+
+    asyncio.run(_seed())
+    data = asyncio.run(build_document_graph())
+    assert len(data.nodes) == 2
+    assert len(data.links) == 1
+    assert {data.links[0].source, data.links[0].target} == {"d1", "d2"}
+
+
+def test_stats_counts_chunks(temp_db, tmp_path, monkeypatch):
+    from app.core.config import settings
+    from app.db.connection import session_scope
+    from app.db.models import Document
+
+    monkeypatch.setattr(settings, "chroma_persist_dir", str(tmp_path / "chroma"))
+
+    async def _seed() -> None:
+        async with session_scope() as session:
+            session.add_all(
+                [
+                    Document(id="d1", filename="a.pdf", size_bytes=100, chunks_count=3, uploaded_at=""),
+                    Document(id="d2", filename="b.pdf", size_bytes=200, chunks_count=7, uploaded_at=""),
+                ]
+            )
+
+    asyncio.run(_seed())
 
     stats = get_graph_stats()
     assert stats.total_docs == 2

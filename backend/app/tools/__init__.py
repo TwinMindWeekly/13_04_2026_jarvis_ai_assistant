@@ -13,7 +13,10 @@ from app.tools.app_launcher import AppLauncherTool
 from app.tools.base import BaseTool, ToolResult
 from app.tools.browser_control import BrowserControlTool
 from app.tools.desktop_control import DesktopControlTool
+from app.tools.cv_manager import CVManagerTool
+from app.tools.doc_query import DocQueryTool
 from app.tools.file_manager import FileManagerTool
+from app.tools.job_search import JobSearchTool
 from app.tools.rag_search import RagSearchTool
 from app.tools.registry import ToolRegistry
 from app.tools.safety import SafetyGuard, SafetyLevel, SafetyResult
@@ -48,6 +51,7 @@ def create_default_registry() -> ToolRegistry:
     registry.register(FileManagerTool())
     registry.register(AppLauncherTool())
     registry.register(RagSearchTool())
+    registry.register(DocQueryTool())
     registry.register(SkillManagerTool())
     registry.register(ShellExecTool())
     registry.register(ClipboardTool())
@@ -59,6 +63,8 @@ def create_default_registry() -> ToolRegistry:
         registry.register(ImageGeneratorTool())
     registry.register(CodeRunnerTool())
     registry.register(LocalSearchTool())
+    registry.register(JobSearchTool())
+    registry.register(CVManagerTool())
     # Office automation — Windows + pywin32 only.
     import platform  # noqa: PLC0415
     if platform.system() == "Windows":
@@ -83,6 +89,7 @@ __all__ = [
     "FileManagerTool",
     "AppLauncherTool",
     "RagSearchTool",
+    "DocQueryTool",
     "SkillManagerTool",
     "ShellExecTool",
     "ClipboardTool",

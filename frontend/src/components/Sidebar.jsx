@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   SquarePen, Settings, PanelLeft, Zap, FileText, Network,
-  Upload, Loader2, FilePlus, FolderPlus,
+  Upload, Loader2, FilePlus, FolderPlus, User, Briefcase,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { documentsAPI } from '../services/api'
@@ -25,6 +25,9 @@ export default function Sidebar({
   onNewChat,
   onOpenSettings,
   onOpenGraph,
+  onOpenProfile,
+  onOpenJobs,
+  onOpenCVs,
   onSelectDocument,
   selectedDocId,
   currentProvider,
@@ -343,8 +346,23 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Navigation: Graph only */}
-          <div className="px-2 py-1">
+          {/* Navigation: Profile / Jobs / Graph */}
+          <div className="px-2 py-1 d-flex flex-column gap-1">
+            <SidebarNavItem
+              icon={User}
+              label={t('sidebar.profile', 'Profile')}
+              onClick={onOpenProfile}
+            />
+            <SidebarNavItem
+              icon={Briefcase}
+              label={t('sidebar.jobs', 'Jobs')}
+              onClick={onOpenJobs}
+            />
+            <SidebarNavItem
+              icon={FileText}
+              label={t('sidebar.cvs', 'CVs & Portfolios')}
+              onClick={onOpenCVs}
+            />
             <SidebarNavItem
               icon={Network}
               label={t('sidebar.graph', 'Knowledge Graph')}

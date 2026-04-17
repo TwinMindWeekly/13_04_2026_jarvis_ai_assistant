@@ -78,6 +78,18 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     default_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # SQLite persistence (Phase 1 — documents, wikilinks, Phase 2/3 tables)
+    sqlite_path: str = "./jarvis.db"
+    # Fernet key for encrypting email passwords (Phase 2). Auto-generated at
+    # first startup when empty — warn user to back it up.
+    jarvis_secret_key: str = ""
+
+    # Email sync (Phase 2)
+    email_sync_interval_minutes: int = 5
+
+    # Jobs refresh (Phase 3) — 24h = 1440min
+    jobs_refresh_interval_minutes: int = 1440
+
     # VieNeu-TTS device: "cpu" (default), "cuda", "mps", "gpu"
     # GPU requires CUDA-enabled llama-cpp-python wheel (the default Windows wheel is CPU-only)
     vieneu_device: str = "cpu"

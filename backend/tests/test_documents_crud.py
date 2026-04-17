@@ -1,12 +1,10 @@
 """Unit tests for documents metadata helpers and schema migrations.
 
-Focuses on Part B changes (folder_path field, create/update flow).
-Does not exercise the full FastAPI router (requires langgraph/LLM env).
+Focuses on schema validation (Pydantic models) + round-trip of the
+SQLite-backed metadata helpers exposed by ``app.routers.documents``.
 """
 
 from __future__ import annotations
-
-import json
 
 from app.models.document_schemas import (
     CreateDocRequest,
@@ -21,7 +19,6 @@ from app.models.document_schemas import (
 
 
 def test_document_info_folder_path_default_empty():
-    """Legacy metadata without folder_path should still parse."""
     legacy = {
         "id": "abc",
         "filename": "note.md",
@@ -86,16 +83,13 @@ def test_update_doc_request_empty_folder_to_root():
 
 
 # ---------------------------------------------------------------------------
-# Metadata round-trip (simulates what the router does)
+# Metadata round-trip (SQLite-backed)
 # ---------------------------------------------------------------------------
 
 
-def test_metadata_roundtrip_with_folder_path(tmp_path, monkeypatch):
-    """Write → read → write cycle preserves folder_path."""
-    from app.core.config import settings
+def test_metadata_roundtrip_with_folder_path(temp_db):
+    """Write → read → write cycle preserves folder_path via the DB."""
     from app.routers import documents as docs_router
-
-    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
 
     initial = [
         {
@@ -113,7 +107,6 @@ def test_metadata_roundtrip_with_folder_path(tmp_path, monkeypatch):
     assert len(loaded) == 1
     assert loaded[0]["folder_path"] == "Projects/Work"
 
-    # Simulate PATCH update
     loaded[0]["folder_path"] = "Projects/Personal"
     loaded[0]["filename"] = "guide-renamed.md"
     docs_router._save_metadata(loaded)
@@ -123,29 +116,7 @@ def test_metadata_roundtrip_with_folder_path(tmp_path, monkeypatch):
     assert reloaded[0]["filename"] == "guide-renamed.md"
 
 
-def test_metadata_legacy_file_loads_without_folder_path(tmp_path, monkeypatch):
-    """Old metadata.json without folder_path should still deserialize."""
-    from app.core.config import settings
+def test_metadata_empty_db_returns_empty_list(temp_db):
     from app.routers import documents as docs_router
 
-    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
-
-    # Legacy format — no folder_path field
-    legacy = [
-        {
-            "id": "legacy1",
-            "filename": "old.md",
-            "size_bytes": 100,
-            "chunks_count": 1,
-            "uploaded_at": "2025-01-01T00:00:00",
-        }
-    ]
-    (tmp_path / "documents_metadata.json").write_text(
-        json.dumps(legacy), encoding="utf-8"
-    )
-
-    loaded = docs_router._load_metadata()
-    assert len(loaded) == 1
-    # DocumentInfo should apply default
-    info = DocumentInfo(**loaded[0])
-    assert info.folder_path == ""
+    assert docs_router._load_metadata() == []

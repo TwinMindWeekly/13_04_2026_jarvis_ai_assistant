@@ -236,3 +236,51 @@
 - [x] Frontend: MessageBubble hiện inline image khi response chứa image path
 - [x] Tests — image_generator (mocked API), code_runner
 - [ ] Docs sync
+
+---
+
+## Phase 16: SQLite foundation + doc_query tool
+> Mục tiêu: Thay `uploads/documents_metadata.json` bằng SQLite (SQLAlchemy 2 async) làm nền móng cho multi-Gmail + Profile/Jobs. Agent query metadata/wikilinks qua tool thay vì push toàn bộ JSON vào prompt.
+
+- [x] Backend: `app/db/{__init__,connection,models}.py` — DeclarativeBase, 7 tables (documents, wikilinks, email_accounts, email_messages + FTS5 virtual table, user_profile, jobs, saved_job_searches), WAL + foreign_keys via event listener
+- [x] Backend: `app/db/migrate_json.py` — idempotent JSON → SQLite migration, rename file tới `.migrated`
+- [x] Backend: `app/db/services/documents.py` — CRUD + wikilink resolver, replaces JSON-based `_load_metadata/_save_metadata`
+- [x] Backend: `app/routers/documents.py`, `app/routers/vault.py` — DB-backed
+- [x] Backend: `app/graph/builder.py` — JOIN documents/wikilinks, no more JSON load
+- [x] Backend: `app/tools/doc_query.py` — actions `find_by_wikilink`, `find_backlinks`, `list_by_folder`, `list_all`, `get_metadata`, `read_doc`
+- [x] Backend: `app/main.py` lifespan — `init_db` + `migrate_json_if_needed`
+- [x] Tests — documents/graph/doc_query/migration
+
+---
+
+## Phase 17: Multi-Gmail accounts + FTS5 cache
+> Mục tiêu: Nhiều tài khoản Gmail cùng lúc, hỏi theo ngày/người gửi/quan trọng. Password mã hoá Fernet.
+
+- [x] Backend: `app/services/secrets.py` — Fernet key auto-gen + persist vào `.env`, encrypt/decrypt string helpers
+- [x] Backend: `app/db/services/email_accounts.py` — CRUD + test IMAP connection + encrypted passwords
+- [x] Backend: `app/routers/email_accounts.py` — GET/POST/PATCH/DELETE + POST `/{id}/test`
+- [x] Backend: `app/services/email_client.py` — `EmailClient(credentials)` per account, new search actions (date, sender, important)
+- [x] Backend: `app/tools/email_tool.py` — `account=` param, actions `list_accounts`, `search_by_date`, `search_by_sender`, `search_important`, `search_cached` (FTS5)
+- [x] Backend: `app/services/email_sync.py` — APScheduler job pulls recent UIDs mỗi `email_sync_interval_minutes`, upsert `email_messages` (FTS5 triggers auto-sync)
+- [x] Frontend: `EmailAccountsSection.jsx` + tab "Email" trong SettingsPanel — add/edit/delete/test, toggle default/sync
+- [x] Tests — encryption round-trip, CRUD, resolve by label, tool dispatcher
+
+---
+
+## Phase 18: User Profile + Job Search
+> Mục tiêu: Trang Profile upload CV, tool tự tìm việc phù hợp ngành/kỹ năng user từ 6 source.
+
+- [x] Backend: `app/db/services/user_profile.py` — singleton upsert, skills/titles/locations as JSON arrays
+- [x] Backend: `app/services/cv_extractor.py` — LLM trích skills/titles/locations từ CV text (uses `build_llm_with_fallback`)
+- [x] Backend: `app/routers/profile.py` — GET/PUT `/api/profile`, POST `/api/profile/upload` (parse via DocumentParser + CV extractor)
+- [x] Backend: `app/services/job_sources/{duckduckgo,topcv,itviec,vietnamworks,remoteok,weworkremotely}.py` — mỗi source defensive try/except trả []
+- [x] Backend: `app/services/jobs_matcher.py` — Jaccard skill overlap + location/remote bonus → score 0..1
+- [x] Backend: `app/db/services/jobs.py` — list/save CRUD, `refresh_jobs` (saved searches) + `refresh_from_profile_defaults`, `purge_old_jobs`
+- [x] Backend: `app/routers/jobs.py` — list/refresh/save/unsave + saved-searches CRUD
+- [x] Backend: `app/tools/job_search.py` — actions `list_tracked`, `search`, `refresh`, `save`, `unsave`
+- [x] Backend: APScheduler daily `jobs_refresh` job (configurable via `jobs_refresh_interval_minutes`, default 1440)
+- [x] Frontend: `ProfilePage.jsx` (CV upload + chip editors) + `JobsPage.jsx` (saved searches, filters, match_score badge, save/open)
+- [x] Frontend: Sidebar — 2 nav items (Profile, Jobs) trên Knowledge Graph
+- [x] Frontend: App.jsx viewMode thêm `profile` | `jobs`
+- [x] Tests — matcher Jaccard, profile upsert, saved-search CRUD, refresh flow
+- [ ] Docs sync

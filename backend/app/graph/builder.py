@@ -1,24 +1,26 @@
-"""Build a document knowledge graph from [[wikilinks]] in vault Markdown files.
+"""Build a document knowledge graph from wikilink rows stored in SQLite.
 
-Algorithm (Phase 10 — wikilinks only, no cosine similarity):
-  1. Load the documents metadata index (filename, size, wikilinks, …).
-  2. For each document that has wikilinks, resolve [[target]] names to
-     document IDs via fuzzy filename matching.
-  3. Emit an edge for every resolved wikilink.
-  4. Build a backlinks index (reverse lookup: who links to this doc?).
+Algorithm (Phase 1 DB refactor):
+  1. SELECT every Document → graph node.
+  2. SELECT every Wikilink with target_doc_id IS NOT NULL → edge.
+  3. Deduplicate reciprocal edges (A→B collapses with B→A).
 
-This is O(n·k) where k = average wikilinks per doc — much cheaper than
-the O(n²) cosine similarity matrix used in Phase 8.
+Link resolution happens at write-time inside
+``app.db.services.documents.replace_outgoing_wikilinks``; this builder only
+joins pre-resolved rows so it is O(n) in link count.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sqlalchemy import select
+
 from app.core.config import settings
+from app.db.connection import session_scope
+from app.db.models import Document, Wikilink
 from app.models.graph_schemas import (
     GraphData,
     GraphLink,
@@ -29,138 +31,80 @@ from app.models.graph_schemas import (
 
 logger = logging.getLogger(__name__)
 
-_METADATA_FILENAME = "documents_metadata.json"
-
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — kept for back-compat with existing tests.
 # ---------------------------------------------------------------------------
-
-
-def _load_documents_index() -> list[dict]:
-    """Read the documents metadata index produced by the documents router."""
-    path = Path(settings.upload_dir) / _METADATA_FILENAME
-    if not path.exists():
-        return []
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, list) else []
-    except Exception as exc:
-        logger.warning("Could not read documents metadata index: %s", exc)
-        return []
 
 
 def _folder_of(doc: dict) -> str:
-    """Return folder_path from document metadata for color grouping.
+    """Return the folder_path used for node colour grouping.
 
     Priority:
-      1. Explicit `folder_path` field (new in Part B)
-      2. Legacy: parse parent from filename (for old metadata entries)
-    Empty string = root.
+      1. Explicit ``folder_path`` field.
+      2. Legacy fallback: parse parent from filename.
     """
     fp = (doc.get("folder_path") or "").strip().strip("/")
     if fp:
         return fp
-    # Legacy fallback — filenames used to contain path info in some uploads.
     parent = Path(doc.get("filename", "")).parent
     return "" if str(parent) in ("", ".") else str(parent)
 
 
-def _resolve_link_target(target_name: str, docs: list[dict]) -> str | None:
-    """Resolve a [[wikilink]] target name to a document ID.
-
-    Matching strategy (in order):
-      1. Exact filename match (case-insensitive, with or without extension)
-      2. Filename starts with target (e.g. [[API]] matches "API.docx")
-      3. Target is a substring of filename
-
-    Returns the document ID or None if no match.
-    """
-    target_lower = target_name.lower().strip()
-    if not target_lower:
-        return None
-
-    # Pass 1: exact match (filename without extension)
-    for doc in docs:
-        fname = doc.get("filename", "")
-        stem = Path(fname).stem.lower()
-        if stem == target_lower or fname.lower() == target_lower:
-            return doc.get("id")
-
-    # Pass 2: filename starts with target
-    for doc in docs:
-        fname = doc.get("filename", "")
-        stem = Path(fname).stem.lower()
-        if stem.startswith(target_lower):
-            return doc.get("id")
-
-    # Pass 3: substring match
-    for doc in docs:
-        fname = doc.get("filename", "")
-        if target_lower in fname.lower():
-            return doc.get("id")
-
-    return None
-
-
 # ---------------------------------------------------------------------------
-# Core
+# Core builder
 # ---------------------------------------------------------------------------
 
 
 async def build_document_graph() -> GraphData:
-    """Build the knowledge graph from [[wikilinks]] stored in document metadata.
+    """Build the knowledge graph from pre-resolved wikilink rows."""
+    async with session_scope() as session:
+        docs = list((await session.execute(select(Document))).scalars().all())
 
-    Returns GraphData with nodes (all documents) and links (resolved wikilinks).
-    Documents without wikilinks appear as orphan nodes.
-    """
-    docs = _load_documents_index()
-
-    # Build nodes for all documents.
-    nodes: list[GraphNode] = []
-    for doc in docs:
-        filename = doc.get("filename", "")
-        nodes.append(
-            GraphNode(
-                id=doc.get("id", ""),
-                label=filename.removesuffix(".md") if filename.endswith(".md") else filename,
-                folder=_folder_of(doc),
-                chunks_count=int(doc.get("chunks_count", 0)),
-                size_bytes=int(doc.get("size_bytes", 0)),
-                uploaded_at=doc.get("uploaded_at", ""),
-                file_ext=Path(filename).suffix.lower(),
-            )
-        )
-
-    # Build edges from wikilinks.
-    links: list[GraphLink] = []
-    seen_pairs: set[tuple[str, str]] = set()
-
-    for doc in docs:
-        source_id = doc.get("id", "")
-        wikilinks = doc.get("wikilinks", [])
-
-        for wl in wikilinks:
-            target_name = wl.get("target", "")
-            target_id = _resolve_link_target(target_name, docs)
-
-            if not target_id or target_id == source_id:
-                continue
-
-            # Deduplicate: A→B and B→A count as one edge.
-            pair = tuple(sorted([source_id, target_id]))
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
-
-            links.append(
-                GraphLink(
-                    source=source_id,
-                    target=target_id,
-                    weight=1.0,
-                    context=wl.get("context", ""),
+        nodes: list[GraphNode] = []
+        for doc in docs:
+            filename = doc.filename or ""
+            nodes.append(
+                GraphNode(
+                    id=doc.id,
+                    label=filename.removesuffix(".md") if filename.endswith(".md") else filename,
+                    folder=_folder_of({"filename": filename, "folder_path": doc.folder_path}),
+                    chunks_count=int(doc.chunks_count or 0),
+                    size_bytes=int(doc.size_bytes or 0),
+                    uploaded_at=doc.uploaded_at or "",
+                    file_ext=Path(filename).suffix.lower(),
                 )
             )
+
+        link_rows = list(
+            (
+                await session.execute(
+                    select(Wikilink).where(Wikilink.target_doc_id.is_not(None))
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    links: list[GraphLink] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for wl in link_rows:
+        source_id = wl.source_doc_id
+        target_id = wl.target_doc_id
+        if not source_id or not target_id or source_id == target_id:
+            continue
+        pair = tuple(sorted([source_id, target_id]))
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        links.append(
+            GraphLink(
+                source=source_id,
+                target=target_id,
+                weight=1.0,
+                context=wl.context or "",
+            )
+        )
 
     logger.info("Graph built — %d nodes, %d links (wikilinks only)", len(nodes), len(links))
 
@@ -177,18 +121,30 @@ async def build_document_graph() -> GraphData:
 
 
 # ---------------------------------------------------------------------------
-# Stats (cheap — no graph computation)
+# Stats
 # ---------------------------------------------------------------------------
 
 
 def get_graph_stats() -> GraphStats:
     """Return counts without computing the full graph."""
-    docs = _load_documents_index()
-    total_chunks = sum(int(d.get("chunks_count", 0)) for d in docs)
+    import asyncio  # noqa: PLC0415
+
+    async def _run() -> tuple[int, int]:
+        async with session_scope() as session:
+            docs = list((await session.execute(select(Document))).scalars().all())
+            return len(docs), sum(int(d.chunks_count or 0) for d in docs)
+
+    try:
+        total_docs, total_chunks = asyncio.run(_run())
+    except RuntimeError:
+        import concurrent.futures  # noqa: PLC0415
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            total_docs, total_chunks = pool.submit(lambda: asyncio.run(_run())).result()
 
     cache_path = Path(settings.chroma_persist_dir) / "graph_cache.json"
     return GraphStats(
-        total_docs=len(docs),
+        total_docs=total_docs,
         total_chunks=total_chunks,
         cache_exists=cache_path.exists(),
     )
