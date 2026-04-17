@@ -11,11 +11,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-# Persistent log file — rotates at 5 MB, keeps last 5 files.
-# Lives under backend/logs so it survives restarts and is findable for debug.
+# Persistent log file — rotates at 5 MB, keeps last 5 rotated backups.
+# Lives under backend/logs so it survives across requests and is findable.
+# Each server start TRUNCATES jarvis.log (fresh session) — backups .1-.5 stay
+# intact so the last 5 sessions' logs remain available if needed.
+# (RotatingFileHandler forces mode='a' internally when maxBytes>0, so we
+#  can't rely on mode='w' — truncate before dictConfig runs.)
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 _LOG_FILE = _LOG_DIR / "jarvis.log"
+try:
+    _LOG_FILE.write_text("", encoding="utf-8")
+except OSError:
+    # File locked by another process — handler will append; non-fatal.
+    pass
 from app.routers.agent import router as agent_router
 from app.routers.chat import router as chat_router
 from app.routers.documents import router as documents_router
@@ -52,6 +61,7 @@ _LOGGING_CONFIG: dict = {
             "backupCount": 5,               # keep last 5 rotations
             "encoding": "utf-8",
             "delay": True,                  # open on first write, not at config time
+            # File is truncated once at process startup above — fresh session each run.
         },
     },
     # Mute verbose third-party libraries even when DEBUG is on for app code.
