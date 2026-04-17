@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 # All-caps words ≥4 chars → title case so TTS reads them as words,
 # not letter-by-letter acronyms (e.g. JARVIS → Jarvis, HELLO → Hello).
-# Short caps (AI, API, URL) are left as-is — likely real acronyms.
 _ALLCAPS_WORD = re.compile(r"\b[A-Z]{4,}\b")
+# Short all-caps (2-3 chars) → spaced letters so the model does not
+# mis-interpret them as Roman numerals (e.g. CV → 105, MIX → 1009,
+# DIV → 504). "CV" → "C V" forces letter-by-letter reading.
+_SHORT_ALLCAPS_WORD = re.compile(r"\b[A-Z]{2,3}\b")
 
 def _clean_text_for_tts(text: str) -> str:
     """Strip ALL markdown → plain text for TTS.
@@ -50,8 +53,12 @@ def _clean_text_for_tts(text: str) -> str:
     text = re.sub(r"_(.+?)_", r"\1", text)                # _italic_
     # 11. Inline code: `code` → code
     text = re.sub(r"`(.+?)`", r"\1", text)
-    # 12. All-caps words ≥4 chars → title case (JARVIS → Jarvis)
+    # 12. All-caps words ≥4 chars → title case (JARVIS → Jarvis).
+    #     Apply BEFORE short-caps spacing so "JARVIS" is not split letter-by-letter.
     text = _ALLCAPS_WORD.sub(lambda m: m.group(0).capitalize(), text)
+    # 12b. Short all-caps 2-3 chars → spaced letters (CV → "C V")
+    #      to avoid Roman-numeral mis-reading.
+    text = _SHORT_ALLCAPS_WORD.sub(lambda m: " ".join(m.group(0)), text)
     # 13. Collapse whitespace
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
