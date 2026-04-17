@@ -38,6 +38,37 @@ function stripMarkdown(text) {
     .trim()
 }
 
+/**
+ * Chia plain text thành các chunk nhỏ cho TTS.
+ * Thứ tự: newline (line break) → sentence (. ! ? 。 ？ ！ + space).
+ * Gộp các câu liền nhau tới targetSize để tránh request vụn.
+ * Câu dài hơn targetSize vẫn gửi nguyên — không cắt giữa câu.
+ */
+function splitIntoSpeakChunks(text, targetSize = 300) {
+  if (!text) return []
+  const lines = text.split(/\n+/).map((s) => s.trim()).filter(Boolean)
+  const chunks = []
+  for (const line of lines) {
+    const sentences = line
+      .split(/(?<=[.!?。？！])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    let buf = ''
+    for (const sent of sentences) {
+      if (!buf) {
+        buf = sent
+      } else if (buf.length + 1 + sent.length <= targetSize) {
+        buf = `${buf} ${sent}`
+      } else {
+        chunks.push(buf)
+        buf = sent
+      }
+    }
+    if (buf) chunks.push(buf)
+  }
+  return chunks
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
   const { settings, updateSettings } = useSettings()
@@ -82,8 +113,10 @@ export default function App() {
     const end = Math.min(endIndex, paragraphs.length)
     for (let i = startIndex; i < end; i++) {
       const stripped = stripMarkdown(paragraphs[i]).trim()
-      if (stripped.length > 2) {
-        voice.speak(stripped, settings.ttsVoice, { append: true, paragraphIndex: i })
+      if (stripped.length <= 2) continue
+      const chunks = splitIntoSpeakChunks(stripped)
+      for (const chunk of chunks) {
+        voice.speak(chunk, settings.ttsVoice, { append: true, paragraphIndex: i })
       }
     }
   }, [voice, settings.ttsVoice])

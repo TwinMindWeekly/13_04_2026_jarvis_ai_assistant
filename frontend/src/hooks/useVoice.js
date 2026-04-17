@@ -33,6 +33,11 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const processingRef = useRef(false)
   const generationRef = useRef(0)     // cancel token
   const controllersRef = useRef([])   // AbortControllers for in-flight fetches
+  // Rolling window of in-flight fetch promises. New fetch waits on the
+  // MAX_INFLIGHT-th-oldest to settle before firing, so at most MAX_INFLIGHT
+  // requests hit the single-threaded TTS backend concurrently.
+  const inFlightRef = useRef([])
+  const MAX_INFLIGHT = 2
 
   // Cleanup on unmount
   useEffect(() => {
@@ -48,6 +53,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
       controllersRef.current.forEach((c) => c.abort())
       controllersRef.current = []
+      inFlightRef.current = []
     }
   }, [])
 
@@ -90,19 +96,33 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
   }, [])
 
-  /** Fire a fetch for TTS and return the blob promise (non-blocking). */
+  /** Fire a fetch for TTS and return the blob promise.
+   * Gated so at most MAX_INFLIGHT requests are in flight at once. */
   const _startFetch = useCallback((text, voiceId) => {
     const controller = new AbortController()
     controllersRef.current.push(controller)
 
-    const blobPromise = fetch('/api/tts/speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: voiceId }),
-      signal: controller.signal,
-    })
-      .then((res) => (res.ok ? res.blob() : null))
+    const slots = inFlightRef.current
+    const gate = slots.length < MAX_INFLIGHT
+      ? Promise.resolve()
+      : slots[0]
+
+    const blobPromise = gate
       .catch(() => null)
+      .then(() => {
+        if (controller.signal.aborted) return null
+        return fetch('/api/tts/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: voiceId }),
+          signal: controller.signal,
+        })
+          .then((res) => (res.ok ? res.blob() : null))
+          .catch(() => null)
+      })
+
+    slots.push(blobPromise)
+    if (slots.length > MAX_INFLIGHT) slots.shift()
 
     return blobPromise
   }, [])
@@ -189,6 +209,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         }
         controllersRef.current.forEach((c) => c.abort())
         controllersRef.current = []
+        inFlightRef.current = []
         queueRef.current = []
         processingRef.current = false
 
@@ -219,6 +240,7 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
     controllersRef.current.forEach((c) => c.abort())
     controllersRef.current = []
+    inFlightRef.current = []
     queueRef.current = []
     processingRef.current = false
     setIsSpeaking(false)
