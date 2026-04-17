@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 /**
- * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (SpeechSynthesis)
+ * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (VieNeu backend)
  *
  * STT: Listens via microphone, returns transcript, auto-sends on silence.
- * TTS: Reads text aloud using browser SpeechSynthesis.
- *
- * Browser support: Chrome, Edge (full), Safari (partial), Firefox (no STT).
+ * TTS: Prefetch pipeline — all fetch requests fire immediately when speak()
+ *       is called, audio plays sequentially as blobs arrive. Server processes
+ *       them in order (single-thread executor), frontend plays in queue order.
  */
 
 const SpeechRecognition =
@@ -19,30 +19,25 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [sttSupported] = useState(() => !!SpeechRecognition)
-  const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
-  const [availableVoices, setAvailableVoices] = useState([])
+  // Index of the markdown paragraph currently being spoken (-1 when idle).
+  // Indexing against markdown source — not stripped text — so highlight aligns with rendered paragraphs.
+  const [speakingParagraphIndex, setSpeakingParagraphIndex] = useState(-1)
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
 
-  // Load available TTS voices
-  useEffect(() => {
-    if (!ttsSupported) return
-
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices()
-      if (voices.length > 0) {
-        setAvailableVoices(voices)
-      }
-    }
-
-    loadVoices()
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
-    return () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
-    }
-  }, [ttsSupported])
+  // TTS playback state
+  const audioRef = useRef(null)
+  const queueRef = useRef([])         // [{text, paragraphIndex, blobPromise}]
+  const processingRef = useRef(false)
+  const generationRef = useRef(0)     // cancel token
+  const controllersRef = useRef([])   // AbortControllers for in-flight fetches
+  // Rolling window of in-flight fetch promises. New fetch waits on the
+  // MAX_INFLIGHT-th-oldest to settle before firing, so at most MAX_INFLIGHT
+  // requests hit the single-threaded TTS backend concurrently.
+  const inFlightRef = useRef([])
+  const MAX_INFLIGHT = 2
 
   // Cleanup on unmount
   useEffect(() => {
@@ -51,21 +46,94 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         recognitionRef.current.abort()
         recognitionRef.current = null
       }
-      if (ttsSupported) {
-        window.speechSynthesis.cancel()
+      generationRef.current++
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      controllersRef.current.forEach((c) => c.abort())
+      controllersRef.current = []
+      inFlightRef.current = []
+    }
+  }, [])
+
+  // ── Playback loop — plays pre-fetched audio blobs in queue order ──
+  const processQueue = useCallback(async () => {
+    if (processingRef.current) return
+    processingRef.current = true
+    const gen = generationRef.current
+
+    while (queueRef.current.length > 0 && generationRef.current === gen) {
+      const { paragraphIndex, blobPromise } = queueRef.current.shift()
+      setSpeakingParagraphIndex(paragraphIndex)
+
+      try {
+        // Wait for the pre-fired fetch to resolve
+        const blob = await blobPromise
+        if (generationRef.current !== gen || !blob) continue
+
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+
+        await new Promise((resolve) => {
+          const done = () => { URL.revokeObjectURL(url); resolve() }
+          audio.onended = done
+          audio.onerror = done
+          audio.onpause = done
+          audio.play().catch(done)
+        })
+      } catch {
+        // fetch aborted or failed — skip to next
       }
     }
-  }, [ttsSupported])
 
-  // --- STT: Start listening ---
+    if (generationRef.current === gen) {
+      processingRef.current = false
+      setIsSpeaking(false)
+      setSpeakingParagraphIndex(-1)
+      controllersRef.current = []
+    }
+  }, [])
+
+  /** Fire a fetch for TTS and return the blob promise.
+   * Gated so at most MAX_INFLIGHT requests are in flight at once. */
+  const _startFetch = useCallback((text, voiceId) => {
+    const controller = new AbortController()
+    controllersRef.current.push(controller)
+
+    const slots = inFlightRef.current
+    const gate = slots.length < MAX_INFLIGHT
+      ? Promise.resolve()
+      : slots[0]
+
+    const blobPromise = gate
+      .catch(() => null)
+      .then(() => {
+        if (controller.signal.aborted) return null
+        return fetch('/api/tts/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: voiceId }),
+          signal: controller.signal,
+        })
+          .then((res) => (res.ok ? res.blob() : null))
+          .catch(() => null)
+      })
+
+    slots.push(blobPromise)
+    if (slots.length > MAX_INFLIGHT) slots.shift()
+
+    return blobPromise
+  }, [])
+
+  // ── STT ──
   const startListening = useCallback(() => {
     if (!sttSupported || !enabled || isListening) return
 
     const recognition = new SpeechRecognition()
     recognition.lang = language
     recognition.interimResults = true
-    // continuous=false: stop after one final result so we don't echo-loop
-    // when TTS plays the response back through the speakers
     recognition.continuous = false
     recognition.maxAlternatives = 1
 
@@ -89,7 +157,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
 
       setTranscript(finalText || interimText)
 
-      // Auto-send when we get a final result, then clear transcript
       if (finalText && onTranscriptRef.current) {
         onTranscriptRef.current(finalText.trim())
         setTranscript('')
@@ -102,8 +169,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
       }
     }
 
-    // continuous=false: when recognition ends naturally, just stop.
-    // User must click mic again to record next message — prevents TTS echo loop.
     recognition.onend = () => {
       setIsListening(false)
       recognitionRef.current = null
@@ -113,76 +178,81 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     recognition.start()
   }, [sttSupported, enabled, isListening, language])
 
-  // --- STT: Stop listening ---
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       const ref = recognitionRef.current
-      recognitionRef.current = null  // signal onend: user stopped intentionally
+      recognitionRef.current = null
       ref.stop()
     }
   }, [])
 
-  // --- STT: Toggle ---
   const toggleListening = useCallback(() => {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
+    if (isListening) stopListening()
+    else startListening()
   }, [isListening, startListening, stopListening])
 
-  // --- TTS: Speak text ---
+  // ── TTS: Speak — fires fetch immediately, queues for sequential playback ──
+  // `paragraphIndex`: index of the markdown paragraph this chunk represents,
+  // so UI can highlight the correct rendered paragraph regardless of markdown stripping.
   const speak = useCallback(
-    (text, voiceName) => {
-      if (!ttsSupported || !enabled || !text) return
+    (text, voiceName, { append = false, paragraphIndex = 0 } = {}) => {
+      if (!enabled || !text) return
 
-      // Stop any current speech
-      window.speechSynthesis.cancel()
+      const voiceId = voiceName || ''
 
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = language
-      utterance.rate = 1.0
-      utterance.pitch = 1.0
+      if (!append) {
+        // Cancel everything
+        generationRef.current++
+        if (audioRef.current) {
+          audioRef.current.pause()
+          audioRef.current = null
+        }
+        controllersRef.current.forEach((c) => c.abort())
+        controllersRef.current = []
+        inFlightRef.current = []
+        queueRef.current = []
+        processingRef.current = false
 
-      // Find selected voice
-      if (voiceName) {
-        const voice = availableVoices.find((v) => v.name === voiceName)
-        if (voice) {
-          utterance.voice = voice
+        const blobPromise = _startFetch(text, voiceId)
+        queueRef.current.push({ text, paragraphIndex, blobPromise })
+        setSpeakingParagraphIndex(paragraphIndex)
+        setIsSpeaking(true)
+        processQueue()
+      } else {
+        // Fire fetch immediately — don't wait for earlier items to finish
+        const blobPromise = _startFetch(text, voiceId)
+        queueRef.current.push({ text, paragraphIndex, blobPromise })
+
+        if (!processingRef.current) {
+          setIsSpeaking(true)
+          processQueue()
         }
       }
-
-      utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => setIsSpeaking(false)
-      utterance.onerror = () => setIsSpeaking(false)
-
-      window.speechSynthesis.speak(utterance)
     },
-    [ttsSupported, enabled, language, availableVoices]
+    [enabled, processQueue, _startFetch],
   )
 
-  // --- TTS: Stop speaking ---
   const stopSpeaking = useCallback(() => {
-    if (ttsSupported) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
+    generationRef.current++
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
     }
-  }, [ttsSupported])
+    controllersRef.current.forEach((c) => c.abort())
+    controllersRef.current = []
+    inFlightRef.current = []
+    queueRef.current = []
+    processingRef.current = false
+    setIsSpeaking(false)
+    setSpeakingParagraphIndex(-1)
+  }, [])
 
   return {
-    // STT
-    isListening,
-    transcript,
-    startListening,
-    stopListening,
-    toggleListening,
-    sttSupported,
-
-    // TTS
-    isSpeaking,
-    speak,
-    stopSpeaking,
-    ttsSupported,
-    availableVoices,
+    isListening, transcript, startListening, stopListening, toggleListening, sttSupported,
+    isSpeaking, speak, stopSpeaking,
+    ttsSupported: true,
+    availableVoices: [],
+    speakingParagraphIndex,
+    voiceMissing: false,
   }
 }

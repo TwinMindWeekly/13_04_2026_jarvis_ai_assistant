@@ -12,9 +12,10 @@ class WebSearchTool(BaseTool):
 
     name = "web_search"
     description = (
-        "Search the internet for current information. "
-        "Use this when you need to find facts, news, or answers to questions "
-        "about current events."
+        "PRIMARY tool for ALL internet searches. Use this FIRST for any question about "
+        "weather, news, facts, people, events, or any information lookup. "
+        "Returns search results with titles, snippets, and URLs. "
+        "Do NOT use web_browser or browser_control for searching — use this tool instead."
     )
     parameters = {
         "type": "object",
@@ -47,11 +48,10 @@ class WebSearchTool(BaseTool):
 
         try:
             import asyncio
-            from duckduckgo_search import DDGS  # v8: sync only, wrap with to_thread
+            from ddgs import DDGS  # ddgs v9 (replaces deprecated duckduckgo_search)
 
             def _search():
-                with DDGS() as ddgs:
-                    return list(ddgs.text(query, max_results=num_results) or [])
+                return list(DDGS().text(query, max_results=num_results) or [])
 
             raw_results = await asyncio.to_thread(_search)
 

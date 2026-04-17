@@ -61,20 +61,20 @@ export default function DocumentsPanel({ isOpen, onClose }) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          <motion.div
-            className="documents-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
+        <motion.div
+          className="documents-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
           <motion.div
             className="documents-modal"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.18 }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="documents-header">
               <div className="d-flex align-items-center gap-2">
@@ -155,7 +155,7 @@ export default function DocumentsPanel({ isOpen, onClose }) {
               </div>
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   )

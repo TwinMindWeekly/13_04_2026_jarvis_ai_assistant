@@ -30,7 +30,7 @@ class SafetyGuard:
     BLOCKED_KEYWORDS: list[str] = [
         "rm -rf /",
         "rm -rf /*",
-        "format",
+        "format c:",
         "del /s /q c:\\",
         "shutdown",
         "reboot",
@@ -38,6 +38,15 @@ class SafetyGuard:
         "diskpart",
         "regedit /s",
         "system32",
+        "mkfs",
+        "dd if=",
+        ":(){ :|:& };:",
+        "reg delete",
+        "taskkill /f /im",
+        "net user",
+        "net localgroup",
+        "bcdedit",
+        "sfc /scannow",
     ]
 
     BLOCKED_FILE_PATHS: list[str] = [

@@ -123,7 +123,18 @@ class ToolRegistry:
                     if isinstance(result.data, (dict, list)):
                         return json.dumps(result.data, ensure_ascii=False)
                     return str(result.data)
-                return f"Tool error: {result.error}"
+                # Include data (stdout/stderr) on failure so the agent sees details
+                parts = []
+                if result.error:
+                    parts.append(result.error)
+                if isinstance(result.data, dict):
+                    stderr = result.data.get("stderr", "")
+                    stdout = result.data.get("stdout", "")
+                    if stderr:
+                        parts.append(f"stderr: {stderr.strip()}")
+                    if stdout:
+                        parts.append(f"stdout: {stdout.strip()}")
+                return f"Tool error: {' | '.join(parts)}" if parts else "Tool error: unknown"
 
             # Build a sync wrapper for environments that do not support async.
             def _run(_tool: BaseTool = tool_ref, **kwargs: Any) -> str:

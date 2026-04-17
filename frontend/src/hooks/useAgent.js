@@ -13,7 +13,7 @@ const isRetryableError = (err) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export function useAgent(provider, model) {
+export function useAgent(provider, model, language) {
   const [messages, setMessages] = useState([])
   const [actions, setActions] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -21,6 +21,8 @@ export function useAgent(provider, model) {
   const [streamingText, setStreamingText] = useState('')
   const conversationIdRef = useRef(null)
   const streamingTextRef = useRef('')
+  const actionsRef = useRef([])
+  const abortRef = useRef(null)
 
   const handleWsMessage = useCallback((event) => {
     if (event.type === 'text') {
@@ -29,37 +31,45 @@ export function useAgent(provider, model) {
     }
 
     if (event.type === 'action') {
-      setActions((prev) => [...prev, { ...event, status: 'running' }])
+      setActions((prev) => {
+        const next = [...prev, { ...event, status: 'running' }]
+        actionsRef.current = next
+        return next
+      })
     }
 
     if (event.type === 'action_result') {
-      setActions((prev) =>
-        prev.map((a) =>
+      setActions((prev) => {
+        const next = prev.map((a) =>
           a.tool === event.tool && a.status === 'running'
             ? { ...a, ...event, status: 'completed' }
             : a
         )
-      )
+        actionsRef.current = next
+        return next
+      })
     }
 
     if (event.type === 'done') {
       const finalText = streamingTextRef.current
+      const finalActions = actionsRef.current
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: finalText },
+        { role: 'assistant', content: finalText, actions: finalActions },
       ])
+      actionsRef.current = []
+      setActions([])
       streamingTextRef.current = ''
       setStreamingText('')
-      setActions([])
       setIsLoading(false)
     }
   }, [])
 
   const { status: wsStatus, connect, sendMessage: wsSend, disconnect } =
-    useWebSocket('/ws/agent', { onMessage: handleWsMessage })
+    useWebSocket('/ws/agent', { onMessage: handleWsMessage, autoConnect: true })
 
   const sendMessage = useCallback(
-    async (text) => {
+    async (text, docContext) => {
       // 1. Append user message ONCE — outside retry loop (idempotent UX).
       const userMsg = { role: 'user', content: text }
       setMessages((prev) => [...prev, userMsg])
@@ -69,10 +79,21 @@ export function useAgent(provider, model) {
       setStreamingText('')
       streamingTextRef.current = ''
 
+      // Build the actual message for the API (may include doc context).
+      const apiMessage = docContext
+        ? `[Document context — "${docContext.filename}"]\n\`\`\`markdown\n${docContext.content}\n\`\`\`\n[End document context]\n\n${text}`
+        : text
+
+      // Build conversation history (last 20 messages, exclude current)
+      const history = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map(({ role, content }) => ({ role, content: (content || '').slice(0, 2000) }))
+        .slice(-20)
+
       // 2. WebSocket path — single send, server pushes events back.
       if (wsStatus === 'connected') {
         try {
-          wsSend({ message: text, provider, model })
+          wsSend({ message: apiMessage, provider, model, language, history })
           return
         } catch (err) {
           // Fall through to REST fallback
@@ -80,14 +101,20 @@ export function useAgent(provider, model) {
       }
 
       // 3. REST fallback with retry on transient network errors.
+      const abortController = new AbortController()
+      abortRef.current = abortController
       let lastErr = null
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        if (abortController.signal.aborted) break
         try {
           const { data } = await agentAPI.execute(
-            text,
+            apiMessage,
             provider,
             model,
-            conversationIdRef.current
+            conversationIdRef.current,
+            language,
+            abortController.signal,
+            history
           )
           conversationIdRef.current = data.conversation_id
           setMessages((prev) => [
@@ -101,6 +128,11 @@ export function useAgent(provider, model) {
           setIsLoading(false)
           return
         } catch (err) {
+          // User cancelled — stop immediately, no error
+          if (abortController.signal.aborted) {
+            setIsLoading(false)
+            return
+          }
           lastErr = err
           if (attempt < RETRY_DELAYS_MS.length && isRetryableError(err)) {
             await sleep(RETRY_DELAYS_MS[attempt])
@@ -108,6 +140,12 @@ export function useAgent(provider, model) {
           }
           break
         }
+      }
+
+      // Don't show error if user cancelled
+      if (abortRef.current?.signal?.aborted) {
+        setIsLoading(false)
+        return
       }
 
       const message =
@@ -118,8 +156,24 @@ export function useAgent(provider, model) {
       setError(message)
       setIsLoading(false)
     },
-    [provider, model, wsStatus, wsSend]
+    [provider, model, language, wsStatus, wsSend]
   )
+
+  const cancelRequest = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    disconnect()
+    setIsLoading(false)
+    setActions([])
+    const partial = streamingTextRef.current
+    if (partial) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: partial + '\n\n*(cancelled)*' }])
+      streamingTextRef.current = ''
+      setStreamingText('')
+    }
+  }, [disconnect])
 
   const clearMessages = useCallback(() => {
     setMessages([])
@@ -139,6 +193,7 @@ export function useAgent(provider, model) {
     error,
     streamingText,
     sendMessage,
+    cancelRequest,
     clearMessages,
     dismissError,
     wsStatus,

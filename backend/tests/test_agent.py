@@ -50,7 +50,9 @@ def test_create_agent_brain_openai():
             fake_graph = MagicMock(spec=CompiledStateGraph)
             mock_create_react.return_value = fake_graph
 
-            brain = create_agent_brain(
+            mock_settings.openai_base_url = ""
+            mock_settings.openai_model = "gpt-4o"
+            brain, actual_prov, actual_model = create_agent_brain(
                 provider="openai",
                 model="gpt-4o",
                 tools=[],

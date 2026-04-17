@@ -8,7 +8,13 @@
     "send": "Send",
     "clear": "Clear chat",
     "thinking": "Thinking...",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "placeholderDoc": "Ask AI to improve this document...",
+    "applyToDoc": "Apply to document",
+    "applied": "Applied",
+    "applyConfirm": "This will overwrite the document content. Continue?",
+    "greeting": "What\u2019s on the agenda today?",
+    "disclaimer": "JARVIS can make mistakes. Consider checking important info."
   },
   "actions": {
     "title": "Actions",
@@ -28,14 +34,73 @@
     "test": "Test Connection",
     "testing": "Testing...",
     "success": "Connected!",
-    "failed": "Connection failed"
+    "failed": "Connection failed",
+    "ttsVoice": "TTS Voice"
   },
   "sidebar": {
     "newChat": "New Chat",
     "history": "Chat History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "documents": "Documents",
+    "graph": "Knowledge Graph"
+  },
+  "voice": {
+    "missing": "TTS service unavailable. Check that the backend is running."
   },
   "toast": {
     "errorTitle": "Error"
+  },
+  "usage": {
+    "title": "Usage",
+    "resetsAt": "Daily reset",
+    "refresh": "Refresh",
+    "noData": "No usage data yet. Send a message to start tracking.",
+    "never": "Never",
+    "justNow": "Just now"
+  },
+  "graph": {
+    "pageTitle": "Graph View",
+    "back": "Back to Chat",
+    "title": "Knowledge Graph",
+    "empty": "Upload at least 2 documents to see the knowledge graph.",
+    "searchDocs": "Search documents...",
+    "allDocuments": "All documents",
+    "noResults": "No documents match your search.",
+    "noDocsYet": "Upload documents to see the knowledge graph.",
+    "zoomToFit": "Fit",
+    "nodes": "docs",
+    "links": "links",
+    "folder": "Folder",
+    "rootFolder": "(root)",
+    "uploadedAt": "Uploaded",
+    "chunks": "Chunks",
+    "fileSize": "Size",
+    "neighbors": "Related documents",
+    "noNeighbors": "No related documents above the current threshold.",
+    "legend": "Folders",
+    "aiChatTitle": "Document AI",
+    "aiChatHint": "Ask JARVIS about your documents. It will search and highlight related nodes on the graph.",
+    "askJarvis": "Ask JARVIS about documents...",
+    "editorEmpty": "Select a node to view its document",
+    "editorView": "Preview",
+    "editorEdit": "Edit",
+    "editorSave": "Save",
+    "editorLoading": "Loading document...",
+    "editorNoContent": "No content available.",
+    "chatEmptyTitle": "Explore your knowledge",
+    "suggestFind": "Find notes related to...",
+    "suggestFindPrompt": "Find notes related to ",
+    "suggestSummarize": "Summarize my notes about...",
+    "suggestSummarizePrompt": "Summarize my notes about ",
+    "suggestListAll": "List all my documents",
+    "suggestListAllPrompt": "List all my documents with a short description of each.",
+    "suggestCompare": "Compare notes on...",
+    "suggestComparePrompt": "Compare notes on "
+  },
+  "sidebar2": {
+    "newFile": "New file",
+    "newFolder": "New folder",
+    "untitled": "Untitled",
+    "untitledFolder": "Untitled folder"
   }
 }

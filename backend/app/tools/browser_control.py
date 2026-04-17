@@ -33,9 +33,10 @@ class BrowserControlTool(BaseTool):
 
     name = "browser_control"
     description = (
-        "Control a web browser: navigate to URL, click elements by text, fill forms, "
-        "extract page text. Uses DOM/accessibility tree for precision (not screenshots). "
-        "Use for any web-based task."
+        "Interactive browser control: navigate to a specific URL, click elements, fill forms, "
+        "extract page text. Uses DOM/accessibility tree. "
+        "Only use when you need to interact with a specific webpage (click, fill, read). "
+        "NOT for general internet searches — use web_search instead."
     )
     parameters = {
         "type": "object",

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uvicorn *)",
+      "Bash(npm run *)",
+      "Bash(pip install *)",
+      "Bash(pytest *)",
+      "Bash(playwright install *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(python -m venv *)",
+      "Bash(npx vite *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(* --force *)",
+      "Bash(* --no-verify *)"
+    ]
+  }
+}

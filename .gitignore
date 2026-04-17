@@ -32,7 +32,10 @@ desktop.ini
 
 # Build output
 frontend/dist/
+frontend/.vite/
 backend/*.db
+backend/*.db-shm
+backend/*.db-wal
 
 # Test
 .coverage
@@ -50,9 +53,8 @@ backend/chroma_data/
 # User uploads (RAG documents)
 backend/uploads/
 
+# Runtime log files (rotating)
+backend/logs/
+
 # OMC state
 .omc/
-
-# Claude Code (local config, không chia sẻ)
-CLAUDE.md
-.claude/

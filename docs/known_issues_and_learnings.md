@@ -2,7 +2,7 @@
 
 > Nhật ký sửa lỗi và bài học kinh nghiệm.
 > File này là tài liệu VĨNH CỬU - không bao giờ xóa nội dung cũ.
-> Cập nhật lần cuối: 15/04/2026
+> Cập nhật lần cuối: 15/04/2026 (Phase 8 — thêm entry start.bat paren bug + pip quiet bug)
 
 ---
 
@@ -118,3 +118,24 @@ Mỗi entry theo format:
   - WebSocket disconnect → auto-reconnect tối đa 5 lần rồi toast.
 - **Testcase**: Manual — tắt backend, gửi message, verify chỉ thấy 1 user message + toast lỗi.
 - **Bài học**: Mọi network call user-facing phải có retry + user feedback rõ ràng. Tách "submit message" và "send to API" làm 2 step idempotent.
+
+### [15/04/2026] start.bat — `pip install --quiet` khiến người dùng tưởng script bị treo
+
+- **Triệu chứng**: Chạy `start.bat` lần đầu tiên (chưa có venv packages), dừng ở `[2/6] Checking backend dependencies... Installing... this may take a few minutes` trong 10-30 phút không thấy tiến trình gì. Người dùng tưởng script đã đứng.
+- **Nguyên nhân gốc**: Flag `--quiet` của pip tắt **toàn bộ output** (progress bar, tên package đang cài, URL đang tải). Requirements gồm `sentence-transformers` kéo theo `torch` (~2.5 GB), `chromadb`, `unstructured[pdf]`, `playwright`, v.v. — tổng ~3 GB phải download. Với `--quiet` thì màn hình đen im lặng cho tới khi xong hoặc fail.
+- **Giải pháp**:
+  - Bỏ `--quiet`, thay bằng `--progress-bar on --disable-pip-version-check` để hiện real-time progress bar của pip.
+  - Thêm echo cảnh báo trước khi install: "~3 GB download, 10-30 min trên mạng chậm, do NOT close this window".
+  - Sửa luôn `npm install --silent` → `npm install --progress=true` cho step [4/6] + thêm error check (trước không có).
+- **Testcase**: Manual — xoá `backend/venv` và `frontend/node_modules`, chạy `start.bat`, verify thấy progress bar pip + npm.
+- **Bài học**: Không dùng `--quiet` cho install command trong script người dùng chạy trực tiếp — silent UX làm người dùng tưởng hệ thống hỏng và Ctrl+C giữa chừng → corrupt venv. Luôn hiển thị progress cho operation dài > 5 giây.
+
+### [15/04/2026] start.bat — ngoặc đơn trong `echo` phá block `if (...)`
+
+- **Triệu chứng**: Sau khi sửa start.bat để hiển thị progress bar, người dùng double-click → cmd window tắt đột ngột, không kịp thấy lỗi.
+- **Nguyên nhân gốc**: Bên trong block `if !ERRORLEVEL! neq 0 ( ... )`, Windows batch parser **chỉ đếm ngoặc đơn thô** — không phân biệt ngoặc trong string `echo`. Dòng `echo Installing... [first run downloads ~3 GB, can take 10-30 min on slow networks]` mà tôi viết ban đầu dùng `(...)` → parser gặp `)` đầu tiên (sau "networks") → **đóng block `if` sớm** → các lệnh còn lại (pip install, error check, echo Installed) chạy ngoài context `if`, hoặc gặp `)` thứ 2 làm syntax error → cmd thoát với `exit /b`.
+- **Giải pháp**:
+  - Đổi `(...)` → `[...]` trong mọi echo string nằm trong block `if`/`for`.
+  - (Alternative: escape bằng `^(` `^)` — nhưng `[...]` sạch hơn.)
+- **Testcase**: Manual — double-click `start.bat` trên máy chưa có venv, window phải chạy bình thường không tắt.
+- **Bài học**: Trong Windows batch block (`if`, `for`, `( ... )`), các ký tự sau phải escape hoặc tránh trong string: `(` `)` `&` `|` `<` `>` `%` `!`. An toàn nhất là đọc script qua `cmd /V:ON /C "script.bat"` hoặc test `echo on` trước khi ship. Cạm bẫy này không được PowerShell/Bash cảnh báo — chỉ Windows cmd mới có.

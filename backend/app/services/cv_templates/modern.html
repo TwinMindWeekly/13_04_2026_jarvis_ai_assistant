@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{ sections.contact.full_name or title }}</title>
+<style>{{ base_css }}</style>
+<style>
+body {
+  background: #f8fafc;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 34% 66%;
+  gap: 18px;
+  min-height: calc(100vh - 36mm);
+}
+aside.left {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 22px 18px;
+  border-radius: 6px;
+}
+aside.left h1 { color: #f8fafc; font-size: 20pt; }
+aside.left h2 {
+  color: #cbd5f5;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.3);
+  margin-top: 14px;
+}
+aside.left .muted { color: #94a3b8; }
+aside.left a { color: #93c5fd; }
+aside.left .chip {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e0e7ff;
+}
+main.right {
+  padding: 8px 2px;
+}
+.contact-stack div { margin-bottom: 3px; font-size: 9.8pt; word-break: break-word; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="left">
+      <h1>{{ sections.contact.full_name or title }}</h1>
+      {% if sections.summary %}
+      <p class="muted">{{ sections.summary }}</p>
+      {% endif %}
+
+      <h2>Contact</h2>
+      <div class="contact-stack">
+        {% if sections.contact.email %}<div>{{ sections.contact.email }}</div>{% endif %}
+        {% if sections.contact.phone %}<div>{{ sections.contact.phone }}</div>{% endif %}
+        {% if sections.contact.location %}<div>{{ sections.contact.location }}</div>{% endif %}
+        {% if sections.contact.website %}<div><a href="{{ sections.contact.website }}">{{ sections.contact.website }}</a></div>{% endif %}
+        {% if sections.contact.linkedin %}<div><a href="{{ sections.contact.linkedin }}">LinkedIn</a></div>{% endif %}
+        {% if sections.contact.github %}<div><a href="{{ sections.contact.github }}">GitHub</a></div>{% endif %}
+      </div>
+
+      {% if sections.skills %}
+      <h2>Skills</h2>
+      <div>
+        {% for s in sections.skills %}<span class="chip">{{ s }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if sections.languages %}
+      <h2>Languages</h2>
+      <div>
+        {% for l in sections.languages %}<span class="chip">{{ l.name }}{% if l.level %} — {{ l.level }}{% endif %}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if sections.certifications %}
+      <h2>Certifications</h2>
+      <ul>
+        {% for c in sections.certifications %}
+        <li>{{ c.name }}{% if c.issuer %} — {{ c.issuer }}{% endif %}{% if c.date %} ({{ c.date }}){% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </aside>
+
+    <main class="right">
+      {% if sections.experience %}
+      <section>
+        <h2>Experience</h2>
+        {% for exp in sections.experience %}
+        <div class="entry">
+          <div class="row">
+            <h3>{{ exp.title }}{% if exp.company %} · {{ exp.company }}{% endif %}</h3>
+            <span class="muted">{{ exp.start }}{% if exp.end %} – {{ exp.end }}{% endif %}{% if exp.location %} · {{ exp.location }}{% endif %}</span>
+          </div>
+          {% if exp.bullets %}
+          <ul>
+            {% for b in exp.bullets %}<li>{{ b }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% if sections.projects %}
+      <section>
+        <h2>Projects</h2>
+        {% for p in sections.projects %}
+        <div class="entry">
+          <div class="row">
+            <h3>{% if p.url %}<a href="{{ p.url }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</h3>
+            {% if p.tech %}<span class="muted">{{ p.tech | join(' · ') }}</span>{% endif %}
+          </div>
+          {% if p.description %}<p>{{ p.description }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% if sections.education %}
+      <section>
+        <h2>Education</h2>
+        {% for ed in sections.education %}
+        <div class="entry">
+          <div class="row">
+            <h3>{{ ed.degree }}{% if ed.field %}, {{ ed.field }}{% endif %}</h3>
+            <span class="muted">{{ ed.start }}{% if ed.end %} – {{ ed.end }}{% endif %}</span>
+          </div>
+          <div class="muted">{{ ed.school }}{% if ed.gpa %} · GPA {{ ed.gpa }}{% endif %}</div>
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% for c in sections.custom %}
+      <section>
+        <h2>{{ c.heading }}</h2>
+        <p>{{ c.body_markdown }}</p>
+      </section>
+      {% endfor %}
+    </main>
+  </div>
+</body>
+</html>

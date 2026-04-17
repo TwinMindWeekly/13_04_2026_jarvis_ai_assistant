@@ -4,11 +4,17 @@
     "subtitle": "Trợ lý thông minh có thể thực hiện hành động"
   },
   "chat": {
-    "placeholder": "Hỏi JARVIS bất cứ điều gì...",
+    "placeholder": "Hỏi JARVIS...",
     "send": "Gửi",
     "clear": "Xóa cuộc trò chuyện",
     "thinking": "Đang suy nghĩ...",
-    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "placeholderDoc": "Nhờ AI cải thiện tài liệu này...",
+    "applyToDoc": "Áp dụng vào tài liệu",
+    "applied": "Đã áp dụng",
+    "applyConfirm": "Thao tác này sẽ ghi đè nội dung tài liệu. Tiếp tục?",
+    "greeting": "Hôm nay bạn cần gì?",
+    "disclaimer": "JARVIS có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng."
   },
   "actions": {
     "title": "Hành động",
@@ -28,14 +34,73 @@
     "test": "Kiểm tra kết nối",
     "testing": "Đang kiểm tra...",
     "success": "Đã kết nối!",
-    "failed": "Kết nối thất bại"
+    "failed": "Kết nối thất bại",
+    "ttsVoice": "Giọng đọc"
   },
   "sidebar": {
     "newChat": "Cuộc trò chuyện mới",
     "history": "Lịch sử",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "documents": "Tài liệu",
+    "graph": "Đồ thị tri thức"
+  },
+  "voice": {
+    "missing": "Dịch vụ TTS không khả dụng. Kiểm tra backend đang chạy."
   },
   "toast": {
     "errorTitle": "Lỗi"
+  },
+  "usage": {
+    "title": "Sử dụng",
+    "resetsAt": "Reset hàng ngày",
+    "refresh": "Làm mới",
+    "noData": "Chưa có dữ liệu. Gửi tin nhắn để bắt đầu theo dõi.",
+    "never": "Chưa bao giờ",
+    "justNow": "Vừa xong"
+  },
+  "graph": {
+    "pageTitle": "Đồ thị tri thức",
+    "back": "Quay lại Chat",
+    "title": "Đồ thị tri thức",
+    "empty": "Hãy upload ít nhất 2 tài liệu để xem đồ thị tri thức.",
+    "searchDocs": "Tìm tài liệu...",
+    "allDocuments": "Tất cả tài liệu",
+    "noResults": "Không tìm thấy tài liệu phù hợp.",
+    "noDocsYet": "Upload tài liệu để xem đồ thị tri thức.",
+    "zoomToFit": "Vừa khung",
+    "nodes": "tài liệu",
+    "links": "liên kết",
+    "folder": "Thư mục",
+    "rootFolder": "(gốc)",
+    "uploadedAt": "Tải lên",
+    "chunks": "Số chunk",
+    "fileSize": "Kích thước",
+    "neighbors": "Tài liệu liên quan",
+    "noNeighbors": "Không có tài liệu liên quan ở ngưỡng hiện tại.",
+    "legend": "Thư mục",
+    "aiChatTitle": "AI Tài liệu",
+    "aiChatHint": "Hỏi JARVIS về tài liệu của bạn. AI sẽ tìm kiếm và highlight các node liên quan trên đồ thị.",
+    "askJarvis": "Hỏi JARVIS về tài liệu...",
+    "editorEmpty": "Chọn một node để xem tài liệu",
+    "editorView": "Xem trước",
+    "editorEdit": "Chỉnh sửa",
+    "editorSave": "Lưu",
+    "editorLoading": "Đang tải tài liệu...",
+    "editorNoContent": "Không có nội dung.",
+    "chatEmptyTitle": "Khám phá kiến thức của bạn",
+    "suggestFind": "Tìm note liên quan đến...",
+    "suggestFindPrompt": "Tìm note liên quan đến ",
+    "suggestSummarize": "Tóm tắt note về...",
+    "suggestSummarizePrompt": "Tóm tắt các note về ",
+    "suggestListAll": "Liệt kê tất cả tài liệu",
+    "suggestListAllPrompt": "Liệt kê tất cả tài liệu của tôi kèm mô tả ngắn.",
+    "suggestCompare": "So sánh note về...",
+    "suggestComparePrompt": "So sánh note về "
+  },
+  "sidebar2": {
+    "newFile": "Tạo file mới",
+    "newFolder": "Tạo folder mới",
+    "untitled": "Không tên",
+    "untitledFolder": "Folder không tên"
   }
 }

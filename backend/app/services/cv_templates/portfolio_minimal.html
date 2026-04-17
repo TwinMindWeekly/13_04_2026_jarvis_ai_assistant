@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{ sections.contact.full_name or title }} — Portfolio</title>
+<style>{{ base_css }}</style>
+<style>
+header.hero { padding: 16px 0 12px; border-bottom: 2px solid #0f172a; margin-bottom: 14px; }
+header.hero h1 { font-size: 26pt; }
+header.hero .headline { color: #334155; font-size: 11.5pt; margin-top: 4px; }
+.project-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #f8fafc;
+  break-inside: avoid;
+}
+.project-card h3 { margin-bottom: 2px; }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <h1>{{ sections.contact.full_name or title }}</h1>
+    {% if sections.summary %}<div class="headline">{{ sections.summary }}</div>{% endif %}
+    <div class="muted" style="margin-top: 6px;">
+      {% if sections.contact.email %}<span>{{ sections.contact.email }}</span>{% endif %}
+      {% if sections.contact.website %} · <a href="{{ sections.contact.website }}">{{ sections.contact.website }}</a>{% endif %}
+      {% if sections.contact.github %} · <a href="{{ sections.contact.github }}">GitHub</a>{% endif %}
+      {% if sections.contact.linkedin %} · <a href="{{ sections.contact.linkedin }}">LinkedIn</a>{% endif %}
+    </div>
+  </header>
+
+  {% if sections.projects %}
+  <section>
+    <h2>Featured Projects</h2>
+    {% for p in sections.projects %}
+    <div class="project-card">
+      <h3>{% if p.url %}<a href="{{ p.url }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</h3>
+      {% if p.tech %}<div class="muted">{{ p.tech | join(' · ') }}</div>{% endif %}
+      {% if p.description %}<p style="margin-top: 4px;">{{ p.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if sections.skills %}
+  <section>
+    <h2>Skills</h2>
+    <div>{% for s in sections.skills %}<span class="chip">{{ s }}</span>{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if sections.experience %}
+  <section>
+    <h2>Experience</h2>
+    {% for exp in sections.experience %}
+    <div class="entry">
+      <div class="row">
+        <h3>{{ exp.title }}{% if exp.company %} · {{ exp.company }}{% endif %}</h3>
+        <span class="muted">{{ exp.start }}{% if exp.end %} – {{ exp.end }}{% endif %}</span>
+      </div>
+      {% if exp.bullets %}<ul>{% for b in exp.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% for c in sections.custom %}
+  <section>
+    <h2>{{ c.heading }}</h2>
+    <p>{{ c.body_markdown }}</p>
+  </section>
+  {% endfor %}
+</body>
+</html>

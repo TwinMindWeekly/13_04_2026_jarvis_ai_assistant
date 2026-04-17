@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react'
 
 const STORAGE_KEY = 'jarvis-settings'
 const DEFAULTS = {
-  provider: 'openai',
-  model: 'gpt-4o',
+  provider: 'auto',
+  model: '',
   language: 'en',
   theme: 'dark',
   voiceEnabled: true,

@@ -23,9 +23,9 @@ class WebBrowserTool(BaseTool):
 
     name = "web_browser"
     description = (
-        "Open a URL and read its content. "
-        "Use this to visit websites, read articles, or get information from "
-        "specific web pages."
+        "Open a specific URL and read its text content. "
+        "Only use when you already have a URL to visit. "
+        "NOT for general internet searches — use web_search instead."
     )
     parameters = {
         "type": "object",
