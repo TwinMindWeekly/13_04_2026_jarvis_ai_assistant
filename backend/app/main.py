@@ -2,6 +2,7 @@
 
 import logging
 import logging.config
+from pathlib import Path
 
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+
+# Persistent log file — rotates at 5 MB, keeps last 5 files.
+# Lives under backend/logs so it survives restarts and is findable for debug.
+_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _LOG_DIR / "jarvis.log"
 from app.routers.agent import router as agent_router
 from app.routers.chat import router as chat_router
 from app.routers.documents import router as documents_router
@@ -37,6 +44,15 @@ _LOGGING_CONFIG: dict = {
             "class": "logging.StreamHandler",
             "formatter": "default",
         },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "default",
+            "filename": str(_LOG_FILE),
+            "maxBytes": 5 * 1024 * 1024,   # 5 MB per file
+            "backupCount": 5,               # keep last 5 rotations
+            "encoding": "utf-8",
+            "delay": True,                  # open on first write, not at config time
+        },
     },
     # Mute verbose third-party libraries even when DEBUG is on for app code.
     # Without these overrides, a single embedding model load produces ~250 lines
@@ -52,7 +68,7 @@ _LOGGING_CONFIG: dict = {
     },
     "root": {
         "level": "DEBUG" if settings.debug else "INFO",
-        "handlers": ["console"],
+        "handlers": ["console", "file"],
     },
 }
 
@@ -187,6 +203,7 @@ async def lifespan(app: FastAPI):
         settings.port,
         settings.debug,
     )
+    logger.info("Log file: %s (rotates at 5 MB, keeps 5 backups)", _LOG_FILE)
     logger.info("CORS origins: %s", settings.cors_origins)
     logger.info(
         "Default provider: %s  model: %s",

@@ -145,14 +145,27 @@ class ScreenshotTool(BaseTool):
                 len(encoded),
                 clipboard_status,
             )
+
+            # Build a SHORT status string for the LLM — returning the raw base64
+            # (~100 KB per screenshot) blew up context and caused recursion-limit
+            # loops. The full image stays available via metadata["image_base64"]
+            # for any downstream consumer that actually needs it.
+            summary_bits = [f"Screenshot captured ({len(img_bytes)} bytes)"]
+            if clipboard_status == "copied":
+                summary_bits.append("copied to clipboard")
+            elif clipboard_status and clipboard_status.startswith("failed"):
+                summary_bits.append(f"clipboard copy {clipboard_status}")
+            data = ". ".join(summary_bits) + "."
+
             metadata: dict[str, Any] = {
                 "format": "jpeg/base64",
                 "size_bytes": len(img_bytes),
                 "region": region,
+                "image_base64": encoded,
             }
             if clipboard_status is not None:
                 metadata["clipboard"] = clipboard_status
-            return ToolResult(success=True, data=encoded, metadata=metadata)
+            return ToolResult(success=True, data=data, metadata=metadata)
 
         except Exception as exc:
             logger.error("ScreenshotTool failed: %s", exc, exc_info=True)

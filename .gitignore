@@ -51,5 +51,8 @@ backend/chroma_data/
 # User uploads (RAG documents)
 backend/uploads/
 
+# Runtime log files (rotating)
+backend/logs/
+
 # OMC state
 .omc/
