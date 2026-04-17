@@ -67,8 +67,9 @@ export const usageAPI = {
 }
 
 export const ttsAPI = {
-  speak: (text, language = 'vi', rate = '+0%') =>
-    api.post('/tts/speak', { text, language, rate }, { responseType: 'blob' }),
+  speak: (text, voice = '') =>
+    api.post('/tts/speak', { text, voice }, { responseType: 'blob' }),
+  voices: () => api.get('/tts/voices'),
 }
 
 export const filesAPI = {

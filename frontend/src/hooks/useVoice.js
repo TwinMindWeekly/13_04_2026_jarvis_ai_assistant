@@ -1,13 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 /**
- * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (SpeechSynthesis)
+ * useVoice — Speech-to-Text (Web Speech API) + Text-to-Speech (VieNeu backend)
  *
  * STT: Listens via microphone, returns transcript, auto-sends on silence.
- * TTS: Reads text aloud using browser SpeechSynthesis with multilingual
- *       voice switching (Vietnamese / English) and paragraph-level tracking.
- *
- * Browser support: Chrome, Edge (full), Safari (partial), Firefox (no STT).
+ * TTS: Prefetch pipeline — all fetch requests fire immediately when speak()
+ *       is called, audio plays sequentially as blobs arrive. Server processes
+ *       them in order (single-thread executor), frontend plays in queue order.
  */
 
 const SpeechRecognition =
@@ -15,95 +14,24 @@ const SpeechRecognition =
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null
 
-// Vietnamese diacritical characters for language detection
-const _VI_CHARS = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/
-
-/**
- * Split text into language segments (Vietnamese / English).
- * Short segments (< 3 words) merge into neighbors to reduce choppiness.
- * Concatenation of all segment texts equals the original text.
- */
-function _splitByLanguage(text) {
-  const parts = text.match(/\S+\s*/g)
-  if (!parts) return [{ text, lang: 'en' }]
-
-  const raw = []
-  let curLang = null, curText = '', curWords = 0
-  for (const part of parts) {
-    const lang = _VI_CHARS.test(part) ? 'vi' : 'en'
-    if (curLang === null || lang === curLang) {
-      curLang = lang; curText += part; curWords++
-    } else {
-      raw.push({ text: curText, lang: curLang, words: curWords })
-      curLang = lang; curText = part; curWords = 1
-    }
-  }
-  if (curText) raw.push({ text: curText, lang: curLang || 'en', words: curWords })
-  if (raw.length <= 1) return raw
-
-  // Merge short segments (< 3 words) into previous to reduce voice-switching choppiness
-  const merged = [raw[0]]
-  for (let i = 1; i < raw.length; i++) {
-    if (raw[i].words < 3) {
-      const prev = merged[merged.length - 1]
-      prev.text += raw[i].text
-      prev.words += raw[i].words
-    } else {
-      merged.push(raw[i])
-    }
-  }
-  if (merged.length > 1 && merged[0].words < 3) {
-    merged[1].text = merged[0].text + merged[1].text
-    merged[1].words += merged[0].words
-    merged.shift()
-  }
-  return merged
-}
-
-/** Find the best available voice for a language code. */
-function _findVoiceForLang(langCode, voices) {
-  const prefix = langCode.slice(0, 2).toLowerCase()
-  const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(prefix))
-  return matching.find((v) => v.localService) || matching[0] || null
-}
-
 export function useVoice({ language = 'en-US', onTranscript, enabled = true } = {}) {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [sttSupported] = useState(() => !!SpeechRecognition)
-  const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
-  const [availableVoices, setAvailableVoices] = useState([])
-  // True when no voice matches the current language (e.g. Vietnamese voice not installed)
-  const [voiceMissing, setVoiceMissing] = useState(false)
-  // Speaking position: character index in the full queued text that TTS has reached
   const [speakingCharIndex, setSpeakingCharIndex] = useState(-1)
-  const fullSpeechTextRef = useRef('')
 
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
 
-  // Load available TTS voices and check if current language is supported
-  useEffect(() => {
-    if (!ttsSupported) return
-
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices()
-      if (voices.length > 0) {
-        setAvailableVoices(voices)
-        const prefix = language.slice(0, 2).toLowerCase()
-        const hasMatch = voices.some((v) => v.lang.toLowerCase().startsWith(prefix))
-        setVoiceMissing(!hasMatch)
-      }
-    }
-
-    loadVoices()
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
-    return () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
-    }
-  }, [ttsSupported, language])
+  // TTS playback state
+  const audioRef = useRef(null)
+  const queueRef = useRef([])         // [{text, offset, blobPromise}]
+  const fullTextRef = useRef('')
+  const processingRef = useRef(false)
+  const generationRef = useRef(0)     // cancel token
+  const controllersRef = useRef([])   // AbortControllers for in-flight fetches
 
   // Cleanup on unmount
   useEffect(() => {
@@ -112,13 +40,84 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
         recognitionRef.current.abort()
         recognitionRef.current = null
       }
-      if (ttsSupported) {
-        window.speechSynthesis.cancel()
+      generationRef.current++
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      controllersRef.current.forEach((c) => c.abort())
+      controllersRef.current = []
+    }
+  }, [])
+
+  // ── Playback loop — plays pre-fetched audio blobs in queue order ──
+  const processQueue = useCallback(async () => {
+    if (processingRef.current) return
+    processingRef.current = true
+    const gen = generationRef.current
+
+    while (queueRef.current.length > 0 && generationRef.current === gen) {
+      const { text, offset, blobPromise } = queueRef.current.shift()
+      setSpeakingCharIndex(offset)
+
+      try {
+        // Wait for the pre-fired fetch to resolve
+        const blob = await blobPromise
+        if (generationRef.current !== gen || !blob) continue
+
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+
+        await new Promise((resolve) => {
+          const done = () => { URL.revokeObjectURL(url); resolve() }
+          audio.ontimeupdate = () => {
+            if (audio.duration > 0 && generationRef.current === gen) {
+              const progress = audio.currentTime / audio.duration
+              setSpeakingCharIndex(offset + Math.floor(progress * text.length))
+            }
+          }
+          audio.onended = done
+          audio.onerror = done
+          audio.onpause = done
+          audio.play().catch(done)
+        })
+
+        if (generationRef.current === gen) {
+          setSpeakingCharIndex(offset + text.length)
+        }
+      } catch {
+        // fetch aborted or failed — skip to next
       }
     }
-  }, [ttsSupported])
 
-  // --- STT: Start listening ---
+    if (generationRef.current === gen) {
+      processingRef.current = false
+      setIsSpeaking(false)
+      setSpeakingCharIndex(-1)
+      fullTextRef.current = ''
+      controllersRef.current = []
+    }
+  }, [])
+
+  /** Fire a fetch for TTS and return the blob promise (non-blocking). */
+  const _startFetch = useCallback((text, voiceId) => {
+    const controller = new AbortController()
+    controllersRef.current.push(controller)
+
+    const blobPromise = fetch('/api/tts/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: voiceId }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.blob() : null))
+      .catch(() => null)
+
+    return blobPromise
+  }, [])
+
+  // ── STT ──
   const startListening = useCallback(() => {
     if (!sttSupported || !enabled || isListening) return
 
@@ -169,7 +168,6 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     recognition.start()
   }, [sttSupported, enabled, isListening, language])
 
-  // --- STT: Stop listening ---
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       const ref = recognitionRef.current
@@ -178,98 +176,74 @@ export function useVoice({ language = 'en-US', onTranscript, enabled = true } = 
     }
   }, [])
 
-  // --- STT: Toggle ---
   const toggleListening = useCallback(() => {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
+    if (isListening) stopListening()
+    else startListening()
   }, [isListening, startListening, stopListening])
 
-  // --- TTS: Speak text ---
-  // Uses a single voice matching the user's language setting.
-  // speakingCharIndex tracks reading position for UI paragraph highlighting.
+  // ── TTS: Speak — fires fetch immediately, queues for sequential playback ──
   const speak = useCallback(
     (text, voiceName, { append = false } = {}) => {
-      if (!ttsSupported || !enabled || !text) return
+      if (!enabled || !text) return
+
+      const voiceId = voiceName || ''
 
       if (!append) {
-        window.speechSynthesis.cancel()
-        fullSpeechTextRef.current = text
+        // Cancel everything
+        generationRef.current++
+        if (audioRef.current) {
+          audioRef.current.pause()
+          audioRef.current = null
+        }
+        controllersRef.current.forEach((c) => c.abort())
+        controllersRef.current = []
+        queueRef.current = []
+        fullTextRef.current = text
+        processingRef.current = false
+
+        const blobPromise = _startFetch(text, voiceId)
+        queueRef.current.push({ text, offset: 0, blobPromise })
         setSpeakingCharIndex(0)
-      } else {
-        fullSpeechTextRef.current += text
-      }
-
-      const utteranceOffset = fullSpeechTextRef.current.length - text.length
-      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices()
-
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = language
-      utterance.rate = 1.0
-      utterance.pitch = 1.0
-
-      const selectedVoice = _findVoiceForLang(language, voices)
-      if (selectedVoice) utterance.voice = selectedVoice
-
-      utterance.onstart = () => {
         setIsSpeaking(true)
-        setSpeakingCharIndex(utteranceOffset)
-      }
+        processQueue()
+      } else {
+        fullTextRef.current += text
+        const offset = fullTextRef.current.length - text.length
 
-      utterance.onboundary = (event) => {
-        if (event.name === 'word') {
-          setSpeakingCharIndex(utteranceOffset + event.charIndex + event.charLength)
+        // Fire fetch immediately — don't wait for earlier items to finish
+        const blobPromise = _startFetch(text, voiceId)
+        queueRef.current.push({ text, offset, blobPromise })
+
+        if (!processingRef.current) {
+          setIsSpeaking(true)
+          processQueue()
         }
       }
-
-      utterance.onend = () => {
-        setSpeakingCharIndex(utteranceOffset + text.length)
-        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-          setIsSpeaking(false)
-          setSpeakingCharIndex(-1)
-          fullSpeechTextRef.current = ''
-        }
-      }
-
-      utterance.onerror = () => {
-        setIsSpeaking(false)
-        setSpeakingCharIndex(-1)
-        fullSpeechTextRef.current = ''
-      }
-
-      window.speechSynthesis.speak(utterance)
     },
-    [ttsSupported, enabled, language, availableVoices]
+    [enabled, processQueue, _startFetch],
   )
 
-  // --- TTS: Stop speaking ---
   const stopSpeaking = useCallback(() => {
-    if (ttsSupported) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-      setSpeakingCharIndex(-1)
-      fullSpeechTextRef.current = ''
+    generationRef.current++
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
     }
-  }, [ttsSupported])
+    controllersRef.current.forEach((c) => c.abort())
+    controllersRef.current = []
+    queueRef.current = []
+    processingRef.current = false
+    setIsSpeaking(false)
+    setSpeakingCharIndex(-1)
+    fullTextRef.current = ''
+  }, [])
 
   return {
-    // STT
-    isListening,
-    transcript,
-    startListening,
-    stopListening,
-    toggleListening,
-    sttSupported,
-
-    // TTS
-    isSpeaking,
-    speak,
-    stopSpeaking,
-    ttsSupported,
-    availableVoices,
+    isListening, transcript, startListening, stopListening, toggleListening, sttSupported,
+    isSpeaking, speak, stopSpeaking,
+    ttsSupported: true,
+    availableVoices: [],
     speakingCharIndex,
-    voiceMissing,
+    voiceMissing: false,
   }
 }

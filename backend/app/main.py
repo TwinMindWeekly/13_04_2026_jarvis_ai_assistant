@@ -160,6 +160,24 @@ def _unload_ollama_model() -> None:
         logger.warning("Could not unload Ollama model '%s': %s", model, exc)
 
 
+def _preload_vieneu_tts_bg() -> None:
+    """Background thread: download VieNeu-TTS GGUF model + init engine.
+
+    Runs as a daemon thread so the app starts serving immediately.
+    First run downloads ~200 MB from HuggingFace.
+    """
+    def _do_preload():
+        try:
+            from app.services.vieneu_tts import get_tts
+            get_tts()
+        except Exception as exc:
+            logger.warning("VieNeu-TTS preload failed (non-fatal): %s", exc)
+
+    import threading
+    t = threading.Thread(target=_do_preload, daemon=True)
+    t.start()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Log startup info and run health checks before serving traffic."""
@@ -193,6 +211,9 @@ async def lifespan(app: FastAPI):
 
     # Preload Ollama wikilink model in background — app serves immediately.
     _preload_ollama_model_bg()
+
+    # Preload VieNeu-TTS model in background (downloads GGUF on first run).
+    _preload_vieneu_tts_bg()
     # ─────────────────────────────────────────────────────────────
 
     yield

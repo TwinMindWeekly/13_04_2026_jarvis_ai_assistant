@@ -1,74 +1,74 @@
-"""Text-to-Speech API router — uses Edge TTS (Microsoft Neural voices, free)."""
+"""Text-to-Speech API router — uses VieNeu-TTS (on-device Vietnamese + English)."""
 
-import io
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
-import edge_tts
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
+
+from app.services.vieneu_tts import list_voices as _list_voices
+from app.services.vieneu_tts import synthesize
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tts")
 
-# Voice mapping — Edge TTS neural voices
-VOICE_MAP = {
-    "vi": "vi-VN-HoaiMyNeural",
-    "en": "en-US-AriaNeural",
-}
+# Single-thread pool — llama.cpp is NOT thread-safe; concurrent calls crash.
+_executor = ThreadPoolExecutor(max_workers=1)
 
 
 class TTSRequest(BaseModel):
     text: str
-    language: str = "vi"  # "vi" or "en"
-    rate: str = "+0%"     # speed adjustment, e.g. "+10%", "-5%"
+    voice: str = ""  # empty = default (Phạm Tuyên - Nam Miền Bắc)
 
 
 @router.post("/speak")
 async def speak(body: TTSRequest):
-    """Convert text to speech using Edge TTS. Returns audio/mpeg stream."""
+    """Convert text to speech using VieNeu-TTS. Returns audio/wav."""
     if not body.text or not body.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
     if len(body.text) > 5000:
         raise HTTPException(status_code=400, detail="Text too long (max 5000 chars).")
 
-    voice = VOICE_MAP.get(body.language, VOICE_MAP["vi"])
-
     try:
-        communicate = edge_tts.Communicate(body.text, voice, rate=body.rate)
-        audio_buffer = io.BytesIO()
+        clean_text = body.text.strip()
+        logger.info("TTS speak: voice=%r text=%r", body.voice or "(default)", clean_text[:120])
 
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_buffer.write(chunk["data"])
+        loop = asyncio.get_running_loop()
+        wav_bytes = await loop.run_in_executor(
+            _executor, synthesize, clean_text, body.voice,
+        )
 
-        audio_buffer.seek(0)
-
-        if audio_buffer.getbuffer().nbytes == 0:
+        if not wav_bytes:
             raise HTTPException(status_code=500, detail="TTS produced no audio.")
 
-        return StreamingResponse(
-            audio_buffer,
-            media_type="audio/mpeg",
+        logger.info("TTS done: %d bytes", len(wav_bytes))
+
+        return Response(
+            content=wav_bytes,
+            media_type="audio/wav",
             headers={"Cache-Control": "no-cache"},
         )
 
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Edge TTS failed: %s", exc, exc_info=True)
+        logger.error("VieNeu-TTS failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"TTS error: {exc}") from exc
 
 
 @router.get("/voices")
-async def list_voices():
-    """List available Edge TTS voices."""
-    voices = await edge_tts.list_voices()
-    vi_voices = [v for v in voices if v["Locale"].startswith("vi")]
-    en_voices = [v for v in voices if v["Locale"].startswith("en-US")]
-    return {
-        "vi": [{"name": v["ShortName"], "gender": v["Gender"]} for v in vi_voices],
-        "en": [{"name": v["ShortName"], "gender": v["Gender"]} for v in en_voices],
-    }
+async def get_voices():
+    """List available VieNeu-TTS preset voices."""
+    try:
+        loop = asyncio.get_running_loop()
+        voices = await loop.run_in_executor(_executor, _list_voices)
+        return {"voices": voices}
+    except Exception as exc:
+        logger.error("Failed to list voices: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list voices: {exc}",
+        ) from exc

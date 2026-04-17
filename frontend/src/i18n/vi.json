@@ -34,7 +34,8 @@
     "test": "Kiểm tra kết nối",
     "testing": "Đang kiểm tra...",
     "success": "Đã kết nối!",
-    "failed": "Kết nối thất bại"
+    "failed": "Kết nối thất bại",
+    "ttsVoice": "Giọng đọc"
   },
   "sidebar": {
     "newChat": "Cuộc trò chuyện mới",
@@ -44,7 +45,7 @@
     "graph": "Đồ thị tri thức"
   },
   "voice": {
-    "missing": "Không tìm thấy giọng đọc cho ngôn ngữ này. Cài đặt tại: Windows Settings → Time & Language → Speech → Add voices."
+    "missing": "Dịch vụ TTS không khả dụng. Kiểm tra backend đang chạy."
   },
   "toast": {
     "errorTitle": "Lỗi"

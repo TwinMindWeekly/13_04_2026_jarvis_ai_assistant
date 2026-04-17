@@ -34,7 +34,8 @@
     "test": "Test Connection",
     "testing": "Testing...",
     "success": "Connected!",
-    "failed": "Connection failed"
+    "failed": "Connection failed",
+    "ttsVoice": "TTS Voice"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -44,7 +45,7 @@
     "graph": "Knowledge Graph"
   },
   "voice": {
-    "missing": "No voice found for this language. Install it in Windows Settings → Time & Language → Speech → Add voices."
+    "missing": "TTS service unavailable. Check that the backend is running."
   },
   "toast": {
     "errorTitle": "Error"

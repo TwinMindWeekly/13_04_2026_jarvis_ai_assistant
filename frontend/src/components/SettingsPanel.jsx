@@ -9,7 +9,7 @@ import ProgressBar from 'react-bootstrap/ProgressBar'
 import Badge from 'react-bootstrap/Badge'
 import { CheckCircle, XCircle, Loader2, Wifi, BarChart3, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { chatAPI, usageAPI } from '../services/api'
+import { chatAPI, usageAPI, ttsAPI } from '../services/api'
 
 const PROVIDER_MODELS = {
   auto: [],
@@ -177,8 +177,17 @@ export default function SettingsPanel({
   const [localModel, setLocalModel] = useState(settings?.model ?? '')
   const [localLanguage, setLocalLanguage] = useState(settings?.language ?? 'en')
   const [localVoiceEnabled, setLocalVoiceEnabled] = useState(settings?.voiceEnabled !== false)
+  const [localTtsVoice, setLocalTtsVoice] = useState(settings?.ttsVoice || '')
+  const [ttsVoices, setTtsVoices] = useState([])
   const [testStatus, setTestStatus] = useState(null)
   const [testMessage, setTestMessage] = useState('')
+
+  // Fetch available VieNeu voices
+  useEffect(() => {
+    ttsAPI.voices().then(({ data }) => {
+      if (data?.voices) setTtsVoices(data.voices)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (isOpen && settings) {
@@ -186,6 +195,7 @@ export default function SettingsPanel({
       setLocalModel(settings.model || '')
       setLocalLanguage(settings.language)
       setLocalVoiceEnabled(settings.voiceEnabled !== false)
+      setLocalTtsVoice(settings.ttsVoice || '')
       setTestStatus(null)
       setTestMessage('')
     }
@@ -199,7 +209,7 @@ export default function SettingsPanel({
   }
 
   const handleSave = () => {
-    onUpdateSettings({ provider: localProvider, model: localModel, language: localLanguage, voiceEnabled: localVoiceEnabled })
+    onUpdateSettings({ provider: localProvider, model: localModel, language: localLanguage, voiceEnabled: localVoiceEnabled, ttsVoice: localTtsVoice })
     onClose()
   }
 
@@ -331,6 +341,24 @@ export default function SettingsPanel({
                     style={{ color: 'var(--text-secondary)' }}
                   />
                 </Form.Group>
+
+                {/* TTS Voice — VieNeu preset voices */}
+                {localVoiceEnabled && (
+                  <Form.Group>
+                    <Form.Label>{t('settings.ttsVoice', 'TTS Voice')}</Form.Label>
+                    <Form.Select
+                      value={localTtsVoice}
+                      onChange={(e) => setLocalTtsVoice(e.target.value)}
+                    >
+                      <option value="">{t('settings.ttsDefault', 'Default (Phạm Tuyên - Nam Bắc)')}</option>
+                      {ttsVoices.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                )}
 
                 {/* Test connection */}
                 <Form.Group className="d-flex flex-column gap-2">

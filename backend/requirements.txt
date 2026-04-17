@@ -46,8 +46,9 @@ openpyxl>=3.1.0
 pandas>=2.2.0
 python-docx>=1.1.0
 
-# TTS
-edge-tts>=6.1.0
+# TTS — VieNeu on-device Vietnamese + English
+# Windows: pip install vieneu --extra-index-url https://pnnbao97.github.io/llama-cpp-python-v0.3.16/cpu/
+vieneu
 
 # Streaming
 sse-starlette>=2.0.0

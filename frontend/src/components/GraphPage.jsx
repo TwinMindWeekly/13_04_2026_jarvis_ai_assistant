@@ -39,8 +39,8 @@ export default function GraphPage({ onBack, settings, externalSelectedDoc, onExt
   const graphAgent = useAgent(settings.provider, settings.model, settings.language)
 
   const [graphVoiceEnabled, setGraphVoiceEnabled] = useState(settings.voiceEnabled !== false)
-  const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
-  const voice = useVoice({ language: voiceLang, enabled: graphVoiceEnabled })
+  const sttLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
+  const voice = useVoice({ language: sttLang, enabled: graphVoiceEnabled })
 
   const handleToggleGraphVoice = useCallback(() => {
     setGraphVoiceEnabled((prev) => {

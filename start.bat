@@ -39,7 +39,7 @@ if !ERRORLEVEL! neq 0 (
     echo        Installing backend dependencies [first run downloads ~3 GB, can take 10-30 min on slow networks]...
     echo        Progress will be shown below. Do NOT close this window.
     echo.
-    "%PIP_EXE%" install -r "%BACKEND_DIR%\requirements.txt" --progress-bar on --disable-pip-version-check
+    "%PIP_EXE%" install -r "%BACKEND_DIR%\requirements.txt" --extra-index-url https://pnnbao97.github.io/llama-cpp-python-v0.3.16/cpu/ --progress-bar on --disable-pip-version-check
     if !ERRORLEVEL! neq 0 (
         echo  [ERROR] pip install failed
         goto :fail

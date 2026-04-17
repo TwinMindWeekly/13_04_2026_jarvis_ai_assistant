@@ -17,6 +17,27 @@ import ResizeHandle from './components/ResizeHandle'
 
 const SPLIT_MIN_PX = 280
 
+/** Strip markdown → plain text before TTS sentence splitting. */
+function stripMarkdown(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, '')              // code blocks
+    .replace(/!\[.*?\]\(.+?\)/g, '')              // images
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')          // links
+    .replace(/<[^>]+>/g, '')                       // HTML tags
+    .replace(/^#{1,6}\s+/gm, '')                  // headings
+    .replace(/^\s*>\s*/gm, '')                     // blockquotes
+    .replace(/^-{3,}$/gm, '')                      // horizontal rules
+    .replace(/^\s*[-*+]\s{1,4}/gm, '')            // bullets (* - +)
+    .replace(/^\s*(\d+)\.\s+/gm, '$1, ')          // numbered lists → "1, "
+    .replace(/\*{2}(.+?)\*{2}/g, '$1')            // **bold**
+    .replace(/\*(.+?)\*/g, '$1')                   // *italic*
+    .replace(/__(.+?)__/g, '$1')                    // __bold__
+    .replace(/_(.+?)_/g, '$1')                      // _italic_
+    .replace(/`(.+?)`/g, '$1')                      // `code`
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export default function App() {
   const { t, i18n } = useTranslation()
   const { settings, updateSettings } = useSettings()
@@ -44,45 +65,53 @@ export default function App() {
 
   const chatAttachments = useAttachments()
 
-  const voiceLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
+  const sttLang = settings.language === 'vi' ? 'vi-VN' : 'en-US'
   const voice = useVoice({
-    language: voiceLang,
+    language: sttLang,  // only affects STT; TTS uses VieNeu backend (bilingual)
     onTranscript: (text) => { if (text) sendMessage(text) },
     enabled: settings.voiceEnabled !== false,
   })
 
-  // Streaming TTS: speak sentence-by-sentence as text arrives (WS path)
-  const spokenIndexRef = useRef(0)
+  // Streaming TTS: speak line-by-line as text arrives (WS path)
+  const spokenLineCountRef = useRef(0)
+  const streamDidSpeakRef = useRef(false)
   const lastSpokenMsgCount = useRef(0)
 
   useEffect(() => {
     if (settings.voiceEnabled === false) return
-    if (!streamingText) {
-      spokenIndexRef.current = 0
-      return
-    }
+    if (!streamingText) return  // DON'T reset counter — REST fallback needs it
 
-    const unspoken = streamingText.slice(spokenIndexRef.current)
-    const sentenceRegex = /[^.!?\n]+[.!?\n]+/g
-    let match
-    while ((match = sentenceRegex.exec(unspoken)) !== null) {
-      const sentence = match[0].trim()
-      if (sentence.length > 2) {
-        voice.speak(sentence, settings.ttsVoice, { append: true })
-      }
-      spokenIndexRef.current += match.index + match[0].length
+    const clean = stripMarkdown(streamingText)
+    const lines = clean.split('\n').filter((l) => l.trim().length > 2)
+
+    // Speak new complete lines (all except last which may still be streaming)
+    const completeLines = clean.endsWith('\n') ? lines : lines.slice(0, -1)
+    for (let i = spokenLineCountRef.current; i < completeLines.length; i++) {
+      voice.speak(completeLines[i].trim(), settings.ttsVoice, { append: true })
+      streamDidSpeakRef.current = true
     }
+    spokenLineCountRef.current = Math.max(spokenLineCountRef.current, completeLines.length)
   }, [streamingText]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // REST fallback TTS: speak full message as a single utterance
+  // When message completes: speak remaining lines streaming didn't cover
   useEffect(() => {
     if (settings.voiceEnabled === false) return
     if (messages.length === 0 || messages.length <= lastSpokenMsgCount.current) return
     const last = messages[messages.length - 1]
-    if (last.role === 'assistant' && last.content && spokenIndexRef.current === 0) {
-      voice.speak(last.content, settings.ttsVoice)
+    if (last.role === 'assistant' && last.content) {
+      const clean = stripMarkdown(last.content)
+      const lines = clean.split('\n').filter((l) => l.trim().length > 2)
+
+      const start = spokenLineCountRef.current  // lines already spoken by streaming
+      const remaining = lines.slice(start)
+      remaining.forEach((line) => {
+        // Always append — never cancel ongoing playback from streaming
+        voice.speak(line.trim(), settings.ttsVoice, { append: true })
+      })
     }
     lastSpokenMsgCount.current = messages.length
+    streamDidSpeakRef.current = false
+    spokenLineCountRef.current = 0  // reset for next message
   }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
