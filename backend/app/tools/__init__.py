@@ -28,6 +28,7 @@ from app.tools.code_runner import CodeRunnerTool
 from app.tools.skill_manager import SkillManagerTool
 from app.tools.local_search import LocalSearchTool
 from app.tools.web_search import WebSearchTool
+from app.tools.office_automation import OfficeAutomationTool
 
 
 def create_default_registry() -> ToolRegistry:
@@ -58,6 +59,15 @@ def create_default_registry() -> ToolRegistry:
         registry.register(ImageGeneratorTool())
     registry.register(CodeRunnerTool())
     registry.register(LocalSearchTool())
+    # Office automation — Windows + pywin32 only.
+    import platform  # noqa: PLC0415
+    if platform.system() == "Windows":
+        try:
+            import win32com.client  # noqa: F401, PLC0415
+            registry.register(OfficeAutomationTool())
+        except ImportError:
+            # pywin32 not installed — skip silently (tool simply unavailable).
+            pass
     return registry
 
 
@@ -83,6 +93,7 @@ __all__ = [
     "SafetyGuard",
     "SafetyLevel",
     "LocalSearchTool",
+    "OfficeAutomationTool",
     "SafetyResult",
     "create_default_registry",
 ]

@@ -268,78 +268,110 @@ async def test_file_metadata_contains_path(tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# AppLauncherTool tests
+# AppLauncherTool tests — cascade resolver + blocklist safety
 # ===========================================================================
 
 
+def _patch_launcher(resolved: str | None = "C:\\fake\\app.exe"):
+    """Patch the resolver to return `resolved` and Popen to a mock.
+
+    Returns a context manager yielding the Popen mock. Pass resolved=None to
+    simulate an app that could not be found.
+    """
+    class _Ctx:
+        def __enter__(self_):
+            self_._rp = patch(
+                "app.tools.app_launcher._resolve_cascade", return_value=resolved,
+            )
+            self_._pp = patch("app.tools.app_launcher.subprocess.Popen")
+            self_._rp.start()
+            self_.popen = self_._pp.start()
+            return self_.popen
+
+        def __exit__(self_, *a):
+            self_._pp.stop()
+            self_._rp.stop()
+
+    return _Ctx()
+
+
 async def test_launch_notepad() -> None:
-    """Launching 'notepad' succeeds and calls subprocess.Popen."""
-    with patch("app.tools.app_launcher.subprocess.Popen") as mock_popen:
+    """Launching 'notepad' succeeds when the resolver finds an executable."""
+    with _patch_launcher("C:\\Windows\\System32\\notepad.exe") as popen:
         tool = AppLauncherTool()
         result = await tool.execute(app="notepad")
 
     assert result.success is True
-    mock_popen.assert_called_once()
+    popen.assert_called_once()
 
 
 async def test_launch_unknown_app_blocked() -> None:
-    """Launching 'malware.exe' is blocked by the safety guard — success=False."""
-    with patch("app.tools.app_launcher.subprocess.Popen") as mock_popen:
+    """A dangerous string containing shell metacharacters is rejected."""
+    with _patch_launcher() as popen:
         tool = AppLauncherTool()
-        result = await tool.execute(app="malware.exe")
+        result = await tool.execute(app="notepad & rm -rf /")
 
     assert result.success is False
     assert result.error is not None
-    mock_popen.assert_not_called()
+    popen.assert_not_called()
+
+
+async def test_launch_app_not_found() -> None:
+    """When the resolver cannot locate the app, launch fails cleanly."""
+    with _patch_launcher(resolved=None) as popen:
+        tool = AppLauncherTool()
+        result = await tool.execute(app="definitely-not-installed")
+
+    assert result.success is False
+    assert "locate" in (result.error or "").lower()
+    popen.assert_not_called()
 
 
 async def test_launch_calc_alias() -> None:
-    """'calculator' is mapped to the 'calc' executable."""
-    with patch("app.tools.app_launcher.subprocess.Popen") as mock_popen:
+    """'calculator' aliases to 'calc' and Popen is invoked."""
+    with _patch_launcher("C:\\Windows\\System32\\calc.exe") as popen:
         tool = AppLauncherTool()
         result = await tool.execute(app="calculator")
 
     assert result.success is True
-    # metadata.cmd should reflect the resolved executable name
-    assert result.metadata.get("cmd") == "calc"
-    mock_popen.assert_called_once()
+    assert result.metadata.get("resolved", "").lower().endswith("calc.exe")
+    popen.assert_called_once()
 
 
 async def test_launch_chrome() -> None:
-    """Launching 'chrome' succeeds and calls subprocess.Popen."""
-    with patch("app.tools.app_launcher.subprocess.Popen") as mock_popen:
+    """Launching 'chrome' succeeds via the cascade resolver."""
+    with _patch_launcher("C:\\Program Files\\Google\\Chrome\\chrome.exe") as popen:
         tool = AppLauncherTool()
         result = await tool.execute(app="chrome")
 
     assert result.success is True
-    mock_popen.assert_called_once()
+    popen.assert_called_once()
 
 
-async def test_launch_metadata_contains_app_and_cmd() -> None:
-    """metadata includes both 'app' and 'cmd' keys after a successful launch."""
-    with patch("app.tools.app_launcher.subprocess.Popen"):
+async def test_launch_metadata_contains_app_and_resolved() -> None:
+    """Successful launches include 'app' and 'resolved' metadata keys."""
+    with _patch_launcher("C:\\fake\\notepad.exe"):
         tool = AppLauncherTool()
         result = await tool.execute(app="notepad")
 
     assert result.success is True
-    assert "app" in result.metadata
-    assert "cmd" in result.metadata
-    assert result.metadata["app"] == "notepad"
+    assert result.metadata.get("app") == "notepad"
+    assert "resolved" in result.metadata
 
 
 async def test_launch_returns_tool_result() -> None:
     """execute() always returns a ToolResult instance."""
-    with patch("app.tools.app_launcher.subprocess.Popen"):
+    with _patch_launcher("C:\\fake\\notepad.exe"):
         tool = AppLauncherTool()
         result = await tool.execute(app="notepad")
     assert isinstance(result, ToolResult)
 
 
-async def test_launch_case_insensitive_whitelist() -> None:
-    """'NOTEPAD' (upper-case) resolves to 'notepad' and succeeds."""
-    with patch("app.tools.app_launcher.subprocess.Popen") as mock_popen:
+async def test_launch_case_insensitive_alias() -> None:
+    """'NOTEPAD' (upper-case) resolves just like 'notepad'."""
+    with _patch_launcher("C:\\fake\\notepad.exe") as popen:
         tool = AppLauncherTool()
         result = await tool.execute(app="NOTEPAD")
 
     assert result.success is True
-    mock_popen.assert_called_once()
+    popen.assert_called_once()

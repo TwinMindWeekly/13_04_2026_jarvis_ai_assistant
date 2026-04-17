@@ -304,14 +304,16 @@ def test_create_default_registry():
         "email", "code_runner",
     }
     assert always_expected.issubset(names)
-    assert len(names) in (14, 15)  # 15 when IMAGE_API_KEY is set
+    # Baseline 14 tools; +1 when IMAGE_API_KEY is set; +1 when Windows + pywin32
+    # make office_automation available. Range covers all combinations.
+    assert 14 <= len(names) <= 16
 
 
 def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert len(schemas) in (14, 15)  # 15 when IMAGE_API_KEY is set
+    assert 14 <= len(schemas) <= 16
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema
