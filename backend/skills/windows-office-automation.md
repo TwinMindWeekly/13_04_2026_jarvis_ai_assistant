@@ -12,6 +12,22 @@ COM call. It is deterministic, fast, and never loses focus. Only fall back
 to `desktop_control` (mouse/keyboard simulation) for actions COM cannot
 reach (e.g. interacting with a dialog button that has no COM equivalent).
 
+## Save-path policy (IMPORTANT)
+
+Before calling any `*_save_as` action, check whether the user told you
+where to save the file. "Save this doc" / "lưu lại" alone is NOT enough.
+
+- **If the user specified a path or folder** — use it: `office_automation(action="word_save_as", path="…")`.
+- **If the user did NOT specify a path** — STOP the tool chain. Reply
+  with a short clarifying question in the user's language, e.g.
+  "Bạn muốn lưu file ở đâu? (ví dụ: Desktop, Documents, hoặc đường
+  dẫn cụ thể)" / "Where would you like to save this file?"
+  Do NOT call `*_save_as` with no path just to be helpful, and do NOT
+  call `code_runner`/`shell_exec` to invent a path. Wait for the user.
+- **Only if the user explicitly opts out** ("save anywhere", "you pick",
+  "tùy bạn", "đâu cũng được") — then call `*_save_as` with no `path`
+  argument. The file will land at `<Desktop>/JARVIS-<timestamp>.<ext>`.
+
 ## Tool matrix
 
 | Goal | Tool call |
@@ -21,12 +37,12 @@ reach (e.g. interacting with a dialog button that has no COM equivalent).
 | Insert text at cursor | `office_automation(action="word_insert_text", text="…")` |
 | Paste clipboard into doc | `office_automation(action="word_paste")` |
 | Save Word doc (user gave a path) | `office_automation(action="word_save_as", path="C:\\…\\out.docx")` |
-| Save Word doc (no path given) | `office_automation(action="word_save_as")` — omit path → Desktop/JARVIS-<timestamp>.docx |
+| Save Word doc (no path given) | **Ask the user first.** See "Save-path policy" above. |
 | New Excel workbook | `office_automation(action="excel_new")` |
 | Write a cell | `office_automation(action="excel_write_cell", cell="A1", value="…")` |
-| Save Excel (no path) | `office_automation(action="excel_save_as")` — omit path → Desktop default |
+| Save Excel (user gave path) | `office_automation(action="excel_save_as", path="…")` |
 | New PowerPoint | `office_automation(action="powerpoint_new")` |
-| Save PowerPoint (no path) | `office_automation(action="powerpoint_save_as")` — omit path → Desktop default |
+| Save PowerPoint (user gave path) | `office_automation(action="powerpoint_save_as", path="…")` |
 | Take screenshot onto clipboard | `screenshot(to_clipboard=true)` |
 | Put existing image on clipboard | `clipboard(action="write_image", content="<base64>")` |
 | Read image from clipboard | `clipboard(action="read_image")` |
@@ -35,22 +51,33 @@ reach (e.g. interacting with a dialog button that has no COM equivalent).
 
 ### 1. "Open Word, create a new file, take a screenshot, paste it, save"
 
-Four tool calls, no clicks:
+User didn't say where to save. Do the first three steps, then STOP and
+ask:
 
 1. `office_automation(action="word_new")`
 2. `screenshot(to_clipboard=true)`
 3. `office_automation(action="word_paste")`
-4. `office_automation(action="word_save_as")` — path omitted → Desktop/JARVIS-<timestamp>.docx
+4. Reply to the user: "Bạn muốn lưu file vào đâu?" and wait. Only after
+   they answer do you call `office_automation(action="word_save_as", path=<their path>)`.
 
 Do NOT use `app_launcher("word")` first — `office_automation` starts Word
 automatically via COM if it's not running.
 
-### 2. "Put a quick note into a spreadsheet"
+### 2. "Open Word, create a new file, take a screenshot, paste it, save to D:\\note.docx"
+
+User specified a path — run all four steps straight through:
+
+1. `office_automation(action="word_new")`
+2. `screenshot(to_clipboard=true)`
+3. `office_automation(action="word_paste")`
+4. `office_automation(action="word_save_as", path="D:\\note.docx")`
+
+### 3. "Put a quick note into a spreadsheet"
 
 1. `office_automation(action="excel_new")`
 2. `office_automation(action="excel_write_cell", cell="A1", value="Note title")`
 3. `office_automation(action="excel_write_cell", cell="A2", value="…body…")`
-4. `office_automation(action="excel_save_as")` — path omitted → Desktop default
+4. Ask user where to save; call `excel_save_as` with their path.
 
 ### 3. "Screenshot and copy to clipboard for me"
 
@@ -60,9 +87,11 @@ Just one call:
 
 ## Anti-patterns (don't do these)
 
+- **Don't** silently save to the Desktop default when the user hasn't
+  picked a location. Ask first (see Save-path policy).
 - **Don't** call `code_runner` or `shell_exec` to figure out where the
-  Desktop is, to find `%USERPROFILE%`, or to build a save path. Just omit
-  the `path` argument — `office_automation` defaults to the user's Desktop.
+  Desktop is, to find `%USERPROFILE%`, or to invent a save path. If you
+  don't have a path, ask the user.
 - **Don't** call `app_launcher("word")` before `office_automation(action="word_new")`.
   The COM automation starts Word itself.
 

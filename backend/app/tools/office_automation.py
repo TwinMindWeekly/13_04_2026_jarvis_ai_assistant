@@ -232,9 +232,10 @@ class OfficeAutomationTool(BaseTool):
         "word_new, word_open(path), word_insert_text(text), word_paste, word_save_as(path?); "
         "excel_new, excel_open(path), excel_write_cell(cell, value), excel_save_as(path?); "
         "powerpoint_new, powerpoint_save_as(path?). "
-        "For *_save_as, `path` is OPTIONAL — omit it and the file is written to "
-        "the user's Desktop as 'JARVIS-<timestamp>.<ext>'. Do NOT call "
-        "code_runner/shell_exec to build a save path. "
+        "SAVE-PATH RULE: for *_save_as, ask the user for the save location "
+        "if they have not specified one. Do NOT call code_runner/shell_exec "
+        "to invent a path. Only omit `path` (→ Desktop/JARVIS-<timestamp>.<ext>) "
+        "when the user has explicitly opted out (e.g. 'save anywhere', 'tùy bạn'). "
         "Windows + Microsoft Office required."
     )
     parameters = {
