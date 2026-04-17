@@ -1,4 +1,4 @@
-import { useState, memo, useMemo } from 'react'
+import { useState, memo, useMemo, cloneElement, isValidElement } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -102,12 +102,21 @@ const mdComponents = {
 }
 
 function renderWithFilePaths(children) {
-  if (!children) return children
+  if (children == null || typeof children === 'boolean') return children
   if (typeof children === 'string') return <FilePathLink>{children}</FilePathLink>
   if (Array.isArray(children)) {
-    return children.map((child, i) =>
-      typeof child === 'string' ? <FilePathLink key={i}>{child}</FilePathLink> : child
-    )
+    return children.map((child, i) => {
+      if (typeof child === 'string') return <FilePathLink key={i}>{child}</FilePathLink>
+      if (isValidElement(child)) {
+        return cloneElement(child, { key: child.key ?? i }, renderWithFilePaths(child.props.children))
+      }
+      return child
+    })
+  }
+  // Recurse into React elements (e.g. <strong>D:\path.docx</strong>) so file
+  // paths nested inside bold/italic/links are still linkified.
+  if (isValidElement(children)) {
+    return cloneElement(children, {}, renderWithFilePaths(children.props.children))
   }
   return children
 }
