@@ -37,6 +37,9 @@ python-multipart>=0.0.20
 # Desktop tools
 pyperclip>=1.9.0
 plyer>=2.1.0
+# Windows-only — clipboard image support + future COM automation (Office).
+# Gated at install time: `pip install -r requirements.txt` on non-Windows skips it.
+pywin32>=306 ; sys_platform == "win32"
 
 # Document skills (docx, pdf, xlsx, pptx)
 pypdf>=5.0.0

@@ -71,7 +71,9 @@ class ScreenshotTool(BaseTool):
     name = "screenshot"
     description = (
         "Take a screenshot of the current screen or a specific region. "
-        "Returns a base64-encoded PNG image."
+        "Returns a base64-encoded JPEG image. "
+        "Pass to_clipboard=true to ALSO copy the screenshot to the system "
+        "clipboard so the user can paste it into another app (Word, Paint, …)."
     )
     parameters = {
         "type": "object",
@@ -89,43 +91,68 @@ class ScreenshotTool(BaseTool):
                     "If omitted, captures the full primary screen."
                 ),
             },
+            "to_clipboard": {
+                "type": "boolean",
+                "description": (
+                    "If true, the captured image is also placed on the system "
+                    "clipboard (Windows only). Useful when chaining with a "
+                    "paste action in another application."
+                ),
+                "default": False,
+            },
         },
         "required": [],
     }
 
-    async def execute(self, region: dict[str, Any] | None = None, **_kwargs: Any) -> ToolResult:  # type: ignore[override]
-        """Capture the screen and return the image as a base64 PNG string.
+    async def execute(
+        self,
+        region: dict[str, Any] | None = None,
+        to_clipboard: bool = False,
+        **_kwargs: Any,
+    ) -> ToolResult:  # type: ignore[override]
+        """Capture the screen and return the image as a base64 JPEG string.
 
         Args:
             region: Optional ``{"left", "top", "width", "height"}`` dict that
                     restricts the capture area.  Pass ``None`` for full screen.
+            to_clipboard: When True, also push the capture onto the system
+                    clipboard via the clipboard tool's image writer.
 
         Returns:
-            ToolResult with ``data`` being a base64-encoded PNG string and
+            ToolResult with ``data`` being a base64-encoded JPEG string and
             ``metadata`` containing image dimensions.
         """
-        logger.info("ScreenshotTool executing — region=%s", region)
+        logger.info("ScreenshotTool executing — region=%s clipboard=%s", region, to_clipboard)
 
         try:
             # mss is sync; run it in a thread to avoid blocking the event loop.
             img_bytes: bytes = await asyncio.to_thread(_capture_sync, region)
-
             encoded = base64.b64encode(img_bytes).decode("utf-8")
 
+            clipboard_status: str | None = None
+            if to_clipboard:
+                from app.tools.clipboard import _set_clipboard_image  # noqa: PLC0415
+                try:
+                    await asyncio.to_thread(_set_clipboard_image, img_bytes)
+                    clipboard_status = "copied"
+                except Exception as exc:
+                    logger.warning("Screenshot → clipboard failed: %s", exc)
+                    clipboard_status = f"failed: {exc}"
+
             logger.info(
-                "ScreenshotTool captured %d bytes (base64 length=%d)",
+                "ScreenshotTool captured %d bytes (base64 length=%d) clipboard=%s",
                 len(img_bytes),
                 len(encoded),
+                clipboard_status,
             )
-            return ToolResult(
-                success=True,
-                data=encoded,
-                metadata={
-                    "format": "jpeg/base64",
-                    "size_bytes": len(img_bytes),
-                    "region": region,
-                },
-            )
+            metadata: dict[str, Any] = {
+                "format": "jpeg/base64",
+                "size_bytes": len(img_bytes),
+                "region": region,
+            }
+            if clipboard_status is not None:
+                metadata["clipboard"] = clipboard_status
+            return ToolResult(success=True, data=encoded, metadata=metadata)
 
         except Exception as exc:
             logger.error("ScreenshotTool failed: %s", exc, exc_info=True)
