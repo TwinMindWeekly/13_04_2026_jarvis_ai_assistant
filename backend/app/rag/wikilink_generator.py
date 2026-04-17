@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 
-from app.agent.brain import _build_llm
+from app.agent.brain import build_llm
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class WikilinkGenerator:
         model = model or settings.wikilink_model
 
         try:
-            llm = _build_llm(provider, model)
+            llm = build_llm(provider, model)
         except Exception as exc:
             logger.warning('Cannot build LLM for wikilinks (provider=%s): %s', provider, exc)
             return markdown

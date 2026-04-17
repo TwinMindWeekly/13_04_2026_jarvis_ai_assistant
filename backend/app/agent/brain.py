@@ -15,7 +15,7 @@ from app.skills.loader import skill_loader
 logger = logging.getLogger(__name__)
 
 
-def _build_llm(provider: str, model: str = ""):
+def build_llm(provider: str, model: str = ""):
     """Instantiate the correct LangChain chat model for the given provider.
 
     Raises:
@@ -140,17 +140,17 @@ def _build_fallback_chain() -> list[tuple[str, str]]:
 def build_llm_with_fallback(provider: str, model: str):
     """Build LLM, using auto-fallback chain if provider is 'auto'.
 
-    For non-auto providers, delegates directly to _build_llm.
+    For non-auto providers, delegates directly to build_llm.
     """
     if provider.lower() != "auto":
-        return _build_llm(provider, model), provider, model
+        return build_llm(provider, model), provider, model
 
     chain = _build_fallback_chain()
     errors: list[str] = []
 
     for prov, mod in chain:
         try:
-            llm = _build_llm(prov, mod)
+            llm = build_llm(prov, mod)
             logger.info("Auto-fallback: using %s / %s", prov, mod)
             return llm, prov, mod
         except Exception as exc:

@@ -139,3 +139,20 @@ Mỗi entry theo format:
   - (Alternative: escape bằng `^(` `^)` — nhưng `[...]` sạch hơn.)
 - **Testcase**: Manual — double-click `start.bat` trên máy chưa có venv, window phải chạy bình thường không tắt.
 - **Bài học**: Trong Windows batch block (`if`, `for`, `( ... )`), các ký tự sau phải escape hoặc tránh trong string: `(` `)` `&` `|` `<` `>` `%` `!`. An toàn nhất là đọc script qua `cmd /V:ON /C "script.bat"` hoặc test `echo on` trước khi ship. Cạm bẫy này không được PowerShell/Bash cảnh báo — chỉ Windows cmd mới có.
+
+### [17/04/2026] Phase 19 — Grok-parity search upgrade
+
+- **Triệu chứng**: User đặt câu hỏi JARVIS search có tốt bằng Grok không. Gap thực tế: `web_search` không hỗ trợ operators (`site:`, date filter), `web_browser` chỉ fetch raw text không tóm tắt theo instructions, và không có X/Twitter search.
+- **Nguyên nhân gốc**: Các tool gốc viết tối giản, chưa khai thác hết khả năng của backing library (DDGS `timelimit`/`region`/`safesearch`, Playwright có thể kết hợp LLM).
+- **Giải pháp**:
+  - `web_search` thêm 8 param optional (`site`, `exact_phrase`, `exclude`, `filetype`, `date_range`, `region`, `safe_search`, `rerank`). Pure helper `build_query()` tách vào `_search_helpers.py` để x_search tier 3 reuse.
+  - `web_browser` thêm action `summarize` dùng LLM (`build_llm_with_fallback`) tóm tắt theo `instructions` — tương đương Grok `browse_page`.
+  - Tool mới `x_search` với 3 tầng fallback: **twscrape** (cần account DB) → **Nitter RSS** (rotate qua 4 instance) → **web_search site:x.com**. Metadata `tier_used` cho agent biết data reliability.
+  - Rename `_build_llm` → `build_llm` (public) để cross-module reuse từ tool layer.
+- **Testcase**: 50 test mới trong `test_web_search.py` (22), `test_web_browser.py` (10), `test_x_search.py` (18). `test_tools.py` updated count `18-20` → `19-21`. Full suite 235/235 pass.
+- **Bài học**:
+  - **API version drift**: twscrape có thể đổi signature qua phiên bản (`tweet_replies` không phải method cố định) → dùng `getattr(api, 'tweet_replies', None)` để skip graceful thay vì raise.
+  - **Infra decay**: Nitter public instances rụng dần theo thời gian. Hardcoded list 4 instance + rotate là đủ cho best-effort; đừng promise reliability — tool description phải nói rõ "best-effort".
+  - **Sentinel default (`max_chars=0`)**: khi cùng một tool có nhiều action với default khác nhau (5000 cho `get_text`, 20000 cho `summarize`), dùng `0` làm sentinel trong signature và quyết định default trong từng action branch — tránh default ngầm áp cho action khác.
+  - **Cross-module private→public**: `_build_llm` bắt đầu như internal helper của `brain.py`, sau 3 phase đã cần reuse từ `wikilink_generator`, `web_browser`. Rule: khi cùng một function cần gọi từ ≥2 module khác nhau ngoài nơi định nghĩa → rename bỏ underscore ngay, đừng để import private từ ngoài.
+  - **Three-tier fallback metadata**: với tool không ổn định (scrape social), luôn trả `metadata.tier_used` để agent reasoner có thể điều chỉnh confidence (tier 1 có likes/reposts đầy đủ, tier 3 chỉ có snippet).

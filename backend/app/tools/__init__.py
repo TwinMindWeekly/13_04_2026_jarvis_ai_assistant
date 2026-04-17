@@ -32,6 +32,7 @@ from app.tools.skill_manager import SkillManagerTool
 from app.tools.local_search import LocalSearchTool
 from app.tools.web_search import WebSearchTool
 from app.tools.office_automation import OfficeAutomationTool
+from app.tools.x_search import XSearchTool
 
 
 def create_default_registry() -> ToolRegistry:
@@ -64,6 +65,7 @@ def create_default_registry() -> ToolRegistry:
     registry.register(CodeRunnerTool())
     registry.register(LocalSearchTool())
     registry.register(JobSearchTool())
+    registry.register(XSearchTool())
     registry.register(CVManagerTool())
     # Office automation — Windows + pywin32 only.
     import platform  # noqa: PLC0415
@@ -102,5 +104,6 @@ __all__ = [
     "LocalSearchTool",
     "OfficeAutomationTool",
     "SafetyResult",
+    "XSearchTool",
     "create_default_registry",
 ]

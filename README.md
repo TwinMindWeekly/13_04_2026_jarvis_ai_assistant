@@ -23,6 +23,7 @@ JARVIS AI Assistant không phải chatbot thông thường — nó là một **a
 - **Image generation** — tạo ảnh AI qua DALL-E 3
 - **Code runner** — chạy Python/JS/TS/Bash/PowerShell/Godot trực tiếp
 - **Chat file upload** — đính kèm file trực tiếp vào chat, agent phân tích inline (5MB, 43 formats)
+- **X/Twitter search** — tìm kiếm bài đăng/thread/user trên X với fallback 3 tầng (twscrape → Nitter RSS → web search)
 
 ## Công nghệ sử dụng
 
@@ -96,17 +97,18 @@ JARVIS AI Assistant không phải chatbot thông thường — nó là một **a
 │  Agent Brain — LangGraph ReAct (create_react_agent)        │
 │  Think → Act → Observe → Loop (max 10 iterations)          │
 ├────────────────────────────────────────────────────────────┤
-│  Tool Registry (15 tools)                                  │
+│  Tool Registry (18 tools)                                  │
 │  ├── web_search        ├── web_browser     ├── screenshot  │
 │  ├── browser_control   ├── desktop_control ├── file_manager│
 │  ├── app_launcher      ├── rag_search      ├── skill       │
 │  ├── shell_exec        ├── clipboard       ├── notification│
-│  ├── email             ├── image_generator └── code_runner │
+│  ├── email             ├── image_generator ├── code_runner │
+│  ├── job_search        ├── doc_query       └── x_search    │
 ├────────────────────────────────────────────────────────────┤
 │  Safety Layer (4 levels: AUTO / NOTIFY / CONFIRM / BLOCK)  │
 ├────────────────────────────────────────────────────────────┤
 │  LLM Factory (6 providers, provider-agnostic)              │
-│  └── _build_llm(provider, model) → OpenAI / Gemini /       │
+│  └── build_llm(provider, model) → OpenAI / Gemini /        │
 │      Anthropic / Groq / SambaNova / Ollama                 │
 │      Auto-fallback: groq→gemini→sambanova→openai→claude→ollama│
 ├────────────────────────────────────────────────────────────┤
@@ -214,7 +216,7 @@ Chỉ cần ít nhất **1 API key** để chạy. Provider có thể đổi run
 
 ## Trạng thái dự án
 
-Đã hoàn thành Phase 1–18. 17 agent tools, 6 LLM providers với auto-fallback chain. Metadata/wikilinks/email accounts/profile/jobs chuyển sang SQLite (`jarvis.db`) từ Phase 16. Phase 17 hỗ trợ nhiều tài khoản Gmail cùng lúc với password mã hoá Fernet + FTS5 cache. Phase 18 thêm trang Profile (upload CV → LLM trích skills) và Jobs (6 source, Jaccard match score, daily refresh). Xem [task.md](./task.md) cho chi tiết.
+Đã hoàn thành Phase 1–19. 18 agent tools, 6 LLM providers với auto-fallback chain. Metadata/wikilinks/email accounts/profile/jobs chuyển sang SQLite (`jarvis.db`) từ Phase 16. Phase 17 hỗ trợ nhiều tài khoản Gmail cùng lúc với password mã hoá Fernet + FTS5 cache. Phase 18 thêm trang Profile (upload CV → LLM trích skills) và Jobs (6 source, Jaccard match score, daily refresh). Xem [task.md](./task.md) cho chi tiết.
 
 ## Tài liệu
 

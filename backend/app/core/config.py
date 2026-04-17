@@ -94,6 +94,17 @@ class Settings(BaseSettings):
     # GPU requires CUDA-enabled llama-cpp-python wheel (the default Windows wheel is CPU-only)
     vieneu_device: str = "cpu"
 
+    # X/Twitter search (Phase 19)
+    # Path to twscrape SQLite accounts DB (e.g. ~/.twscrape/accounts.db).
+    # Leave empty to skip twscrape tier and fall back to Nitter RSS / web_search.
+    twscrape_accounts_file: str = ""
+    x_nitter_instances: list[str] = Field(default=[
+        "https://nitter.net",
+        "https://nitter.privacydev.net",
+        "https://nitter.poast.org",
+        "https://nitter.kylrth.com",
+    ])
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

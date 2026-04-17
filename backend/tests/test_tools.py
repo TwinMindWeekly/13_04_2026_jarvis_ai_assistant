@@ -302,18 +302,19 @@ def test_create_default_registry():
         "rag_search", "doc_query", "skill_manager",
         "shell_exec", "clipboard", "system_notification",
         "email", "code_runner", "local_search", "job_search", "cv_manager",
+        "x_search",
     }
     assert always_expected.issubset(names)
-    # Baseline 18 tools; +1 when IMAGE_API_KEY is set; +1 when Windows + pywin32
+    # Baseline 19 tools; +1 when IMAGE_API_KEY is set; +1 when Windows + pywin32
     # makes office_automation available. Range covers all combinations.
-    assert 18 <= len(names) <= 20
+    assert 19 <= len(names) <= 21
 
 
 def test_create_default_registry_schemas():
     """Each tool from the default registry exposes a valid schema."""
     registry = create_default_registry()
     schemas = registry.get_all_schemas()
-    assert 18 <= len(schemas) <= 20
+    assert 19 <= len(schemas) <= 21
     for schema in schemas:
         assert "name" in schema
         assert "description" in schema

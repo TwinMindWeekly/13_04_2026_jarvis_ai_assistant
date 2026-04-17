@@ -45,7 +45,7 @@
                   │ LangGraph create_react_agent    │
                   │ (Think→Act→Loop)                │
                   ├─────────────────────────────────┤
-                  │ Tool Registry (15 tools)        │
+                  │ Tool Registry (18 tools)        │
                   │ ├── web_search                  │
                   │ ├── web_browser                 │
                   │ ├── browser_control             │
@@ -60,7 +60,10 @@
                   │ ├── system_notification         │
                   │ ├── email                       │
                   │ ├── image_generator             │
-                  │ └── code_runner                 │
+                  │ ├── code_runner                 │
+                  │ ├── job_search                  │
+                  │ ├── doc_query                   │
+                  │ └── x_search                    │
                   ├─────────────────────────────────┤
                   │ Safety Layer                    │
                   │ AUTO/NOTIFY/CONFIRM/BLOCK       │
@@ -298,14 +301,14 @@ class ToolResult:
 `ToolRegistry.to_langchain_tools()` convert sang `StructuredTool` để LangGraph dùng.
 
 ### Tool: `web_search`
-- **Input**: `query: str`, `num_results: int = 5`
+- **Input**: `query: str`, `num_results: int = 5`; optional operator params: `site: str`, `exact_phrase: str`, `exclude: str`, `filetype: str`, `date_range: str`, `region: str`, `safe_search: bool`, `rerank: bool`
 - **Engine**: `duckduckgo-search` v8 (sync DDGS gọi qua `asyncio.to_thread`)
-- **Output**: List of `{title, snippet, url}`. Trả `[]` nếu không có kết quả.
+- **Output**: List of `{title, snippet, url}` with optional `date` and `score` fields. Trả `[]` nếu không có kết quả.
 
 ### Tool: `web_browser`
-- **Input**: `url: str`, `action: "goto"|"get_text"|"screenshot"`
+- **Input**: `url: str`, `action: "goto"|"get_text"|"screenshot"|"summarize"`
 - **Engine**: Playwright Chromium headless (singleton)
-- **Output**: Page text hoặc base64 PNG.
+- **Output**: Page text, base64 PNG, hoặc LLM-generated summary. Action `summarize` accepts additional `instructions: str` (focus guidance) and `max_chars: int` (input truncation) params; uses `build_llm_with_fallback` internally — equivalent to Grok's `browse_page`.
 
 ### Tool: `browser_control` (OpenClaw-style)
 - **Input**: `action: "click"|"type"|"hover"|"navigate"`, `target: str` (CSS selector hoặc accessibility label)
@@ -377,6 +380,17 @@ class ToolResult:
 - **Output**: stdout/stderr truncate 50K ký tự. Temp files tự xoá sau 1 giờ.
 - **Safety**: CONFIRM
 
+### Tool: `x_search` (Phase 19)
+- **Input**: `action: "keyword_search"|"user_search"|"thread_fetch"|"semantic_search"`, plus action-specific params (`query`, `username`, `thread_id`, etc.)
+- **Engine**: Three-tier fallback:
+  - Tier 1 — `twscrape` (requires `TWSCRAPE_ACCOUNTS_FILE` env pointing to accounts JSON; best data quality)
+  - Tier 2 — Nitter RSS (no auth required; uses `X_NITTER_INSTANCES` list, 4 public defaults)
+  - Tier 3 — `web_search(site:x.com)` (always available as last resort)
+- **Output**: List of post/user objects. Every result includes `tier_used: 1|2|3` in metadata.
+- **Safety**: AUTO
+- **Config**: `TWSCRAPE_ACCOUNTS_FILE` (optional, enables Tier 1), `X_NITTER_INSTANCES` (list of Nitter base URLs)
+- **Dependencies**: `twscrape>=0.17`, `feedparser>=6.0`
+
 ---
 
 ## 4. Safety Layer
@@ -402,10 +416,10 @@ Mọi tool call đều đi qua `SafetyGuard.check(action)` trước khi execute.
 
 ## 5. LLM Provider Factory
 
-### Module: `app/agent/brain.py::_build_llm`
+### Module: `app/agent/brain.py::build_llm`
 
 ```python
-def _build_llm(provider: str, model: str):
+def build_llm(provider: str, model: str):
     if provider == "openai":
         # ChatOpenAI; hỗ trợ base_url proxy qua OPENAI_BASE_URL env
         return ChatOpenAI(model, api_key=settings.openai_api_key, temperature=0)
@@ -426,6 +440,8 @@ def _build_llm(provider: str, model: str):
         return ChatOpenAI(model, base_url=settings.ollama_base_url+"/v1", api_key="ollama", temperature=0)
     raise ProviderNotFoundError(provider)
 ```
+
+`build_llm` is a **public** function (renamed from `_build_llm` in Phase 19) so cross-module callers such as `cv_extractor` and the `web_browser` `summarize` action can import and reuse it directly without going through `build_llm_with_fallback`.
 
 **Auto-fallback chain** (khi `DEFAULT_PROVIDER=auto`):
 `groq → gemini → sambanova → openai → claude → ollama`

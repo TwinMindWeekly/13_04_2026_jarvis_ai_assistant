@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 JARVIS AI Assistant — an **action-capable** AI agent (not just a chatbot). It uses a LangGraph ReAct loop to decide which tool to call, then executes real operations: web search, headless browser navigation, screenshot, desktop control (PyAutoGUI), file I/O inside a sandbox, whitelisted app launch, RAG search over uploaded documents, Obsidian-style knowledge graph with wikilink-based document relationships, SQLite-backed document metadata queries, shell commands, clipboard, OS notifications, multi-account email (IMAP/SMTP with FTS5 cache), image generation (DALL-E 3), code execution (Python/JS/Godot), job search across 6 sources, and a skill system with auto-loaded .md skills.
 
-Status: Phases 1–18 complete (17 tools, 6 LLM providers). Phase 11 (Provider Usage Dashboard) deferred. See `task.md` for scope.
+Status: Phases 1–19 complete (18 tools, 6 LLM providers). Phase 11 (Provider Usage Dashboard) deferred. See `task.md` for scope.
 
 ## Architecture (big picture)
 
 **1. LangGraph ReAct brain (`backend/app/agent/brain.py`)**
 
-- `_build_llm(provider, model)` — returns the right LangChain chat model for 6 providers: `openai`, `gemini`, `claude`, `groq`, `sambanova`, `ollama`. No `LLMFactory` class; extend the provider set by editing this function.
+- `build_llm(provider, model)` — public function that returns the right LangChain chat model for 6 providers: `openai`, `gemini`, `claude`, `groq`, `sambanova`, `ollama`. No `LLMFactory` class; extend the provider set by editing this function. Now public so cross-module callers (e.g. `cv_extractor`, `web_browser` summarize) can reuse it directly.
 - `build_llm_with_fallback(provider, model)` — when `provider="auto"`, tries a chain in order: groq → gemini → sambanova → openai → claude → ollama. Skips any provider missing an API key. Runtime quota errors (429, 503) also trigger fallback in `routers/agent.py`.
 - `create_agent_brain(provider, model, tools, language, user_message)` wraps the LLM with `langgraph.prebuilt.create_react_agent`, binding `JARVIS_SYSTEM_PROMPT` (from `agent/prompts.py`, templated with today's date and `{language}`) and a list of LangChain-compatible tools. Injects matched skill content via `skill_loader.get_prompt_injection(user_message)`. Returns `(brain, actual_provider, actual_model)`.
 - `run_agent()` returns `{response, actions, messages}`. Content can arrive as plain string **or as a list of content blocks (Gemini 2.5)** — the extractor iterates `content` lists and pulls only `{"type": "text", "text": ...}` blocks. Any new provider must preserve this.
@@ -23,8 +23,11 @@ Status: Phases 1–18 complete (17 tools, 6 LLM providers). Phase 11 (Provider U
 
 - Every tool subclasses `BaseTool` (`tools/base.py`) with `name`, `description`, `parameters` (JSON Schema) and async `execute(**kwargs) -> ToolResult`. Tools **must not raise** — failures return `ToolResult(success=False, error=...)`.
 - `ToolRegistry.to_langchain_tools()` (`tools/registry.py`) dynamically builds a Pydantic `args_schema` from JSON Schema and wraps each in `StructuredTool`. LangGraph uses the async path.
-- `create_default_registry()` (`tools/__init__.py`) — 15 tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`, `skill_manager`, `shell_exec`, `clipboard`, `system_notification`, `email`, `image_generator`, `code_runner`.
+- `create_default_registry()` (`tools/__init__.py`) — 16 core tools: `web_search`, `web_browser`, `screenshot`, `desktop_control`, `browser_control`, `file_manager`, `app_launcher`, `rag_search`, `skill_manager`, `shell_exec`, `clipboard`, `system_notification`, `email`, `image_generator`, `code_runner`, `x_search`. Total registry size is 18 (always) up to 19+ with optional tools.
 - `SafetyGuard` (`tools/safety.py`) — 4 levels: `AUTO` (read/search/screenshot/clipboard-read/email-read), `NOTIFY` (navigate/notification/image-gen/clipboard-write), `CONFIRM` (file-write/desktop-control/shell-exec/email-send/code-runner), `BLOCK` (rm -rf, format, mkfs, fork bomb, reg delete, taskkill, bcdedit). New tools touching FS/OS/session MUST route through SafetyGuard.
+- `web_search` now accepts optional operator params for Grok-parity precision filtering: `site`, `exact_phrase`, `exclude`, `filetype`, `date_range`, `region`, `safe_search`, `rerank`. Output may include optional `date` and `score` fields per result.
+- `web_browser` has a new `summarize` action (alongside `goto`/`get_text`/`screenshot`) that uses `build_llm_with_fallback` to produce an LLM summary of page content. Accepts optional `instructions` (focus guidance) and `max_chars` (input truncation limit) params — equivalent to Grok's `browse_page`.
+- `x_search` — new tool (Tier 1: twscrape, Tier 2: Nitter RSS, Tier 3: web_search site:x.com). Actions: `keyword_search`, `user_search`, `thread_fetch`, `semantic_search`. Safety level: AUTO.
 
 **2b. Skill System (`backend/app/skills/` + `backend/skills/`)**
 
@@ -44,6 +47,12 @@ Status: Phases 1–18 complete (17 tools, 6 LLM providers). Phase 11 (Provider U
 - Passwords encrypted with `cryptography.Fernet`. Key lives in `settings.jarvis_secret_key`; if empty, `get_fernet()` auto-generates one and appends it to `backend/.env` with a loud warning. Losing the key = losing stored passwords.
 - `EmailClient(credentials)` is bound to one `EmailAccount`; `make_client(acct)` builds a fresh client per call. New IMAP actions: `search_by_date`, `search_by_sender`, `search_important`, plus `search_cached` (FTS5 over the `email_messages` cache).
 - `start_scheduler()` (APScheduler) runs `sync_all_accounts` every `email_sync_interval_minutes` (default 5) and a daily `jobs_refresh`. Started in the main lifespan.
+
+**2f. X/Twitter Search (`backend/app/tools/x_search.py`)** — Phase 19
+
+- `XSearchTool` — actions: `keyword_search`, `user_search`, `thread_fetch`, `semantic_search`. Three-tier fallback: twscrape (Tier 1, best quality, requires accounts file) → Nitter RSS (Tier 2, no auth) → `web_search(site:x.com)` (Tier 3, always available). Every result includes `tier_used` in metadata so callers know which path was taken.
+- Config: `TWSCRAPE_ACCOUNTS_FILE` (path to twscrape accounts JSON) and `X_NITTER_INSTANCES` (list of Nitter base URLs, 4 defaults) in `settings`.
+- Dependencies: `twscrape>=0.17`, `feedparser>=6.0` (added to `requirements.txt`).
 
 **2e. Profile + Jobs (`backend/app/routers/{profile,jobs}.py`, `app/services/{cv_extractor,jobs_matcher,job_sources}/`)** — Phase 18
 
@@ -193,6 +202,7 @@ Provider is switchable at runtime from the frontend Settings panel — `/api/age
 - **Ollama** — wired through `ChatOpenAI` against `base_url + "/v1"`, api_key `"ollama"`. Do not add a separate `ChatOllama` path.
 - **Split LLM config** — agent chat uses `DEFAULT_PROVIDER`; wikilink generation uses `WIKILINK_PROVIDER`/`WIKILINK_MODEL` (separate so wikilinks can use a cheap local model while chat uses a cloud model).
 - **Playwright** browser binary is not installed by `pip install` — first run of `web_browser` / `browser_control` will fail until `playwright install chromium`.
+- **X/Twitter scraping is best-effort** — Nitter instances may be down or rate-limited. Set `TWSCRAPE_ACCOUNTS_FILE` in `.env` pointing to a valid twscrape accounts JSON for reliable Tier-1 access. If all three tiers fail, the tool returns a structured error guiding the user to configure an accounts file or retry later.
 
 ## API routes (`backend/app/routers/`)
 

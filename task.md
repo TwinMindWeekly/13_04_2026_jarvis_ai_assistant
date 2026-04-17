@@ -284,3 +284,18 @@
 - [x] Frontend: App.jsx viewMode thêm `profile` | `jobs`
 - [x] Tests — matcher Jaccard, profile upsert, saved-search CRUD, refresh flow
 - [ ] Docs sync
+
+---
+
+## Phase 19: Nâng cấp tìm kiếm ngang Grok (Search Parity)
+> Mục tiêu: Bổ sung operator filter cho `web_search`, action `summarize` cho `web_browser`, và tool `x_search` mới để tìm kiếm X/Twitter với 3 tầng fallback. Đổi `_build_llm` → `build_llm` (public) để tái sử dụng liên module.
+> Hoàn thành: 17/04/2026
+
+- [x] Backend: `app/tools/web_search.py` — thêm params tuỳ chọn `site`, `exact_phrase`, `exclude`, `filetype`, `date_range`, `region`, `safe_search`, `rerank` (ngang tính năng Grok search). Output mỗi kết quả bổ sung field tuỳ chọn `date` và `score`.
+- [x] Backend: `app/tools/web_browser.py` — thêm action `summarize` với params `instructions` và `max_chars`. Dùng `build_llm_with_fallback` để tóm tắt nội dung trang bằng LLM (tương đương Grok `browse_page`).
+- [x] Backend: `app/tools/x_search.py` — tool mới `XSearchTool`. Actions: `keyword_search`, `user_search`, `thread_fetch`, `semantic_search`. Fallback 3 tầng: twscrape (Tier 1) → Nitter RSS (Tier 2) → `web_search(site:x.com)` (Tier 3). Metadata luôn có `tier_used`.
+- [x] Backend: `app/agent/brain.py` — đổi tên `_build_llm` → `build_llm` (public) để các module khác (`cv_extractor`, `web_browser` summarize) có thể dùng trực tiếp.
+- [x] Backend: `app/core/config.py` — thêm `twscrape_accounts_file: str = ""` và `x_nitter_instances: list[str]` (4 Nitter instance mặc định).
+- [x] Backend: `requirements.txt` — thêm `twscrape>=0.17` và `feedparser>=6.0`.
+- [x] Registry: `create_default_registry()` đăng ký `XSearchTool` sau `JobSearchTool`. Tổng số tool: 18.
+- [x] Docs sync — CLAUDE.md, task.md, README.md, docs/technical_reference.md
